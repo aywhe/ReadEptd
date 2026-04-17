@@ -8,8 +8,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +56,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -291,7 +295,8 @@ fun ContentScreen(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .animateContentSize(),
+                        .animateContentSize()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     reverseLayout = true,
                     state = lazyListState,
                     verticalArrangement = Arrangement.Top,
@@ -303,10 +308,11 @@ fun ContentScreen(
                     ) { index ->
                         ReorderableItem(
                             state = reorderableState,
-                            key = files[index].uri.toString()
+                            key = files[index].uri.toString(),
+                            modifier = Modifier.fillMaxWidth()
                         ) { isDragging ->
                             val animatedScale by animateFloatAsState(
-                                targetValue = if (isDragging) 1.05f else 1f,
+                                targetValue = if (isDragging) 1.03f else 1f,
                                 label = "scale"
                             )
                             FileItemCard(
@@ -410,16 +416,23 @@ fun FileItemCard(
     isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    var scope = rememberCoroutineScope()
     var showConfirmDialog by remember { mutableStateOf(false) }
-
+    var showDeleteButton by remember { mutableStateOf(false) }
+    LaunchedEffect(isDragging) {
+        if (isDragging) {
+            showDeleteButton = true
+        } else {
+            kotlinx.coroutines.delay(5000)
+            showDeleteButton = false
+        }
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isDragging) 8.dp else 2.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging) {
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             } else {
                 MaterialTheme.colorScheme.surface
             }
@@ -465,15 +478,20 @@ fun FileItemCard(
                     }
                 }
             }
-
-            IconButton(
-                onClick = { showConfirmDialog = true }
+            AnimatedVisibility(
+                visible = showDeleteButton,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error
-                )
+                // 根据 showDeleteButton 状态控制删除按钮显示
+                IconButton(
+                    onClick = { showConfirmDialog = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "删除"
+                    )
+                }
             }
         }
     }
