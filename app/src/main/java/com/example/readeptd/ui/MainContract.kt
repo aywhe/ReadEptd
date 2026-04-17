@@ -15,4 +15,5 @@ sealed interface MainUiState {
 sealed interface MainUiEvent {
     data class UpdateGreeting(val name: String) : MainUiEvent
     object Refresh : MainUiEvent
+    object OnButtonClick : MainUiEvent
 }
