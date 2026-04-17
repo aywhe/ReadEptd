@@ -33,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
@@ -92,53 +95,61 @@ fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    
+
     Log.d("MainActivity", "MainScreen 重组, UI状态: ${uiState::class.simpleName}")
     if (uiState is MainUiState.Success) {
         val successState = uiState as MainUiState.Success
         Log.d("MainActivity", "当前选中文件数: ${successState.readingFiles.size}")
     }
-    
+
     // 创建文件选择器 Launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri>? ->
         Log.d("MainActivity", "文件选择器回调触发")
         Log.d("MainActivity", "URIs: ${uris?.size ?: 0} 个")
-        
+
         uris?.let {
             Log.d("MainActivity", "开始处理 ${it.size} 个 URI")
             val fileInfos = it.mapNotNull { uri ->
                 try {
                     Log.d("MainActivity", "处理 URI: $uri")
-                    
+
                     var fileName = uri.lastPathSegment ?: "Unknown"
                     var fileSize = 0L
-                    
+
                     context.contentResolver.query(
                         uri,
-                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE),
+                        arrayOf(
+                            android.provider.OpenableColumns.DISPLAY_NAME,
+                            android.provider.OpenableColumns.SIZE
+                        ),
                         null,
                         null,
                         null
                     )?.use { cursor ->
                         if (cursor.moveToFirst()) {
-                            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            val nameIndex =
+                                cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                             if (nameIndex != -1) {
                                 fileName = cursor.getString(nameIndex)
                             }
-                            
-                            val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+
+                            val sizeIndex =
+                                cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
                             if (sizeIndex != -1) {
                                 fileSize = cursor.getLong(sizeIndex)
                             }
                         }
                     }
-                    
+
                     val mimeType = context.contentResolver.getType(uri) ?: ""
-                    
-                    Log.d("MainActivity", "文件信息 - 名称: $fileName, 大小: $fileSize, 类型: $mimeType")
-                    
+
+                    Log.d(
+                        "MainActivity",
+                        "文件信息 - 名称: $fileName, 大小: $fileSize, 类型: $mimeType"
+                    )
+
                     FileInfo(
                         uri = uri,
                         fileName = fileName,
@@ -151,9 +162,9 @@ fun MainScreen(
                     null
                 }
             }
-            
+
             Log.d("MainActivity", "成功解析 ${fileInfos.size} 个文件")
-            
+
             if (fileInfos.isNotEmpty()) {
                 Log.d("MainActivity", "调用 ViewModel 事件: OnFilesSelected")
                 viewModel.onEvent(MainUiEvent.OnFilesSelected(fileInfos))
@@ -164,20 +175,42 @@ fun MainScreen(
             Log.w("MainActivity", "用户取消了文件选择")
         }
     }
-    
-    when (val state = uiState) {
-        is MainUiState.Loading -> LoadingScreen(modifier)
-        is MainUiState.Success -> ContentScreen(
-            files = state.readingFiles,
-            onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
-            onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
-            onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
-            modifier = modifier
-        )
-        is MainUiState.Error -> ErrorScreen(
-            error = state.error,
-            modifier = modifier
-        )
+
+    // 获取文件数量用于显示在标题栏
+    val fileCount = if (uiState is MainUiState.Success) {
+        (uiState as MainUiState.Success).readingFiles.size
+    } else {
+        0
+    }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(text = "ReadEptd ($fileCount)")
+                }
+            )
+        }
+    ) { innerPadding ->
+        when (val state = uiState) {
+            is MainUiState.Loading -> LoadingScreen(
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            is MainUiState.Success -> ContentScreen(
+                files = state.readingFiles,
+                onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
+                onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
+                onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            is MainUiState.Error -> ErrorScreen(
+                error = state.error,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
     }
 }
 
@@ -233,7 +266,10 @@ fun ContentScreen(
             && !isMovingFile
         ) {
             scope.launch {
-                Log.d("MainActivity", "last item changed, scrolling to last item: ${files.last().uri}")
+                Log.d(
+                    "MainActivity",
+                    "last item changed, scrolling to last item: ${files.last().uri}"
+                )
                 lazyListState.animateScrollToItem(files.size - 1)
             }
         }
@@ -253,7 +289,6 @@ fun ContentScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     reverseLayout = true,
@@ -290,7 +325,7 @@ fun ContentScreen(
                 }
             }
         }
-        
+
         DraggableFloatingButton(
             onClick = onDragButtonClick
         )
@@ -314,11 +349,11 @@ fun ErrorScreen(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.error
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(text = error)
-        
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -329,7 +364,7 @@ fun DraggableFloatingButton(
     modifier: Modifier = Modifier
 ) {
     var offset by remember { mutableStateOf(IntOffset.Zero) }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         FloatingActionButton(
             onClick = onClick,
@@ -428,9 +463,9 @@ fun FileItemCard(
                     }
                 }
             }
-            
+
             IconButton(
-                onClick = { showConfirmDialog = true}
+                onClick = { showConfirmDialog = true }
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
