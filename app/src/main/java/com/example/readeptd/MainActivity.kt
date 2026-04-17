@@ -13,6 +13,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,9 +58,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -283,7 +286,6 @@ fun ContentScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
         ) {
             if (files.isEmpty()) {
                 Text(
@@ -295,8 +297,7 @@ fun ContentScreen(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .animateContentSize()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .animateContentSize(),
                     reverseLayout = true,
                     state = lazyListState,
                     verticalArrangement = Arrangement.Top,
@@ -312,7 +313,7 @@ fun ContentScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) { isDragging ->
                             val animatedScale by animateFloatAsState(
-                                targetValue = if (isDragging) 1.03f else 1f,
+                                targetValue = if (isDragging) 1.02f else 1f,
                                 label = "scale"
                             )
                             FileItemCard(
@@ -428,8 +429,10 @@ fun FileItemCard(
         }
     }
     Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging) {
                 MaterialTheme.colorScheme.surfaceVariant
@@ -438,61 +441,70 @@ fun FileItemCard(
             }
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = fileInfo.fileName,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier.weight(1f).padding(4.dp)
                 ) {
-                    // 显示文件大小和 MIME 类型
                     Text(
-                        text = formatFileSize(fileInfo.fileSize),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = fileInfo.fileName,
+                        style = MaterialTheme.typography.bodyLarge
                     )
-                    Text(
-                        text = fileInfo.mimeType,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    // 显示阅读进度
-                    // ✅ 现在的写法（适用于 Float? 类型）
-                    fileInfo.progress?.let { progress ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 显示文件大小和 MIME 类型
                         Text(
-                            text = "${(progress * 100).toInt()}%",
+                            text = formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = fileInfo.mimeType,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // 显示阅读进度
+                        // ✅ 现在的写法（适用于 Float? 类型）
+                        fileInfo.progress?.let { progress ->
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                AnimatedVisibility(
+                    visible = showDeleteButton,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    // 根据 showDeleteButton 状态控制删除按钮显示
+                    IconButton(
+                        onClick = { showConfirmDialog = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "删除"
                         )
                     }
                 }
             }
-            AnimatedVisibility(
-                visible = showDeleteButton,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                // 根据 showDeleteButton 状态控制删除按钮显示
-                IconButton(
-                    onClick = { showConfirmDialog = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "删除"
-                    )
-                }
-            }
+            
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .padding(horizontal = 4.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
         }
     }
 
