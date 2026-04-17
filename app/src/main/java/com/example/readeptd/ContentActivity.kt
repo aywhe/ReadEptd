@@ -14,17 +14,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.ui.ContentUiEvent
 import com.example.readeptd.ui.ContentUiState
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.reader.FileReaderFactory
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.viewmodel.ContentViewModel
 
@@ -56,8 +60,6 @@ fun ContentScreen(
     modifier: Modifier = Modifier,
     viewModel: ContentViewModel = viewModel()
 ) {
-    // 在首次组合或 fileInfo 变化时加载文件信息
-    // 使用 fileInfo?.uri.toString() 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri.toString()) {
         viewModel.onEvent(ContentUiEvent.Initialize(fileInfo))
     }
@@ -100,6 +102,23 @@ fun FileContentScreen(
     fileInfo: FileInfo,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val reader = remember(fileInfo.mimeType) {
+        FileReaderFactory.getReader(fileInfo.mimeType)
+    }
+    
+    DisposableEffect(fileInfo.uri) {
+        try {
+            reader?.openFile(context, fileInfo.uri)
+        } catch (e: Exception) {
+            Log.e("FileContentScreen", "打开文件失败", e)
+        }
+        
+        onDispose {
+            reader?.closeFile()
+        }
+    }
+    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -147,6 +166,15 @@ fun FileContentScreen(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
+        
+        if (reader == null) {
+            Text(
+                text = "不支持的文件格式: ${fileInfo.mimeType}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
     }
 }
 
@@ -192,9 +220,9 @@ fun ContentScreenPreview() {
         FileContentScreen(
             fileInfo = FileInfo(
                 uri = android.net.Uri.parse("content://test"),
-                fileName = "测试文件.txt",
+                fileName = "测试文件.epub",
                 fileSize = 1024000,
-                mimeType = "text/plain",
+                mimeType = "application/epub+zip",
                 totalPage = 100,
                 currentPage = 50
             )

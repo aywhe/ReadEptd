@@ -59,4 +59,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
+    
+    // EPUB reader library
+    implementation("com.folioreader:folioreader:0.5.4")
 }
