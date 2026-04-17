@@ -31,6 +31,7 @@ class MainViewModel : ViewModel() {
             is MainUiEvent.OnDragButtonClick -> handleDragButtonClick()
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
             is MainUiEvent.RemoveFile -> removeFile(event.index)
+            is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
         }
     }
     
@@ -94,6 +95,26 @@ class MainViewModel : ViewModel() {
                     Log.d("MainViewModel", "文件已删除，剩余 ${updatedFiles.size} 个")
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
+                }
+            }
+        }
+    }
+    
+    private fun moveFile(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is MainUiState.Success) {
+                if (fromIndex in currentState.selectedFiles.indices && 
+                    toIndex in currentState.selectedFiles.indices) {
+                    val updatedFiles = currentState.selectedFiles.toMutableList().apply {
+                        add(toIndex, removeAt(fromIndex))
+                    }
+                    _uiState.value = currentState.copy(
+                        selectedFiles = updatedFiles
+                    )
+                    Log.d("MainViewModel", "文件从 $fromIndex 移动到 $toIndex")
+                } else {
+                    Log.e("MainViewModel", "无效的文件索引: from=$fromIndex, to=$toIndex")
                 }
             }
         }

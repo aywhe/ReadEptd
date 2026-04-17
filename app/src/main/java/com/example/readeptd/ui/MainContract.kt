@@ -30,4 +30,5 @@ sealed interface MainUiEvent {
     object OnDragButtonClick : MainUiEvent
     data class OnFilesSelected(val files: List<FileInfo>) : MainUiEvent
     data class RemoveFile(val index: Int) : MainUiEvent
+    data class MoveFile(val fromIndex: Int, val toIndex: Int) : MainUiEvent
 }

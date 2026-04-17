@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,11 +22,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,18 +44,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.ui.FileInfo
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.viewmodel.MainViewModel
+import sh.calvin.reorderable.DragGestureDetector
+import sh.calvin.reorderable.rememberReorderableLazyListState
+import sh.calvin.reorderable.ReorderableItem
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -155,9 +161,10 @@ fun MainScreen(
     when (val state = uiState) {
         is MainUiState.Loading -> LoadingScreen(modifier)
         is MainUiState.Success -> ContentScreen(
-            selectedFiles = state.selectedFiles,
+            files = state.selectedFiles,
             onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
             onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
+            onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
             modifier = modifier
         )
         is MainUiState.Error -> ErrorScreen(
@@ -195,11 +202,22 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 
 @Composable
 fun ContentScreen(
-    selectedFiles: List<FileInfo>,
+    files: List<FileInfo>,
     onDragButtonClick: () -> Unit,
     onRemoveFile: (Int) -> Unit,
+    onMoveFile: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = if (files.isNotEmpty()) files.size - 1 else 0, // 反向布局时显示最后一个项目
+        initialFirstVisibleItemScrollOffset = 0
+    )
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState = lazyListState,
+        onMove = { from, to ->
+            onMoveFile(from.index, to.index)
+        }
+    )
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -208,24 +226,46 @@ fun ContentScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            if (selectedFiles.isEmpty()) {
+            if (files.isEmpty()) {
                 Text(
                     text = "点击右下角按钮添加文件",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-
                 Spacer(modifier = Modifier.height(8.dp))
-                
                 LazyColumn(
+                    reverseLayout = true,
+                    state = lazyListState,
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(selectedFiles.size) { index ->
-                        FileItemCard(
-                            fileInfo = selectedFiles[index],
-                            onRemove = { onRemoveFile(index) }
-                        )
+                    items(
+                        count = files.size,
+                        key = { index -> files[index].uri.toString() }
+                    ) { index ->
+                        ReorderableItem(
+                            state = reorderableState,
+                            key = files[index].uri.toString()
+                        ) { isDragging ->
+                            val animatedScale by animateFloatAsState(
+                                targetValue = if (isDragging) 1.05f else 1f,
+                                label = "scale"
+                            )
+                            FileItemCard(
+                                fileInfo = files[index],
+                                onRemove = { onRemoveFile(index) },
+                                isDragging = isDragging,
+                                modifier = Modifier
+                                    .zIndex(if (isDragging) 1f else 0f)
+                                    .scale(animatedScale)
+                                    .draggableHandle(
+                                        dragGestureDetector = DragGestureDetector.LongPress,
+                                        onDragStopped = {
+
+                                        }
+                                    )
+                            )
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
@@ -311,11 +351,21 @@ fun DraggableFloatingButton(
 fun FileItemCard(
     fileInfo: FileInfo,
     onRemove: () -> Unit,
+    isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDragging) 8.dp else 2.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDragging) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Row(
             modifier = Modifier
@@ -375,9 +425,10 @@ private fun formatFileSize(size: Long): String {
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
-            selectedFiles = emptyList(),
+            files = emptyList(),
             onDragButtonClick = {},
-            onRemoveFile = {}
+            onRemoveFile = {},
+            onMoveFile = { _, _ -> }
         )
     }
 }
