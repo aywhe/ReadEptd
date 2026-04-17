@@ -33,12 +33,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -191,13 +194,39 @@ fun MainScreen(
         0
     }
 
+    var showMenu by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
                     Text(text = "ReadEptd ($fileCount)")
-                }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "更多选项"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("关于") },
+                                onClick = {
+                                    showMenu = false
+                                    showAboutDialog = true
+                                }
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.padding(bottom = 8.dp)
             )
         }
     ) { innerPadding ->
@@ -219,6 +248,43 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             )
         }
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("关于 ReadEptd") },
+            text = {
+                // ⭐ 自动从 Manifest 读取版本号
+                val versionName = try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                } catch (e: Exception) {
+                    "未知版本"
+                }
+
+                Text(
+                    text = """
+                        ReadEptd - 智能听书助手 v$versionName
+                        
+                        主要功能：
+                        • 支持 TXT、DOCX、PDF、EPUB 格式
+                        • 文字转语音朗读
+                        • 定时关闭功能
+                        • 自动保存阅读进度
+                        • 关键词搜索功能
+                        
+                    """.trimIndent(),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAboutDialog = false }
+                ) {
+                    Text("确定")
+                }
+            }
+        )
     }
 }
 
