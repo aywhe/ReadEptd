@@ -255,7 +255,6 @@ fun MainScreen(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("关于 ReadEptd") },
             text = {
-                // ⭐ 自动从 Manifest 读取版本号
                 val versionName = try {
                     context.packageManager.getPackageInfo(context.packageName, 0).versionName
                 } catch (e: Exception) {
