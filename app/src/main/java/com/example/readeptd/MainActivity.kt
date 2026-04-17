@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -261,7 +262,7 @@ fun ContentScreen(
         }
     )
     val scope = rememberCoroutineScope()
-    LaunchedEffect(files.lastOrNull()?.uri) {
+    LaunchedEffect(files.lastOrNull()?.uri.toString()) {
         if (files.isNotEmpty()
             && !isMovingFile
         ) {
@@ -278,9 +279,7 @@ fun ContentScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+                .padding(16.dp)
         ) {
             if (files.isEmpty()) {
                 Text(
@@ -290,9 +289,12 @@ fun ContentScreen(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .animateContentSize(),
                     reverseLayout = true,
                     state = lazyListState,
+                    verticalArrangement = Arrangement.Top,
                     userScrollEnabled = true
                 ) {
                     items(
