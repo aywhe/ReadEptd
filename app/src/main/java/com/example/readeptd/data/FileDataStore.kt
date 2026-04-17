@@ -40,7 +40,16 @@ class FileDataStore(private val context: Context) {
                     put("fileName", file.fileName)
                     put("fileSize", file.fileSize)
                     put("mimeType", file.mimeType)
-                    put("progress", file.progress ?: JSONObject.NULL)
+                    if (file.totalPage != null) {
+                        put("totalPage", file.totalPage)
+                    } else {
+                        put("totalPage", JSONObject.NULL)
+                    }
+                    if (file.currentPage != null) {
+                        put("currentPage", file.currentPage)
+                    } else {
+                        put("currentPage", JSONObject.NULL)
+                    }
                 }
                 jsonArray.put(jsonObject)
             }
@@ -65,10 +74,15 @@ class FileDataStore(private val context: Context) {
                         fileName = jsonObject.getString("fileName"),
                         fileSize = jsonObject.getLong("fileSize"),
                         mimeType = jsonObject.getString("mimeType"),
-                        progress = if (jsonObject.isNull("progress")) {
+                        totalPage = if (jsonObject.isNull("totalPage")) {
                             null
                         } else {
-                            jsonObject.getDouble("progress").toFloat()
+                            jsonObject.getInt("totalPage")
+                        },
+                        currentPage = if (jsonObject.isNull("currentPage")) {
+                            null
+                        } else {
+                            jsonObject.getInt("currentPage")
                         }
                     )
                     files.add(fileInfo)

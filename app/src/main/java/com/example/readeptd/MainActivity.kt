@@ -545,7 +545,7 @@ fun FileItemCard(
     
     Card(
         onClick = {
-            if (isFileAccessible == true) {
+            if (isFileAccessible == true && !isDragging) {
                 val intent = Intent(context, ContentActivity::class.java).apply {
                     putExtra("file_info", fileInfo.toBundle())
                 }

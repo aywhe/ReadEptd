@@ -2,6 +2,7 @@ package com.example.readeptd.ui
 
 import android.net.Uri
 import android.os.Bundle
+import androidx.core.net.toUri
 
 /**
  * 文件信息数据类
@@ -11,14 +12,23 @@ data class FileInfo(
     val fileName: String,
     val fileSize: Long = 0,
     val mimeType: String = "",
-    val progress: Float? = null
+    val totalPage: Int? = null,
+    val currentPage: Int? = null
 ) {
+    val progress: Float?
+        get() = if (totalPage != null && totalPage >= 0) {
+            currentPage?.div(totalPage.toFloat())
+        } else {
+            null
+        }
+    
     companion object {
         private const val KEY_URI = "uri"
         private const val KEY_FILE_NAME = "file_name"
         private const val KEY_FILE_SIZE = "file_size"
         private const val KEY_MIME_TYPE = "mime_type"
-        private const val KEY_PROGRESS = "progress"
+        private const val KEY_TOTAL_PAGE = "total_page"
+        private const val KEY_CURRENT_PAGE = "current_page"
         
         /**
          * 将 FileInfo 转换为 Bundle
@@ -29,8 +39,11 @@ data class FileInfo(
                 putString(KEY_FILE_NAME, fileName)
                 putLong(KEY_FILE_SIZE, fileSize)
                 putString(KEY_MIME_TYPE, mimeType)
-                if (progress != null) {
-                    putFloat(KEY_PROGRESS, progress)
+                if (totalPage != null) {
+                    putInt(KEY_TOTAL_PAGE, totalPage)
+                }
+                if (currentPage != null) {
+                    putInt(KEY_CURRENT_PAGE, currentPage)
                 }
             }
         }
@@ -40,12 +53,17 @@ data class FileInfo(
          */
         fun fromBundle(bundle: Bundle): FileInfo {
             return FileInfo(
-                uri = Uri.parse(bundle.getString(KEY_URI) ?: ""),
+                uri = (bundle.getString(KEY_URI) ?: "").toUri(),
                 fileName = bundle.getString(KEY_FILE_NAME) ?: "",
                 fileSize = bundle.getLong(KEY_FILE_SIZE, 0),
                 mimeType = bundle.getString(KEY_MIME_TYPE) ?: "",
-                progress = if (bundle.containsKey(KEY_PROGRESS)) {
-                    bundle.getFloat(KEY_PROGRESS)
+                totalPage = if (bundle.containsKey(KEY_TOTAL_PAGE)) {
+                    bundle.getInt(KEY_TOTAL_PAGE)
+                } else {
+                    null
+                },
+                currentPage = if (bundle.containsKey(KEY_CURRENT_PAGE)) {
+                    bundle.getInt(KEY_CURRENT_PAGE)
                 } else {
                     null
                 }
