@@ -22,6 +22,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ContentActivity"
+            android:exported="false"
+            android:label="内容页面"
+            android:theme="@style/Theme.ReadEptd" />
     </application>
 
 </manifest>

@@ -15,7 +15,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -63,7 +62,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -75,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.ui.FileInfo
+import com.example.readeptd.ui.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -253,7 +252,6 @@ fun MainScreen(
                 files = state.readingFiles,
                 onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
                 onRemoveFile = { index ->
-                    // 释放 URI 权限
                     val fileToRemove = state.readingFiles[index]
                     try {
                         context.contentResolver.releasePersistableUriPermission(
@@ -530,7 +528,6 @@ fun FileItemCard(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 检查文件是否可访问
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
             isFileAccessible = context.uriExists(fileInfo.uri)
@@ -547,6 +544,15 @@ fun FileItemCard(
     }
     
     Card(
+        onClick = {
+            if (isFileAccessible == true) {
+                val intent = Intent(context, ContentActivity::class.java).apply {
+                    putExtra("file_info", fileInfo.toBundle())
+                }
+                context.startActivity(intent)
+            }
+        },
+        enabled = isFileAccessible == true,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -581,26 +587,26 @@ fun FileItemCard(
                         Text(
                             text = formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            //color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = fileInfo.mimeType,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            //color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // 显示阅读进度
                         fileInfo.progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                //color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (isFileAccessible == false) {
                             Text(
                                 text = "文件不存在",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
+                                //color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
