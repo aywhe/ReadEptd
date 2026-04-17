@@ -48,8 +48,11 @@ class MainViewModel : ViewModel() {
     
     private fun handleFilesSelected(files: List<FileInfo>) {
         viewModelScope.launch {
+            Log.d("MainViewModel", "收到 ${files.size} 个文件")
             val currentState = _uiState.value
+            Log.d("MainViewModel", "当前状态类型: ${currentState::class.simpleName}")
             if (currentState is MainUiState.Success) {
+                Log.d("MainViewModel", "当前已有 ${currentState.selectedFiles.size} 个文件")
                 val existingFiles = currentState.selectedFiles.toMutableList()
                 val newFiles = mutableListOf<FileInfo>()
                 
@@ -68,10 +71,11 @@ class MainViewModel : ViewModel() {
                 
                 val updatedFiles = existingFiles + newFiles
                 
+                Log.d("MainViewModel", "准备更新状态，新文件数: ${updatedFiles.size}")
                 _uiState.value = currentState.copy(
                     selectedFiles = updatedFiles
                 )
-                Log.d("MainViewModel", "文件列表已更新，共 ${updatedFiles.size} 个")
+                Log.d("MainViewModel", "状态已更新，UI应该刷新")
             }
         }
     }

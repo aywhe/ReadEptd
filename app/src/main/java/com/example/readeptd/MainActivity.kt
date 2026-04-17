@@ -2,6 +2,7 @@ package com.example.readeptd
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -79,40 +80,51 @@ fun MainScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     
+    Log.d("MainActivity", "MainScreen 重组, UI状态: ${uiState::class.simpleName}")
+    if (uiState is MainUiState.Success) {
+        val successState = uiState as MainUiState.Success
+        Log.d("MainActivity", "当前选中文件数: ${successState.selectedFiles.size}")
+    }
+    
     // 创建文件选择器 Launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri>? ->
+        Log.d("MainActivity", "文件选择器回调触发")
+        Log.d("MainActivity", "URIs: ${uris?.size ?: 0} 个")
+        
         uris?.let {
+            Log.d("MainActivity", "开始处理 ${it.size} 个 URI")
             val fileInfos = it.mapNotNull { uri ->
                 try {
-                    val cursor = context.contentResolver.query(
+                    Log.d("MainActivity", "处理 URI: $uri")
+                    
+                    var fileName = uri.lastPathSegment ?: "Unknown"
+                    var fileSize = 0L
+                    
+                    context.contentResolver.query(
                         uri,
                         arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE),
                         null,
                         null,
                         null
-                    )
-                    
-                    val fileName = cursor?.use {
-                        if (it.moveToFirst()) {
-                            val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                            it.getString(nameIndex)
-                        } else {
-                            uri.lastPathSegment ?: "Unknown"
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (nameIndex != -1) {
+                                fileName = cursor.getString(nameIndex)
+                            }
+                            
+                            val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            if (sizeIndex != -1) {
+                                fileSize = cursor.getLong(sizeIndex)
+                            }
                         }
-                    } ?: uri.lastPathSegment ?: "Unknown"
-                    
-                    val fileSize = cursor?.use {
-                        if (it.moveToFirst()) {
-                            val sizeIndex = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                            it.getLong(sizeIndex)
-                        } else {
-                            0L
-                        }
-                    } ?: 0L
+                    }
                     
                     val mimeType = context.contentResolver.getType(uri) ?: ""
+                    
+                    Log.d("MainActivity", "文件信息 - 名称: $fileName, 大小: $fileSize, 类型: $mimeType")
                     
                     FileInfo(
                         uri = uri,
@@ -121,14 +133,22 @@ fun MainScreen(
                         mimeType = mimeType
                     )
                 } catch (e: Exception) {
+                    Log.e("MainActivity", "处理文件失败: ${e.message}", e)
                     e.printStackTrace()
                     null
                 }
             }
             
+            Log.d("MainActivity", "成功解析 ${fileInfos.size} 个文件")
+            
             if (fileInfos.isNotEmpty()) {
+                Log.d("MainActivity", "调用 ViewModel 事件: OnFilesSelected")
                 viewModel.onEvent(MainUiEvent.OnFilesSelected(fileInfos))
+            } else {
+                Log.w("MainActivity", "没有成功解析任何文件")
             }
+        } ?: run {
+            Log.w("MainActivity", "用户取消了文件选择")
         }
     }
     
@@ -195,10 +215,7 @@ fun ContentScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                Text(
-                    text = "已选择 ${selectedFiles.size} 个文件",
-                    style = MaterialTheme.typography.titleMedium
-                )
+
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 LazyColumn(
