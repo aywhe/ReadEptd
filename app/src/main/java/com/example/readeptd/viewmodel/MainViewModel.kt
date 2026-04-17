@@ -1,8 +1,10 @@
 package com.example.readeptd.viewmodel
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.ui.FileInfo
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
@@ -11,7 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+    
+    private val fileDataStore = FileDataStore(application)
     
     private val _uiState = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -36,7 +40,13 @@ class MainViewModel : ViewModel() {
     
     private fun loadInitialData() {
         viewModelScope.launch {
-            _uiState.value = MainUiState.Success()
+            // 从 DataStore 加载保存的文件列表
+            fileDataStore.readingFilesFlow.collect { savedFiles ->
+                Log.d("MainViewModel", "从 DataStore 加载了 ${savedFiles.size} 个文件")
+                _uiState.value = MainUiState.Success(
+                    readingFiles = savedFiles
+                )
+            }
         }
     }
 
@@ -46,8 +56,8 @@ class MainViewModel : ViewModel() {
             val currentState = _uiState.value
             Log.d("MainViewModel", "当前状态类型: ${currentState::class.simpleName}")
             if (currentState is MainUiState.Success) {
-                Log.d("MainViewModel", "当前已有 ${currentState.selectedFiles.size} 个文件")
-                val existingFiles = currentState.selectedFiles.toMutableList()
+                Log.d("MainViewModel", "当前已有 ${currentState.readingFiles.size} 个文件")
+                val existingFiles = currentState.readingFiles.toMutableList()
                 val newFiles = mutableListOf<FileInfo>()
                 
                 files.forEach { file ->
@@ -67,9 +77,12 @@ class MainViewModel : ViewModel() {
                 
                 Log.d("MainViewModel", "准备更新状态，新文件数: ${updatedFiles.size}")
                 _uiState.value = currentState.copy(
-                    selectedFiles = updatedFiles
+                    readingFiles = updatedFiles
                 )
                 Log.d("MainViewModel", "状态已更新，UI应该刷新")
+                
+                // 保存到 DataStore
+                saveReadingFiles(updatedFiles)
             }
         }
     }
@@ -78,14 +91,17 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             val currentState = _uiState.value
             if (currentState is MainUiState.Success) {
-                if (index in currentState.selectedFiles.indices) {
-                    val updatedFiles = currentState.selectedFiles.toMutableList().apply {
+                if (index in currentState.readingFiles.indices) {
+                    val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
                     _uiState.value = currentState.copy(
-                        selectedFiles = updatedFiles
+                        readingFiles = updatedFiles
                     )
                     Log.d("MainViewModel", "文件已删除，剩余 ${updatedFiles.size} 个")
+                    
+                    // 保存到 DataStore
+                    saveReadingFiles(updatedFiles)
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }
@@ -97,18 +113,35 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             val currentState = _uiState.value
             if (currentState is MainUiState.Success) {
-                if (fromIndex in currentState.selectedFiles.indices && 
-                    toIndex in currentState.selectedFiles.indices) {
-                    val updatedFiles = currentState.selectedFiles.toMutableList().apply {
+                if (fromIndex in currentState.readingFiles.indices &&
+                    toIndex in currentState.readingFiles.indices) {
+                    val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         add(toIndex, removeAt(fromIndex))
                     }
                     _uiState.value = currentState.copy(
-                        selectedFiles = updatedFiles
+                        readingFiles = updatedFiles
                     )
                     Log.d("MainViewModel", "文件从 $fromIndex 移动到 $toIndex")
+                    
+                    // 保存到 DataStore
+                    saveReadingFiles(updatedFiles)
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: from=$fromIndex, to=$toIndex")
                 }
+            }
+        }
+    }
+    
+    /**
+     * 保存文件列表到 DataStore
+     */
+    private fun saveReadingFiles(files: List<FileInfo>) {
+        viewModelScope.launch {
+            try {
+                fileDataStore.saveReadingFiles(files)
+                Log.d("MainViewModel", "成功保存 ${files.size} 个文件到 DataStore")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "保存文件失败", e)
             }
         }
     }

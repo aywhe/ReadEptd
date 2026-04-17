@@ -19,7 +19,7 @@ data class FileInfo(
 sealed interface MainUiState {
     object Loading : MainUiState
     data class Success(
-        val selectedFiles: List<FileInfo> = emptyList()
+        val readingFiles: List<FileInfo> = emptyList()
     ) : MainUiState
     data class Error(val error: String) : MainUiState
 }

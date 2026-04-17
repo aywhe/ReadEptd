@@ -96,7 +96,7 @@ fun MainScreen(
     Log.d("MainActivity", "MainScreen 重组, UI状态: ${uiState::class.simpleName}")
     if (uiState is MainUiState.Success) {
         val successState = uiState as MainUiState.Success
-        Log.d("MainActivity", "当前选中文件数: ${successState.selectedFiles.size}")
+        Log.d("MainActivity", "当前选中文件数: ${successState.readingFiles.size}")
     }
     
     // 创建文件选择器 Launcher
@@ -168,7 +168,7 @@ fun MainScreen(
     when (val state = uiState) {
         is MainUiState.Loading -> LoadingScreen(modifier)
         is MainUiState.Success -> ContentScreen(
-            files = state.selectedFiles,
+            files = state.readingFiles,
             onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
             onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
             onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
