@@ -1,13 +1,11 @@
 package com.example.readeptd.data
 
 import android.content.Context
-import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.readeptd.ui.FileInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
@@ -70,7 +68,7 @@ class FileDataStore(private val context: Context) {
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val fileInfo = FileInfo(
-                        uri = Uri.parse(jsonObject.getString("uri")),
+                        uri = android.net.Uri.parse(jsonObject.getString("uri")),
                         fileName = jsonObject.getString("fileName"),
                         fileSize = jsonObject.getLong("fileSize"),
                         mimeType = jsonObject.getString("mimeType"),

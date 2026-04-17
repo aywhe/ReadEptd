@@ -72,8 +72,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.readeptd.ui.FileInfo
-import com.example.readeptd.ui.FileInfo.Companion.toBundle
+import com.example.readeptd.data.FileInfo
+import com.example.readeptd.data.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme

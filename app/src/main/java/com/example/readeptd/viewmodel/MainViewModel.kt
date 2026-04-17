@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
-import com.example.readeptd.ui.FileInfo
+import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import kotlinx.coroutines.flow.MutableStateFlow
