@@ -23,7 +23,8 @@ class ContentViewModel(
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
-        loadFileInfo()
+        // 注意：数据需要通过外部传入，而不是从 SavedStateHandle 获取
+        // 因为我们是使用 Intent 传递的数据
     }
 
     override fun onCleared() {
@@ -33,15 +34,19 @@ class ContentViewModel(
 
     fun onEvent(event: ContentUiEvent) {
         when (event) {
-            is ContentUiEvent.LoadFileContent -> handleLoadFileContent()
+            is ContentUiEvent.Initialize -> handleInitialize(event.fileInfo)
         }
     }
 
-    private fun loadFileInfo() {
+    /**
+     * 处理初始化事件
+     */
+    private fun handleInitialize(fileInfo: FileInfo?) {
         viewModelScope.launch {
             try {
-                val fileInfo = savedStateHandle.get<FileInfo>("file_info")
-
+                // 先重置为 Loading 状态，确保 UI 显示加载中
+                _uiState.value = ContentUiState.Loading
+                
                 if (fileInfo != null) {
                     Log.d("ContentViewModel", "成功加载文件信息: ${fileInfo.fileName}")
                     _uiState.value = ContentUiState.Success(fileInfo)
@@ -52,20 +57,6 @@ class ContentViewModel(
             } catch (e: Exception) {
                 Log.e("ContentViewModel", "加载文件信息失败", e)
                 _uiState.value = ContentUiState.Error("加载文件失败: ${e.message}")
-            }
-        }
-    }
-
-    private fun handleLoadFileContent() {
-        viewModelScope.launch {
-            val currentState = _uiState.value
-            if (currentState is ContentUiState.Success) {
-                Log.d("ContentViewModel", "开始加载文件内容: ${currentState.fileInfo.fileName}")
-
-                // TODO: 在这里实现文件内容加载逻辑
-                // 根据不同的文件类型（TXT、PDF、EPUB等）进行解析
-
-                Log.d("ContentViewModel", "文件内容加载完成")
             }
         }
     }

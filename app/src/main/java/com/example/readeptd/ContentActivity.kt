@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.ui.ContentUiEvent
 import com.example.readeptd.ui.ContentUiState
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -54,10 +56,16 @@ fun ContentScreen(
     modifier: Modifier = Modifier,
     viewModel: ContentViewModel = viewModel()
 ) {
+    // 在首次组合或 fileInfo 变化时加载文件信息
+    // 使用 fileInfo?.uri.toString() 作为 key，确保不同文件能正确触发
+    LaunchedEffect(fileInfo?.uri.toString()) {
+        viewModel.onEvent(ContentUiEvent.Initialize(fileInfo))
+    }
+
     val uiState by viewModel.uiState.collectAsState()
-    
+
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
-    
+
     when (val state = uiState) {
         is ContentUiState.Loading -> LoadingContentScreen(modifier = modifier)
         is ContentUiState.Success -> FileContentScreen(
@@ -103,19 +111,19 @@ fun FileContentScreen(
             text = "文件名: ${fileInfo.fileName}",
             style = MaterialTheme.typography.headlineSmall
         )
-        
+
         Text(
             text = "文件大小: ${formatFileSize(fileInfo.fileSize)}",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 8.dp)
         )
-        
+
         Text(
             text = "文件类型: ${fileInfo.mimeType}",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 4.dp)
         )
-        
+
         fileInfo.totalPage?.let { totalPages ->
             Text(
                 text = "总页数: $totalPages",
@@ -123,7 +131,7 @@ fun FileContentScreen(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
-        
+
         fileInfo.currentPage?.let { currentPage ->
             Text(
                 text = "当前页: $currentPage",
@@ -131,7 +139,7 @@ fun FileContentScreen(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
-        
+
         fileInfo.progress?.let { progress ->
             Text(
                 text = "阅读进度: ${(progress * 100).toInt()}%",

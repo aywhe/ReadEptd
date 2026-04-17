@@ -15,5 +15,5 @@ sealed interface ContentUiState {
  * 内容页面 UI 事件密封类
  */
 sealed interface ContentUiEvent {
-    object LoadFileContent : ContentUiEvent
+    data class Initialize(val fileInfo: FileInfo?) : ContentUiEvent
 }
