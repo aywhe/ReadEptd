@@ -400,20 +400,33 @@ fun FileItemCard(
             ) {
                 Text(
                     text = fileInfo.fileName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1
+                    style = MaterialTheme.typography.bodyLarge
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formatFileSize(fileInfo.fileSize),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = fileInfo.mimeType,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 显示文件大小和 MIME 类型
+                    Text(
+                        text = formatFileSize(fileInfo.fileSize),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = fileInfo.mimeType,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // 显示阅读进度
+                    // ✅ 现在的写法（适用于 Float? 类型）
+                    fileInfo.progress?.let { progress ->
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
             
             IconButton(

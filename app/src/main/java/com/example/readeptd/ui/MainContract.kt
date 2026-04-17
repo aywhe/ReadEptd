@@ -9,7 +9,8 @@ data class FileInfo(
     val uri: Uri,
     val fileName: String,
     val fileSize: Long = 0,
-    val mimeType: String = ""
+    val mimeType: String = "",
+    val progress: Float? = null
 )
 
 /**
