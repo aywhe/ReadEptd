@@ -28,7 +28,6 @@ class MainViewModel : ViewModel() {
     
     fun onEvent(event: MainUiEvent) {
         when (event) {
-            is MainUiEvent.OnDragButtonClick -> handleDragButtonClick()
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
             is MainUiEvent.RemoveFile -> removeFile(event.index)
             is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
@@ -41,12 +40,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun handleDragButtonClick() {
-        viewModelScope.launch {
-            Log.d("MainViewModel", "浮动按钮被点击")
-        }
-    }
-    
     private fun handleFilesSelected(files: List<FileInfo>) {
         viewModelScope.launch {
             Log.d("MainViewModel", "收到 ${files.size} 个文件")

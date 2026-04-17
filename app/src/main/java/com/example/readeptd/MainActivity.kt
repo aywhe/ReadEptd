@@ -27,6 +27,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,13 +37,16 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +64,7 @@ import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import sh.calvin.reorderable.ReorderableItem
@@ -208,6 +215,7 @@ fun ContentScreen(
     onMoveFile: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isMovingFile by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = if (files.isNotEmpty()) files.size - 1 else 0, // 反向布局时显示最后一个项目
         initialFirstVisibleItemScrollOffset = 0
@@ -215,9 +223,21 @@ fun ContentScreen(
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = lazyListState,
         onMove = { from, to ->
+            isMovingFile = true
             onMoveFile(from.index, to.index)
         }
     )
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(files.lastOrNull()?.uri) {
+        if (files.isNotEmpty()
+            && !isMovingFile
+        ) {
+            scope.launch {
+                Log.d("MainActivity", "last item changed, scrolling to last item: ${files.last().uri}")
+                lazyListState.animateScrollToItem(files.size - 1)
+            }
+        }
+    }
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -235,9 +255,10 @@ fun ContentScreen(
             } else {
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     reverseLayout = true,
                     state = lazyListState,
-                    modifier = Modifier.weight(1f)
+                    userScrollEnabled = true
                 ) {
                     items(
                         count = files.size,
@@ -260,9 +281,7 @@ fun ContentScreen(
                                     .scale(animatedScale)
                                     .draggableHandle(
                                         dragGestureDetector = DragGestureDetector.LongPress,
-                                        onDragStopped = {
-
-                                        }
+                                        onDragStopped = { isMovingFile = false }
                                     )
                             )
                         }
@@ -354,6 +373,8 @@ fun FileItemCard(
     isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(
@@ -396,7 +417,7 @@ fun FileItemCard(
             }
             
             IconButton(
-                onClick = onRemove
+                onClick = { showConfirmDialog = true}
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -405,6 +426,42 @@ fun FileItemCard(
                 )
             }
         }
+    }
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = {
+                Text(
+                    text = "确认删除",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Text(
+                    text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRemove()
+                        showConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showConfirmDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
