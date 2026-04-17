@@ -1,5 +1,7 @@
 package com.example.readeptd
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -122,6 +124,18 @@ fun MainScreen(
 
         uris?.let {
             Log.d("MainActivity", "开始处理 ${it.size} 个 URI")
+            
+            // 获取持久化 URI 权限（仅读取）
+            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            it.forEach { uri ->
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                    Log.d("MainActivity", "已获取持久化读取权限: $uri")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "获取持久化权限失败: $uri", e)
+                }
+            }
+            
             val fileInfos = it.mapNotNull { uri ->
                 try {
                     Log.d("MainActivity", "处理 URI: $uri")
@@ -238,7 +252,20 @@ fun MainScreen(
             is MainUiState.Success -> ContentScreen(
                 files = state.readingFiles,
                 onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
-                onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
+                onRemoveFile = { index ->
+                    // 释放 URI 权限
+                    val fileToRemove = state.readingFiles[index]
+                    try {
+                        context.contentResolver.releasePersistableUriPermission(
+                            fileToRemove.uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                        Log.d("MainActivity", "已释放 URI 读取权限: ${fileToRemove.uri}")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "释放 URI 权限失败", e)
+                    }
+                    viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                },
                 onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
                 modifier = Modifier.padding(innerPadding)
             )
@@ -473,6 +500,21 @@ fun DraggableFloatingButton(
 }
 
 /**
+ * 检查 URI 指向的资源是否仍然存在且可访问
+ */
+fun Context.uriExists(uri: Uri): Boolean {
+    return try {
+        // 尝试查询元数据，如果能查到至少一列，说明文件存在
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            cursor.count > 0
+        } ?: false
+    } catch (e: Exception) {
+        false
+    }
+}
+
+
+/**
  * 文件列表项卡片
  */
 @Composable
@@ -482,9 +524,19 @@ fun FileItemCard(
     isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var scope = rememberCoroutineScope()
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteButton by remember { mutableStateOf(false) }
+    var isFileAccessible by remember { mutableStateOf<Boolean?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // 检查文件是否可访问
+    LaunchedEffect(fileInfo.uri) {
+        scope.launch {
+            isFileAccessible = context.uriExists(fileInfo.uri)
+        }
+    }
+
     LaunchedEffect(isDragging) {
         if (isDragging) {
             showDeleteButton = true
@@ -493,16 +545,17 @@ fun FileItemCard(
             showDeleteButton = false
         }
     }
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = if (isDragging) {
-                MaterialTheme.colorScheme.surfaceVariant
-            } else {
-                MaterialTheme.colorScheme.surface
+            containerColor = when {
+                isFileAccessible == false -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                isDragging -> MaterialTheme.colorScheme.surfaceVariant
+                else -> MaterialTheme.colorScheme.surface
             }
         )
     ) {
@@ -536,12 +589,18 @@ fun FileItemCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // 显示阅读进度
-                        // ✅ 现在的写法（适用于 Float? 类型）
                         fileInfo.progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (isFileAccessible == false) {
+                            Text(
+                                text = "文件不存在",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
