@@ -3,6 +3,7 @@ package com.example.readeptd.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.ui.FileInfo
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ class MainViewModel : ViewModel() {
             is MainUiEvent.UpdateGreeting -> updateGreeting(event.name)
             is MainUiEvent.Refresh -> refreshData()
             is MainUiEvent.OnButtonClick -> handleButtonClick()
+            is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
         }
     }
     
@@ -64,6 +66,37 @@ class MainViewModel : ViewModel() {
     private fun handleButtonClick() {
         viewModelScope.launch {
             Log.d("MainViewModel", "浮动按钮被点击")
+        }
+    }
+    
+    private fun handleFilesSelected(files: List<FileInfo>) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is MainUiState.Success) {
+                val existingFiles = currentState.selectedFiles.toMutableList()
+                val newFiles = mutableListOf<FileInfo>()
+                
+                files.forEach { file ->
+                    val existingIndex = existingFiles.indexOfFirst { it.uri == file.uri }
+                    
+                    if (existingIndex != -1) {
+                        existingFiles.removeAt(existingIndex)
+                        Log.d("MainViewModel", "文件已存在，移动到末尾: ${file.fileName}")
+                    } else {
+                        Log.d("MainViewModel", "新文件: ${file.fileName}")
+                    }
+                    
+                    newFiles.add(file)
+                }
+                
+                val updatedFiles = existingFiles + newFiles
+                
+                _uiState.value = currentState.copy(
+                    selectedFiles = updatedFiles,
+                    message = "已选择 ${updatedFiles.size} 个文件"
+                )
+                Log.d("MainViewModel", "文件列表已更新，共 ${updatedFiles.size} 个")
+            }
         }
     }
 }

@@ -1,26 +1,36 @@
 package com.example.readeptd
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,10 +44,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.ui.FileInfo
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -65,14 +77,73 @@ fun MainScreen(
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    
+    // 创建文件选择器 Launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri>? ->
+        uris?.let {
+            val fileInfos = it.mapNotNull { uri ->
+                try {
+                    val cursor = context.contentResolver.query(
+                        uri,
+                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE),
+                        null,
+                        null,
+                        null
+                    )
+                    
+                    val fileName = cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            it.getString(nameIndex)
+                        } else {
+                            uri.lastPathSegment ?: "Unknown"
+                        }
+                    } ?: uri.lastPathSegment ?: "Unknown"
+                    
+                    val fileSize = cursor?.use {
+                        if (it.moveToFirst()) {
+                            val sizeIndex = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            it.getLong(sizeIndex)
+                        } else {
+                            0L
+                        }
+                    } ?: 0L
+                    
+                    val mimeType = context.contentResolver.getType(uri) ?: ""
+                    
+                    FileInfo(
+                        uri = uri,
+                        fileName = fileName,
+                        fileSize = fileSize,
+                        mimeType = mimeType
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
+            
+            if (fileInfos.isNotEmpty()) {
+                viewModel.onEvent(MainUiEvent.OnFilesSelected(fileInfos))
+            }
+        }
+    }
     
     when (val state = uiState) {
         is MainUiState.Loading -> LoadingScreen(modifier)
         is MainUiState.Success -> ContentScreen(
             message = state.message,
+            selectedFiles = state.selectedFiles,
             onRefreshClick = { viewModel.onEvent(MainUiEvent.Refresh) },
             onUpdateClick = { viewModel.onEvent(MainUiEvent.UpdateGreeting("Compose")) },
-            onButtonClick = { viewModel.onEvent(MainUiEvent.OnButtonClick) },
+            onButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
+            onRemoveFile = { index ->
+                val updatedFiles = state.selectedFiles.toMutableList().apply { removeAt(index) }
+                viewModel.onEvent(MainUiEvent.OnFilesSelected(emptyList()))
+            },
             modifier = modifier
         )
         is MainUiState.Error -> ErrorScreen(
@@ -81,6 +152,19 @@ fun MainScreen(
             modifier = modifier
         )
     }
+}
+
+/**
+ * 获取允许的文件 MIME 类型
+ */
+private fun getAllowedMimeTypes(): Array<String> {
+    return arrayOf(
+        "text/plain",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/pdf",
+        "application/epub+zip"
+    )
 }
 
 @Composable
@@ -99,9 +183,11 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun ContentScreen(
     message: String,
+    selectedFiles: List<FileInfo>,
     onRefreshClick: () -> Unit,
     onUpdateClick: () -> Unit,
     onButtonClick: () -> Unit,
+    onRemoveFile: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -127,6 +213,28 @@ fun ContentScreen(
             
             Button(onClick = onUpdateClick) {
                 Text(text = "更新问候语")
+            }
+            
+            // 显示已选择的文件列表
+            if (selectedFiles.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "已选择文件:",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyColumn(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(selectedFiles.size) { index ->
+                        FileItemCard(
+                            fileInfo = selectedFiles[index],
+                            onRemove = { onRemoveFile(index) }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
             }
         }
         
@@ -207,15 +315,83 @@ fun DraggableFloatingButton(
     }
 }
 
+/**
+ * 文件列表项卡片
+ */
+@Composable
+fun FileItemCard(
+    fileInfo: FileInfo,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = fileInfo.fileName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = formatFileSize(fileInfo.fileSize),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = fileInfo.mimeType,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            IconButton(
+                onClick = onRemove
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 格式化文件大小
+ */
+private fun formatFileSize(size: Long): String {
+    return when {
+        size < 1024 -> "$size B"
+        size < 1024 * 1024 -> "${size / 1024} KB"
+        size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+        else -> "${size / (1024 * 1024 * 1024)} GB"
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
             message = "Hello Android!",
+            selectedFiles = emptyList(),
             onRefreshClick = {},
             onUpdateClick = {},
-            onButtonClick = {}
+            onButtonClick = {},
+            onRemoveFile = {}
         )
     }
 }
