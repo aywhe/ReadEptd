@@ -28,42 +28,19 @@ class MainViewModel : ViewModel() {
     
     fun onEvent(event: MainUiEvent) {
         when (event) {
-            is MainUiEvent.UpdateGreeting -> updateGreeting(event.name)
-            is MainUiEvent.Refresh -> refreshData()
-            is MainUiEvent.OnButtonClick -> handleButtonClick()
+            is MainUiEvent.OnDragButtonClick -> handleDragButtonClick()
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
+            is MainUiEvent.RemoveFile -> removeFile(event.index)
         }
     }
     
     private fun loadInitialData() {
         viewModelScope.launch {
-            _uiState.value = MainUiState.Success("Hello Android!")
+            _uiState.value = MainUiState.Success()
         }
     }
-    
-    private fun updateGreeting(name: String) {
-        viewModelScope.launch {
-            _uiState.value = MainUiState.Loading
-            try {
-                _uiState.value = MainUiState.Success("Hello $name!")
-            } catch (e: Exception) {
-                _uiState.value = MainUiState.Error(e.message ?: "Unknown error")
-            }
-        }
-    }
-    
-    private fun refreshData() {
-        viewModelScope.launch {
-            _uiState.value = MainUiState.Loading
-            try {
-                _uiState.value = MainUiState.Success("Hello Android! (Refreshed)")
-            } catch (e: Exception) {
-                _uiState.value = MainUiState.Error(e.message ?: "Unknown error")
-            }
-        }
-    }
-    
-    private fun handleButtonClick() {
+
+    private fun handleDragButtonClick() {
         viewModelScope.launch {
             Log.d("MainViewModel", "浮动按钮被点击")
         }
@@ -92,10 +69,28 @@ class MainViewModel : ViewModel() {
                 val updatedFiles = existingFiles + newFiles
                 
                 _uiState.value = currentState.copy(
-                    selectedFiles = updatedFiles,
-                    message = "已选择 ${updatedFiles.size} 个文件"
+                    selectedFiles = updatedFiles
                 )
                 Log.d("MainViewModel", "文件列表已更新，共 ${updatedFiles.size} 个")
+            }
+        }
+    }
+    
+    private fun removeFile(index: Int) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is MainUiState.Success) {
+                if (index in currentState.selectedFiles.indices) {
+                    val updatedFiles = currentState.selectedFiles.toMutableList().apply {
+                        removeAt(index)
+                    }
+                    _uiState.value = currentState.copy(
+                        selectedFiles = updatedFiles
+                    )
+                    Log.d("MainViewModel", "文件已删除，剩余 ${updatedFiles.size} 个")
+                } else {
+                    Log.e("MainViewModel", "无效的文件索引: $index")
+                }
             }
         }
     }

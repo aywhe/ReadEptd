@@ -18,7 +18,6 @@ data class FileInfo(
 sealed interface MainUiState {
     object Loading : MainUiState
     data class Success(
-        val message: String,
         val selectedFiles: List<FileInfo> = emptyList()
     ) : MainUiState
     data class Error(val error: String) : MainUiState
@@ -28,8 +27,7 @@ sealed interface MainUiState {
  * UI 事件密封类 - 用户交互触发的事件
  */
 sealed interface MainUiEvent {
-    data class UpdateGreeting(val name: String) : MainUiEvent
-    object Refresh : MainUiEvent
-    object OnButtonClick : MainUiEvent
+    object OnDragButtonClick : MainUiEvent
     data class OnFilesSelected(val files: List<FileInfo>) : MainUiEvent
+    data class RemoveFile(val index: Int) : MainUiEvent
 }

@@ -135,20 +135,13 @@ fun MainScreen(
     when (val state = uiState) {
         is MainUiState.Loading -> LoadingScreen(modifier)
         is MainUiState.Success -> ContentScreen(
-            message = state.message,
             selectedFiles = state.selectedFiles,
-            onRefreshClick = { viewModel.onEvent(MainUiEvent.Refresh) },
-            onUpdateClick = { viewModel.onEvent(MainUiEvent.UpdateGreeting("Compose")) },
-            onButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
-            onRemoveFile = { index ->
-                val updatedFiles = state.selectedFiles.toMutableList().apply { removeAt(index) }
-                viewModel.onEvent(MainUiEvent.OnFilesSelected(emptyList()))
-            },
+            onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
+            onRemoveFile = { index -> viewModel.onEvent(MainUiEvent.RemoveFile(index)) },
             modifier = modifier
         )
         is MainUiState.Error -> ErrorScreen(
             error = state.error,
-            onRetryClick = { viewModel.onEvent(MainUiEvent.Refresh) },
             modifier = modifier
         )
     }
@@ -182,11 +175,8 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 
 @Composable
 fun ContentScreen(
-    message: String,
     selectedFiles: List<FileInfo>,
-    onRefreshClick: () -> Unit,
-    onUpdateClick: () -> Unit,
-    onButtonClick: () -> Unit,
+    onDragButtonClick: () -> Unit,
     onRemoveFile: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -196,30 +186,17 @@ fun ContentScreen(
                 .fillMaxSize()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.headlineMedium
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(onClick = onRefreshClick) {
-                Text(text = "刷新")
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Button(onClick = onUpdateClick) {
-                Text(text = "更新问候语")
-            }
-            
-            // 显示已选择的文件列表
-            if (selectedFiles.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
+            if (selectedFiles.isEmpty()) {
                 Text(
-                    text = "已选择文件:",
+                    text = "点击右下角按钮添加文件",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "已选择 ${selectedFiles.size} 个文件",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -239,7 +216,7 @@ fun ContentScreen(
         }
         
         DraggableFloatingButton(
-            onClick = onButtonClick
+            onClick = onDragButtonClick
         )
     }
 }
@@ -247,7 +224,6 @@ fun ContentScreen(
 @Composable
 fun ErrorScreen(
     error: String,
-    onRetryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -268,10 +244,6 @@ fun ErrorScreen(
         Text(text = error)
         
         Spacer(modifier = Modifier.height(16.dp))
-        
-        Button(onClick = onRetryClick) {
-            Text(text = "重试")
-        }
     }
 }
 
@@ -386,11 +358,8 @@ private fun formatFileSize(size: Long): String {
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
-            message = "Hello Android!",
             selectedFiles = emptyList(),
-            onRefreshClick = {},
-            onUpdateClick = {},
-            onButtonClick = {},
+            onDragButtonClick = {},
             onRemoveFile = {}
         )
     }
