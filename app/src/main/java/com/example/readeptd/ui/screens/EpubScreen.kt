@@ -1,8 +1,6 @@
 package com.example.readeptd.ui.screens
 
 import android.util.Log
-import android.webkit.WebChromeClient
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -128,6 +126,10 @@ private fun ReaderView(
             },
             update = { webView ->
                 // 可以在这里处理更新逻辑
+            },
+            onRelease = { webView ->
+                // 关键：清理资源，防止内存泄漏
+                webView.destroy()
             },
             modifier = Modifier.fillMaxSize()
         )

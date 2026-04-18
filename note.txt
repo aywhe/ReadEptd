@@ -1,0 +1,2 @@
+- 问题： epub.js总是不能翻页
+方法： rendition = book.renderTo("viewer" ...... 中忘了设置 snap: true

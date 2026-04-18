@@ -154,12 +154,13 @@
                     width: "100%",
                     height: "100%",
                     flow: "paginated", // 分页模式
-                    manager: "default",
+                    manager: "continuous",
                     spread: "auto",
+                    snap: true
                     // 启用触摸滑动
-                    swipeDelta: 50,
+                    // swipeDelta: 50,
                     // 确保 iframe 可以接收事件
-                    ignoreClass: "annotator-hl"
+                    // ignoreClass: "annotator-hl"
                 });
                 console.log('Renderer created');
                 
@@ -231,6 +232,7 @@
             } catch (error) {
                 console.error('Init error:', error);
                 showError("初始化失败: " + error.message);
+                hideLoading(); // 即使初始化失败也要隐藏 Loading，否则用户无法操作}
             }
         }
         
