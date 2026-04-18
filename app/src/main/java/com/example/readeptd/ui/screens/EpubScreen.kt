@@ -1,103 +1,57 @@
 package com.example.readeptd.ui.screens
 
-import android.content.Context
-import android.net.Uri
 import android.util.Log
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import io.hamed.htepubreadr.component.EpubReaderComponent
-import io.hamed.htepubreadr.entity.BookEntity
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.viewmodel.EpubUiEvent
+import com.example.readeptd.viewmodel.EpubUiState
+import com.example.readeptd.viewmodel.EpubViewModel
 import io.hamed.htepubreadr.ui.view.EpubView
 import io.hamed.htepubreadr.util.EpubUtil
-import java.io.File
 
 @Composable
 fun EpubScreen(
-    fileUri: Uri,
-    modifier: Modifier = Modifier
+    fileUri: android.net.Uri,
+    modifier: Modifier = Modifier,
+    viewModel: EpubViewModel = viewModel()
 ) {
-    val context = LocalContext.current
-    var epubReader by remember { mutableStateOf<EpubReaderComponent?>(null) }
-    var bookEntity by remember { mutableStateOf<BookEntity?>(null) }
-    var currentPageIndex by remember { mutableIntStateOf(0) }
-    var isReady by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsState()
     
-    DisposableEffect(fileUri) {
-        try {
-            val filePath = copyUriToTempFile(context, fileUri)
-            
-            if (filePath != null) {
-                epubReader = EpubReaderComponent(filePath)
-                val loadedBookEntity = epubReader?.make(context)
-                bookEntity = loadedBookEntity
-                
-                if (loadedBookEntity != null && loadedBookEntity.pagePathList.isNotEmpty()) {
-                    isReady = true
-                    currentPageIndex = 0
-                } else {
-                    errorMessage = "无法解析 EPUB 文件或文件为空"
-                }
-            } else {
-                errorMessage = "无法获取文件路径"
-            }
-        } catch (e: Exception) {
-            Log.e("EpubScreen", "打开 EPUB 文件失败", e)
-            errorMessage = "打开文件失败: ${e.message}"
-        }
-        
-        onDispose {
-            epubReader = null
-            bookEntity = null
-            isReady = false
-            errorMessage = null
-            currentPageIndex = 0
-        }
+    LaunchedEffect(fileUri) {
+        viewModel.onEvent(EpubUiEvent.LoadEpub(fileUri))
     }
     
-    when {
-        errorMessage != null -> {
-            ErrorView(errorMessage!!, modifier)
-        }
-        isReady && epubReader != null && bookEntity != null -> {
-            ReaderView(
-                epubReader = epubReader!!,
-                bookEntity = bookEntity!!,
-                currentPageIndex = currentPageIndex,
-                onPageChange = { newIndex ->
-                    currentPageIndex = newIndex
-                },
-                modifier = modifier
-            )
-        }
-        else -> {
-            LoadingView(modifier)
-        }
+    when (val state = uiState) {
+        is EpubUiState.Loading -> LoadingView(modifier)
+        is EpubUiState.Success -> ReaderView(
+            epubReader = state.epubReader,
+            bookEntity = state.bookEntity,
+            totalPages = state.totalPages,
+            currentPageIndex = viewModel.getCurrentPageIndex(),
+            onPageChange = { newIndex ->
+                viewModel.onEvent(EpubUiEvent.ChangePage(newIndex))
+            },
+            modifier = modifier
+        )
+        is EpubUiState.Error -> ErrorView(state.message, modifier)
     }
 }
 
@@ -109,143 +63,98 @@ private fun LoadingView(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center
     ) {
         CircularProgressIndicator()
-        Text(
-            text = "正在加载 EPUB...",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 16.dp)
-        )
+        Text("正在加载 EPUB...", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 16.dp))
     }
 }
 
 @Composable
-private fun ErrorView(errorMessage: String, modifier: Modifier = Modifier) {
+private fun ErrorView(message: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "错误",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.error
-        )
-        Text(
-            text = errorMessage,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        Text("错误", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.error)
+        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
     }
 }
 
 @Composable
 private fun ReaderView(
-    epubReader: EpubReaderComponent,
-    bookEntity: BookEntity,
+    epubReader: io.hamed.htepubreadr.component.EpubReaderComponent,
+    bookEntity: io.hamed.htepubreadr.entity.BookEntity,
+    totalPages: Int,
     currentPageIndex: Int,
     onPageChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val totalPages = bookEntity.pagePathList.size
-    
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
                 EpubView(ctx).apply {
                     setBaseUrl(epubReader.absolutePath)
                     loadChapter(currentPageIndex, epubReader)
-                    setOnHrefClickListener { href ->
-                        Log.d("EpubScreen", "点击链接: $href")
-                    }
+                    setOnHrefClickListener { href -> Log.d("EpubScreen", "点击链接: $href") }
                 }
             },
-            update = { epubView ->
-                epubView.loadChapter(currentPageIndex, epubReader)
-            },
+            update = { it.loadChapter(currentPageIndex, epubReader) },
             modifier = Modifier.fillMaxSize()
         )
         
-        NavigationBar(
-            currentPage = currentPageIndex,
-            totalPages = totalPages,
-            bookTitle = bookEntity.name ?: "未知书籍",
-            onPreviousClick = {
-                if (currentPageIndex > 0) {
-                    onPageChange(currentPageIndex - 1)
+        // 左侧点击区域 - 上一章
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(end = 100.dp)
+                .pointerInput(currentPageIndex) {
+                    detectTapGestures(onTap = {
+                        if (currentPageIndex > 0) onPageChange(currentPageIndex - 1)
+                    })
                 }
-            },
-            onNextClick = {
-                if (currentPageIndex < totalPages - 1) {
-                    onPageChange(currentPageIndex + 1)
-                }
-            },
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-        )
-    }
-}
-
-private fun EpubView.loadChapter(index: Int, epubReader: EpubReaderComponent) {
-    try {
-        val allPages = epubReader.make(context)?.pagePathList ?: return
-        if (index in allPages.indices) {
-            val content = EpubUtil.getHtmlContent(allPages[index])
-            setUp(content)
-        }
-    } catch (e: Exception) {
-        Log.e("EpubView", "加载章节失败: $index", e)
-    }
-}
-
-@Composable
-private fun NavigationBar(
-    currentPage: Int,
-    totalPages: Int,
-    bookTitle: String,
-    onPreviousClick: () -> Unit,
-    onNextClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.padding(8.dp).padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPreviousClick, enabled = currentPage > 0) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "上一章"
-            )
-        }
+        ) {}
         
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 右侧点击区域 - 下一章
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 100.dp)
+                .pointerInput(currentPageIndex, totalPages) {
+                    detectTapGestures(onTap = {
+                        if (currentPageIndex < totalPages - 1) onPageChange(currentPageIndex + 1)
+                    })
+                }
+        ) {}
+        
+        // 顶部显示章节信息
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                text = "第 ${currentPage + 1} / $totalPages 章",
-                style = MaterialTheme.typography.bodySmall
+                text = "第 ${currentPageIndex + 1} / $totalPages 章",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Text(
-                text = bookTitle,
+                text = bookEntity.name ?: "未知书籍",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 maxLines = 1
             )
         }
-        
-        IconButton(onClick = onNextClick, enabled = currentPage < totalPages - 1) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "下一章"
-            )
-        }
     }
 }
 
-private fun copyUriToTempFile(context: Context, uri: Uri): String? {
-    return try {
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val cacheFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.epub")
-            inputStream.copyTo(cacheFile.outputStream())
-            cacheFile.absolutePath
+private fun EpubView.loadChapter(index: Int, epubReader: io.hamed.htepubreadr.component.EpubReaderComponent) {
+    try {
+        val allPages = epubReader.make(context)?.pagePathList ?: return
+        if (index in allPages.indices) {
+            setUp(EpubUtil.getHtmlContent(allPages[index]))
         }
     } catch (e: Exception) {
-        e.printStackTrace()
-        null
+        Log.e("EpubView", "加载章节失败: $index", e)
     }
 }
