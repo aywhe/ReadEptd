@@ -8,12 +8,13 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.example.readeptd.data.FileInfo
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
  */
 @SuppressLint("SetJavaScriptEnabled")
-class EpubWebView(context: Context) : WebView(context) {
+class EpubWebView(val epubFilePath: String, context: Context) : WebView(context) {
     
     private var onPageChangedListener: ((String) -> Unit)? = null
     private var onLoadCompleteListener: ((Int) -> Unit)? = null
@@ -63,7 +64,7 @@ class EpubWebView(context: Context) : WebView(context) {
             
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                Log.d(TAG, "页面加载完成: $url")
+                Log.d(TAG, "文件加载完成: $url")
             }
             
             override fun onReceivedError(
@@ -97,15 +98,12 @@ class EpubWebView(context: Context) : WebView(context) {
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
         Log.d(TAG, "文件是否存在: ${java.io.File(epubFilePath).exists()}")
-        
-        // 等待页面加载完成后初始化
-        postDelayed({
-            Log.d(TAG, "执行 JavaScript 初始化...")
-            val jsCode = "window.EpubReader.init('$epubFilePath');"
-            evaluateJavascript(jsCode) { result ->
-                Log.d(TAG, "JavaScript 执行结果: $result")
-            }
-        }, 1000) // 增加等待时间到 1 秒，确保 HTML 完全加载
+
+        Log.d(TAG, "执行 JavaScript 初始化...")
+        val jsCode = "window.EpubReader.init('$epubFilePath');"
+        evaluateJavascript(jsCode) { result ->
+            Log.d(TAG, "JavaScript 执行结果: $result")
+        }
     }
     
     /**
@@ -182,6 +180,12 @@ class EpubWebView(context: Context) : WebView(context) {
         fun onError(message: String) {
             Log.e(TAG, "错误: $message")
             onErrorListener?.invoke(message)
+        }
+
+        @JavascriptInterface
+        fun onHtmlReady() {
+            Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
+            loadEpub(epubFilePath)
         }
     }
     

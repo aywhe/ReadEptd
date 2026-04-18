@@ -97,6 +97,10 @@
         let rendition = null;
         let currentLocation = null;
         let isLoaded = false;
+
+        window.onload = function() {
+            onHtmlReady();
+        };
         
         // Android 接口
         const Android = window.Android || {
@@ -108,6 +112,9 @@
             },
             onError: function(message) {
                 console.error('Error:', message);
+            },
+            onHtmlReady: function() {
+                console.log('html ready');
             }
         };
         
@@ -179,7 +186,7 @@
                         }).catch((err) => {
                             console.error('Location generation error:', err);
                         });
-                    }, 100); // 延迟 100ms，让首屏先渲染
+                    }, 20); // 延迟 20ms，让首屏先渲染
                     
                 }).catch((error) => {
                     console.error('Display error:', error);
