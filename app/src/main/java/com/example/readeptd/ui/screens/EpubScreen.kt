@@ -1,6 +1,8 @@
 package com.example.readeptd.ui.screens
 
 import android.util.Log
+import android.webkit.WebChromeClient
+import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -93,7 +95,7 @@ private fun ReaderView(
                 maxLines = 1
             )
             Text(
-                text = "EPUB 阅读器",
+                text = "EPUB 阅读器 · 左右滑动翻页",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -107,7 +109,15 @@ private fun ReaderView(
                         android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                         android.widget.FrameLayout.LayoutParams.MATCH_PARENT
                     )
-                    
+                    // --- WebView 核心设置 ---
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = true
+                    settings.allowContentAccess = true
+
+                    // 设置 WebViewClient 以确保本地文件加载正常
+                    webViewClient = WebViewClient()
+                    webChromeClient = WebChromeClient()
                     // 加载 EPUB 文件
                     loadEpub(filePath)
                     

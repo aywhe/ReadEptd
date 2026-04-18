@@ -19,17 +19,29 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            /* 确保触摸事件不会被阻止 */
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
         #viewer {
             width: 100%;
             height: 100%;
             position: relative;
+            /* 确保触摸事件能够正常工作 */
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
         }
         
         .epub-container {
             width: 100%;
             height: 100%;
+            /* 允许水平滑动 */
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
         }
         
         /* 加载指示器 */
@@ -138,11 +150,70 @@
                     height: "100%",
                     flow: "paginated", // 分页模式
                     manager: "default",
-                    spread: "none", // 单页显示
-                    minSpreadWidth: 9999, // 强制单页
-                    allowScriptedContent: true
+                    spread: "auto",
+                    // 启用触摸滑动
+                    swipeDelta: 50,
+                    // 确保 iframe 可以接收事件
+                    ignoreClass: "annotator-hl"
                 });
                 console.log('Renderer created');
+                
+                // 手动添加触摸事件处理（在 document 级别监听）
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let touchEndX = 0;
+                let touchEndY = 0;
+                const minSwipeDistance = 50; // 最小滑动距离
+                
+                // 在 document 上监听，确保能捕获所有触摸事件
+                document.addEventListener('touchstart', function(e) {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                    console.log('Touch start at:', touchStartX, touchStartY);
+                }, false);  // 不使用 passive，以便可以 preventDefault
+                
+                document.addEventListener('touchend', function(e) {
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+                    console.log('Touch end at:', touchEndX, touchEndY);
+                    handleSwipe();
+                }, false);
+                
+                // 阻止默认的滚动行为
+                // document.addEventListener('touchmove', function(e) {
+                //    e.preventDefault();
+                // }, { passive: false });
+                
+                function handleSwipe() {
+                    const swipeDistanceX = touchEndX - touchStartX;
+                    const swipeDistanceY = touchEndY - touchStartY;
+                    
+                    console.log('Swipe distance X:', swipeDistanceX, 'Y:', swipeDistanceY);
+                    
+                    // 只处理水平滑动，忽略垂直滑动
+                    if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY) && 
+                        Math.abs(swipeDistanceX) > minSwipeDistance) {
+                        if (swipeDistanceX > 0) {
+                            // 向右滑动 - 上一页
+                            console.log('Swipe right - prev page');
+                            rendition.prev().then(() => {
+                                console.log('Prev page success');
+                            }).catch((err) => {
+                                console.error('Prev page error:', err);
+                            });
+                        } else {
+                            // 向左滑动 - 下一页
+                            console.log('Swipe left - next page');
+                            rendition.next().then(() => {
+                                console.log('Next page success');
+                            }).catch((err) => {
+                                console.error('Next page error:', err);
+                            });
+                        }
+                    } else {
+                        console.log('Swipe ignored (too short or vertical)');
+                    }
+                }
                 
                 // 显示书籍
                 console.log('Displaying book...');

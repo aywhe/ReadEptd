@@ -34,6 +34,10 @@ class EpubWebView(context: Context) : WebView(context) {
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
         
+        // 关键：禁用滚动条，让 epub.js 处理滚动
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        
         // 允许从 file URL 加载内容（关键配置）
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
             settings.allowUniversalAccessFromFileURLs = true
@@ -72,6 +76,9 @@ class EpubWebView(context: Context) : WebView(context) {
                 Log.e(TAG, "WebView 错误: $errorCode - $description")
             }
         }
+        
+        // 设置 WebChromeClient（某些情况下需要）
+        webChromeClient = android.webkit.WebChromeClient()
         
         // 启用调试模式（开发时使用）
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
