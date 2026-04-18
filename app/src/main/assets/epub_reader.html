@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EPUB Reader</title>
+    <!-- 使用本地 JS 库，支持离线阅读 -->
+    <script src="js/jszip.min.js"></script>
+    <script src="js/epub.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        #viewer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .epub-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 加载指示器 */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 错误提示 */
+        #error {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #e74c3c;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>加载中...</div>
+    </div>
+    
+    <div id="error">
+        <h3>加载失败</h3>
+        <p id="error-message"></p>
+    </div>
+    
+    <div id="viewer"></div>
+    
+    <script>
+        let book = null;
+        let rendition = null;
+        let currentLocation = null;
+        let isLoaded = false;
+        
+        // Android 接口
+        const Android = window.Android || {
+            onPageChanged: function(location) {
+                console.log('Page changed:', location);
+            },
+            onLoadComplete: function(totalPages) {
+                console.log('Load complete, total pages:', totalPages);
+            },
+            onError: function(message) {
+                console.error('Error:', message);
+            }
+        };
+        
+        // 初始化阅读器
+        function initReader(epubUrl) {
+            if (isLoaded) {
+                console.log('Reader already initialized');
+                return;
+            }
+            
+            try {
+                console.log('Initializing reader with URL:', epubUrl);
+                
+                // 显示加载指示器
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('error').style.display = 'none';
+                
+                // 创建 EPUB 实例
+                book = ePub(epubUrl);
+                
+                // 创建渲染器 - 使用分页模式
+                rendition = book.renderTo("viewer", {
+                    width: "100%",
+                    height: "100%",
+                    flow: "paginated", // 分页模式
+                    manager: "default",
+                    spread: "none", // 单页显示
+                    minSpreadWidth: 9999, // 强制单页
+                    allowScriptedContent: true
+                });
+                
+                // 显示书籍
+                rendition.display().then(() => {
+                    console.log('Book displayed successfully');
+                    hideLoading();
+                    isLoaded = true;
+                    
+                    // 生成位置信息
+                    return book.locations.generate(1024);
+                }).then(() => {
+                    console.log('Locations generated');
+                    getTotalPages();
+                }).catch((error) => {
+                    console.error('Display error:', error);
+                    showError("显示书籍失败: " + error.message);
+                });
+                
+                // 监听位置变化
+                rendition.on("relocated", (location) => {
+                    currentLocation = location;
+                    const pageInfo = {
+                        start: location.start.cfi,
+                        end: location.end.cfi,
+                        startPercentage: location.start.percentage || 0,
+                        endPercentage: location.end.percentage || 0,
+                        currentPage: location.start.displayed.page || 1,
+                        totalPages: location.start.displayed.total || 1
+                    };
+                    
+                    console.log('Page relocated:', pageInfo);
+                    
+                    if (Android && Android.onPageChanged) {
+                        Android.onPageChanged(JSON.stringify(pageInfo));
+                    }
+                });
+                
+                // 监听渲染器调整大小
+                rendition.on("resized", (size) => {
+                    console.log('Renderer resized:', size);
+                });
+                
+                // 监听加载完成
+                book.ready.then(() => {
+                    console.log('Book ready');
+                    return book.loaded.metadata;
+                }).then((metadata) => {
+                    console.log('Book metadata loaded:', metadata);
+                }).catch((error) => {
+                    console.error('Book ready error:', error);
+                });
+                
+            } catch (error) {
+                console.error('Init error:', error);
+                showError("初始化失败: " + error.message);
+            }
+        }
+        
+        // 获取总页数
+        function getTotalPages() {
+            if (!book) return;
+            
+            // 尝试从 locations 获取
+            if (book.locations && book.locations.length()) {
+                const totalPages = book.locations.length();
+                if (Android && Android.onLoadComplete) {
+                    Android.onLoadComplete(totalPages);
+                }
+                return;
+            }
+            
+            // 或者从导航目录获取
+            book.loaded.navigation.then((toc) => {
+                const totalPages = toc.length;
+                if (Android && Android.onLoadComplete) {
+                    Android.onLoadComplete(totalPages);
+                }
+            }).catch((error) => {
+                console.error('Failed to get total pages:', error);
+                // 即使失败也通知 Android
+                if (Android && Android.onLoadComplete) {
+                    Android.onLoadComplete(0);
+                }
+            });
+        }
+        
+        // 跳转到指定位置
+        function goToLocation(cfi) {
+            if (rendition) {
+                rendition.display(cfi).catch((error) => {
+                    console.error('Failed to go to location:', error);
+                });
+            }
+        }
+        
+        // 上一页
+        function prevPage() {
+            if (rendition) {
+                rendition.prev().catch((error) => {
+                    console.error('Failed to go to previous page:', error);
+                });
+            }
+        }
+        
+        // 下一页
+        function nextPage() {
+            if (rendition) {
+                rendition.next().catch((error) => {
+                    console.error('Failed to go to next page:', error);
+                });
+            }
+        }
+        
+        // 跳转到百分比位置
+        function goToPercentage(percentage) {
+            if (book && percentage >= 0 && percentage <= 1) {
+                const cfi = book.locations.cfiFromPercentage(percentage);
+                if (cfi) {
+                    rendition.display(cfi);
+                }
+            }
+        }
+        
+        // 隐藏加载指示器
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // 显示错误
+        function showError(message) {
+            hideLoading();
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error-message').textContent = message;
+            
+            if (Android && Android.onError) {
+                Android.onError(message);
+            }
+        }
+        
+        // 暴露给 Android 的方法
+        window.EpubReader = {
+            init: initReader,
+            goToLocation: goToLocation,
+            prevPage: prevPage,
+            nextPage: nextPage,
+            goToPercentage: goToPercentage
+        };
+    </script>
+</body>
+</html>

@@ -6,8 +6,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.hamed.htepubreadr.component.EpubReaderComponent
-import io.hamed.htepubreadr.entity.BookEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,10 +15,8 @@ import java.io.File
 sealed class EpubUiState {
     object Loading : EpubUiState()
     data class Success(
-        val epubReader: EpubReaderComponent,
-        val bookEntity: BookEntity,
-        val pagePathList: List<String>,
-        val totalPages: Int
+        val filePath: String,
+        val bookTitle: String = "未知书籍"
     ) : EpubUiState()
     data class Error(val message: String) : EpubUiState()
 }
@@ -36,6 +32,7 @@ class EpubViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<EpubUiState> = _uiState.asStateFlow()
     
     private var currentPageIndex = 0
+    private var currentFilePath: String? = null
     
     init {
         Log.d("EpubViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -66,26 +63,28 @@ class EpubViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = EpubUiState.Loading
                 
                 val context = getApplication<Application>()
-                val filePath = copyUriToTempFile(context, fileUri)
                 
-                if (filePath != null) {
-                    val epubReader = EpubReaderComponent(filePath)
-                    val bookEntity = epubReader.make(context)
-                    
-                    if (bookEntity != null && bookEntity.pagePathList.isNotEmpty()) {
-                        currentPageIndex = 0
-                        _uiState.value = EpubUiState.Success(
-                            epubReader = epubReader,
-                            bookEntity = bookEntity,
-                            pagePathList = bookEntity.pagePathList,
-                            totalPages = bookEntity.pagePathList.size
-                        )
-                        Log.d("EpubViewModel", "成功加载 EPUB: ${bookEntity.name}, 共 ${bookEntity.pagePathList.size} 章")
-                    } else {
-                        _uiState.value = EpubUiState.Error("无法解析 EPUB 文件或文件为空")
-                    }
+                // 将 URI 复制到临时文件（如果需要）
+                val filePath = if (fileUri.scheme == "content") {
+                    copyUriToTempFile(context, fileUri)
                 } else {
-                    _uiState.value = EpubUiState.Error("无法获取文件路径")
+                    fileUri.path
+                }
+                
+                if (filePath != null && File(filePath).exists()) {
+                    currentFilePath = filePath
+                    currentPageIndex = 0
+                    
+                    // 从文件名提取书名
+                    val bookTitle = File(filePath).nameWithoutExtension
+                    
+                    _uiState.value = EpubUiState.Success(
+                        filePath = filePath,
+                        bookTitle = bookTitle
+                    )
+                    Log.d("EpubViewModel", "成功加载 EPUB: $bookTitle, 路径: $filePath")
+                } else {
+                    _uiState.value = EpubUiState.Error("无法访问 EPUB 文件")
                 }
             } catch (e: Exception) {
                 Log.e("EpubViewModel", "加载 EPUB 文件失败", e)
@@ -98,13 +97,8 @@ class EpubViewModel(application: Application) : AndroidViewModel(application) {
      * 处理页面切换
      */
     private fun handleChangePage(pageIndex: Int) {
-        val currentState = _uiState.value
-        if (currentState is EpubUiState.Success) {
-            if (pageIndex in 0 until currentState.totalPages) {
-                currentPageIndex = pageIndex
-                Log.d("EpubViewModel", "切换到第 ${pageIndex + 1} 章")
-            }
-        }
+        currentPageIndex = pageIndex
+        Log.d("EpubViewModel", "切换到第 ${pageIndex + 1} 页")
     }
     
     /**

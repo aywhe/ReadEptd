@@ -35,7 +35,6 @@ import com.example.readeptd.ui.screens.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.FormatUtils
 import com.example.readeptd.viewmodel.ContentViewModel
-import io.hamed.htepubreadr.ui.view.EpubView
 import androidx.core.net.toUri
 
 class ContentActivity : ComponentActivity() {

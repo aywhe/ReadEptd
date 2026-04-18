@@ -1,14 +1,11 @@
 package com.example.readeptd.ui.screens
 
 import android.util.Log
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,13 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.ui.views.EpubWebView
 import com.example.readeptd.viewmodel.EpubUiEvent
 import com.example.readeptd.viewmodel.EpubUiState
 import com.example.readeptd.viewmodel.EpubViewModel
-import io.hamed.htepubreadr.ui.view.EpubView
-import io.hamed.htepubreadr.util.EpubUtil
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EpubScreen(
     fileUri: android.net.Uri,
@@ -43,22 +38,9 @@ fun EpubScreen(
     when (val state = uiState) {
         is EpubUiState.Loading -> LoadingView(modifier)
         is EpubUiState.Success -> {
-            val totalPages = state.totalPages
-            val pagePathList = state.pagePathList
-            val pagerState = rememberPagerState(initialPage = viewModel.getCurrentPageIndex()) { totalPages }
-            
-            LaunchedEffect(pagerState.currentPage) {
-                if (pagerState.currentPage != viewModel.getCurrentPageIndex()) {
-                    viewModel.onEvent(EpubUiEvent.ChangePage(pagerState.currentPage))
-                }
-            }
-            
             ReaderView(
-                epubReader = state.epubReader,
-                bookEntity = state.bookEntity,
-                pagePathList = pagePathList,
-                totalPages = totalPages,
-                pagerState = pagerState,
+                filePath = state.filePath,
+                bookTitle = state.bookTitle,
                 modifier = modifier
             )
         }
@@ -90,64 +72,63 @@ private fun ErrorView(message: String, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReaderView(
-    epubReader: io.hamed.htepubreadr.component.EpubReaderComponent,
-    bookEntity: io.hamed.htepubreadr.entity.BookEntity,
-    pagePathList: List<String>,
-    totalPages: Int,
-    pagerState: androidx.compose.foundation.pager.PagerState,
+    filePath: String,
+    bookTitle: String,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
+        // 顶部信息栏
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "第 ${pagerState.currentPage + 1} / $totalPages 章",
+                text = bookTitle,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Text(
+                text = "EPUB 阅读器",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
-            Text(
-                text = bookEntity.name ?: "未知书籍",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                maxLines = 1
-            )
         }
         
-        HorizontalPager(
-            beyondViewportPageCount = 10,
-            state = pagerState,
+        // EPUB WebView
+        AndroidView(
+            factory = { context ->
+                EpubWebView(context).apply {
+                    layoutParams = android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                    
+                    // 加载 EPUB 文件
+                    loadEpub(filePath)
+                    
+                    // 设置监听器
+                    setOnPageChangedListener { locationJson ->
+                        Log.d("EpubScreen", "页面变化: $locationJson")
+                    }
+                    
+                    setOnLoadCompleteListener { totalPages ->
+                        Log.d("EpubScreen", "加载完成，共 $totalPages 页")
+                    }
+                    
+                    setOnErrorListener { errorMessage ->
+                        Log.e("EpubScreen", "错误: $errorMessage")
+                    }
+                }
+            },
+            update = { webView ->
+                // 可以在这里处理更新逻辑
+            },
             modifier = Modifier.fillMaxSize()
-        ) { page ->
-            AndroidView(
-                factory = { ctx ->
-                    EpubView(ctx).apply {
-                        setBaseUrl(epubReader.absolutePath)
-                        loadChapter(page, pagePathList)
-                        setOnHrefClickListener { href -> Log.d("EpubScreen", "点击链接: $href") }
-                    }
-                },
-                update = { epubView ->
-                    if (page == pagerState.currentPage) {
-                        epubView.loadChapter(page, pagePathList)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
-}
-
-private fun EpubView.loadChapter(index: Int, pagePathList: List<String>) {
-    try {
-        if (index in pagePathList.indices) {
-            setUp(EpubUtil.getHtmlContent(pagePathList[index]))
-        }
-    } catch (e: Exception) {
-        Log.e("EpubView", "加载章节失败: $index", e)
+        )
     }
 }
