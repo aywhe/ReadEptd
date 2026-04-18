@@ -44,6 +44,7 @@ fun EpubScreen(
         is EpubUiState.Loading -> LoadingView(modifier)
         is EpubUiState.Success -> {
             val totalPages = state.totalPages
+            val pagePathList = state.pagePathList
             val pagerState = rememberPagerState(initialPage = viewModel.getCurrentPageIndex()) { totalPages }
             
             LaunchedEffect(pagerState.currentPage) {
@@ -55,6 +56,7 @@ fun EpubScreen(
             ReaderView(
                 epubReader = state.epubReader,
                 bookEntity = state.bookEntity,
+                pagePathList = pagePathList,
                 totalPages = totalPages,
                 pagerState = pagerState,
                 modifier = modifier
@@ -93,6 +95,7 @@ private fun ErrorView(message: String, modifier: Modifier = Modifier) {
 private fun ReaderView(
     epubReader: io.hamed.htepubreadr.component.EpubReaderComponent,
     bookEntity: io.hamed.htepubreadr.entity.BookEntity,
+    pagePathList: List<String>,
     totalPages: Int,
     pagerState: androidx.compose.foundation.pager.PagerState,
     modifier: Modifier = Modifier
@@ -124,13 +127,13 @@ private fun ReaderView(
                 factory = { ctx ->
                     EpubView(ctx).apply {
                         setBaseUrl(epubReader.absolutePath)
-                        loadChapter(page, epubReader)
+                        loadChapter(page, pagePathList)
                         setOnHrefClickListener { href -> Log.d("EpubScreen", "点击链接: $href") }
                     }
                 },
                 update = { epubView ->
                     if (page == pagerState.currentPage) {
-                        epubView.loadChapter(page, epubReader)
+                        epubView.loadChapter(page, pagePathList)
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -139,11 +142,10 @@ private fun ReaderView(
     }
 }
 
-private fun EpubView.loadChapter(index: Int, epubReader: io.hamed.htepubreadr.component.EpubReaderComponent) {
+private fun EpubView.loadChapter(index: Int, pagePathList: List<String>) {
     try {
-        val allPages = epubReader.make(context)?.pagePathList ?: return
-        if (index in allPages.indices) {
-            setUp(EpubUtil.getHtmlContent(allPages[index]))
+        if (index in pagePathList.indices) {
+            setUp(EpubUtil.getHtmlContent(pagePathList[index]))
         }
     } catch (e: Exception) {
         Log.e("EpubView", "加载章节失败: $index", e)

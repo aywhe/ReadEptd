@@ -19,6 +19,7 @@ sealed class EpubUiState {
     data class Success(
         val epubReader: EpubReaderComponent,
         val bookEntity: BookEntity,
+        val pagePathList: List<String>,
         val totalPages: Int
     ) : EpubUiState()
     data class Error(val message: String) : EpubUiState()
@@ -76,6 +77,7 @@ class EpubViewModel(application: Application) : AndroidViewModel(application) {
                         _uiState.value = EpubUiState.Success(
                             epubReader = epubReader,
                             bookEntity = bookEntity,
+                            pagePathList = bookEntity.pagePathList,
                             totalPages = bookEntity.pagePathList.size
                         )
                         Log.d("EpubViewModel", "成功加载 EPUB: ${bookEntity.name}, 共 ${bookEntity.pagePathList.size} 章")
