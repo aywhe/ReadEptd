@@ -26,7 +26,9 @@ import com.example.readeptd.ui.ContentUiEvent
 import com.example.readeptd.ui.ContentUiState
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
+import com.example.readeptd.utils.FormatUtils
 import com.example.readeptd.viewmodel.ContentViewModel
+import androidx.core.net.toUri
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,7 +115,7 @@ fun FileContentScreen(
         )
 
         Text(
-            text = "文件大小: ${formatFileSize(fileInfo.fileSize)}",
+            text = "文件大小: ${FormatUtils.formatFileSize(fileInfo.fileSize)}",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -176,22 +178,13 @@ fun ErrorContentScreen(
     }
 }
 
-private fun formatFileSize(size: Long): String {
-    return when {
-        size < 1024 -> "$size B"
-        size < 1024 * 1024 -> "${size / 1024} KB"
-        size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
-        else -> "${size / (1024 * 1024 * 1024)} GB"
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun ContentScreenPreview() {
     ReadEptdTheme {
         FileContentScreen(
             fileInfo = FileInfo(
-                uri = android.net.Uri.parse("content://test"),
+                uri = "content://test".toUri(),
                 fileName = "测试文件.txt",
                 fileSize = 1024000,
                 mimeType = "text/plain",

@@ -77,6 +77,7 @@ import com.example.readeptd.data.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
+import com.example.readeptd.utils.FormatUtils
 import com.example.readeptd.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
@@ -585,7 +586,7 @@ fun FileItemCard(
                     ) {
                         // 显示文件大小和 MIME 类型
                         Text(
-                            text = formatFileSize(fileInfo.fileSize),
+                            text = FormatUtils.formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
                             //color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -672,18 +673,6 @@ fun FileItemCard(
                 }
             }
         )
-    }
-}
-
-/**
- * 格式化文件大小
- */
-private fun formatFileSize(size: Long): String {
-    return when {
-        size < 1024 -> "$size B"
-        size < 1024 * 1024 -> "${size / 1024} KB"
-        size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
-        else -> "${size / (1024 * 1024 * 1024)} GB"
     }
 }
 
