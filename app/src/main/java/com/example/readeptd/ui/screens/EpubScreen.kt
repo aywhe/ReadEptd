@@ -109,15 +109,6 @@ private fun ReaderView(
                         android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                         android.widget.FrameLayout.LayoutParams.MATCH_PARENT
                     )
-                    // --- WebView 核心设置 ---
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.allowFileAccess = true
-                    settings.allowContentAccess = true
-
-                    // 设置 WebViewClient 以确保本地文件加载正常
-                    webViewClient = WebViewClient()
-                    webChromeClient = WebChromeClient()
                     // 加载 EPUB 文件
                     loadEpub(filePath)
                     
