@@ -1,13 +1,14 @@
 package com.example.readeptd.ui.screens
 
 import android.util.Log
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,7 +18,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,6 +27,7 @@ import com.example.readeptd.viewmodel.EpubViewModel
 import io.hamed.htepubreadr.ui.view.EpubView
 import io.hamed.htepubreadr.util.EpubUtil
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EpubScreen(
     fileUri: android.net.Uri,
@@ -41,16 +42,24 @@ fun EpubScreen(
     
     when (val state = uiState) {
         is EpubUiState.Loading -> LoadingView(modifier)
-        is EpubUiState.Success -> ReaderView(
-            epubReader = state.epubReader,
-            bookEntity = state.bookEntity,
-            totalPages = state.totalPages,
-            currentPageIndex = viewModel.getCurrentPageIndex(),
-            onPageChange = { newIndex ->
-                viewModel.onEvent(EpubUiEvent.ChangePage(newIndex))
-            },
-            modifier = modifier
-        )
+        is EpubUiState.Success -> {
+            val totalPages = state.totalPages
+            val pagerState = rememberPagerState(initialPage = viewModel.getCurrentPageIndex()) { totalPages }
+            
+            LaunchedEffect(pagerState.currentPage) {
+                if (pagerState.currentPage != viewModel.getCurrentPageIndex()) {
+                    viewModel.onEvent(EpubUiEvent.ChangePage(pagerState.currentPage))
+                }
+            }
+            
+            ReaderView(
+                epubReader = state.epubReader,
+                bookEntity = state.bookEntity,
+                totalPages = totalPages,
+                pagerState = pagerState,
+                modifier = modifier
+            )
+        }
         is EpubUiState.Error -> ErrorView(state.message, modifier)
     }
 }
@@ -79,62 +88,22 @@ private fun ErrorView(message: String, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReaderView(
     epubReader: io.hamed.htepubreadr.component.EpubReaderComponent,
     bookEntity: io.hamed.htepubreadr.entity.BookEntity,
     totalPages: Int,
-    currentPageIndex: Int,
-    onPageChange: (Int) -> Unit,
+    pagerState: androidx.compose.foundation.pager.PagerState,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { ctx ->
-                EpubView(ctx).apply {
-                    setBaseUrl(epubReader.absolutePath)
-                    loadChapter(currentPageIndex, epubReader)
-                    setOnHrefClickListener { href -> Log.d("EpubScreen", "点击链接: $href") }
-                }
-            },
-            update = { it.loadChapter(currentPageIndex, epubReader) },
-            modifier = Modifier.fillMaxSize()
-        )
-        
-        // 左侧点击区域 - 上一章
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(end = 100.dp)
-                .pointerInput(currentPageIndex) {
-                    detectTapGestures(onTap = {
-                        if (currentPageIndex > 0) onPageChange(currentPageIndex - 1)
-                    })
-                }
-        ) {}
-        
-        // 右侧点击区域 - 下一章
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 100.dp)
-                .pointerInput(currentPageIndex, totalPages) {
-                    detectTapGestures(onTap = {
-                        if (currentPageIndex < totalPages - 1) onPageChange(currentPageIndex + 1)
-                    })
-                }
-        ) {}
-        
-        // 顶部显示章节信息
+    Column(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "第 ${currentPageIndex + 1} / $totalPages 章",
+                text = "第 ${pagerState.currentPage + 1} / $totalPages 章",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -143,6 +112,28 @@ private fun ReaderView(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 maxLines = 1
+            )
+        }
+        
+        HorizontalPager(
+            beyondViewportPageCount = 10,
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            AndroidView(
+                factory = { ctx ->
+                    EpubView(ctx).apply {
+                        setBaseUrl(epubReader.absolutePath)
+                        loadChapter(page, epubReader)
+                        setOnHrefClickListener { href -> Log.d("EpubScreen", "点击链接: $href") }
+                    }
+                },
+                update = { epubView ->
+                    if (page == pagerState.currentPage) {
+                        epubView.loadChapter(page, epubReader)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
