@@ -14,20 +14,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.ui.ContentUiEvent
 import com.example.readeptd.ui.ContentUiState
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.ui.screens.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.FormatUtils
 import com.example.readeptd.viewmodel.ContentViewModel
+import io.hamed.htepubreadr.ui.view.EpubView
 import androidx.core.net.toUri
 
 class ContentActivity : ComponentActivity() {
@@ -102,51 +110,22 @@ fun FileContentScreen(
     fileInfo: FileInfo,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Top
-    ) {
-        Text(
-            text = "文件名: ${fileInfo.fileName}",
-            style = MaterialTheme.typography.headlineSmall
-        )
-
-        Text(
-            text = "文件大小: ${FormatUtils.formatFileSize(fileInfo.fileSize)}",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        Text(
-            text = "文件类型: ${fileInfo.mimeType}",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-
-        fileInfo.totalPage?.let { totalPages ->
-            Text(
-                text = "总页数: $totalPages",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 4.dp)
+    // 根据 mimeType 分发到不同的 Screen
+    when (fileInfo.mimeType) {
+        "application/epub+zip" -> {
+            EpubScreen(
+                fileUri = fileInfo.uri,
+                modifier = modifier
             )
         }
-
-        fileInfo.currentPage?.let { currentPage ->
-            Text(
-                text = "当前页: $currentPage",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        fileInfo.progress?.let { progress ->
-            Text(
-                text = "阅读进度: ${(progress * 100).toInt()}%",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 4.dp)
+        // 未来可以添加更多格式支持
+        // "application/pdf" -> PdfScreen(fileInfo.uri, modifier)
+        // "text/plain" -> TextScreen(fileInfo.uri, modifier)
+        else -> {
+            // 不支持的格式，显示文件信息
+            UnsupportedFormatScreen(
+                fileInfo = fileInfo,
+                modifier = modifier
             )
         }
     }
@@ -175,6 +154,53 @@ fun ErrorContentScreen(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 8.dp)
         )
+    }
+}
+
+@Composable
+fun UnsupportedFormatScreen(
+    fileInfo: FileInfo,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = "文件名: ${fileInfo.fileName}",
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        Text(
+            text = "文件大小: ${formatFileSize(fileInfo.fileSize)}",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        Text(
+            text = "文件类型: ${fileInfo.mimeType}",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        Text(
+            text = "不支持的文件格式",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+    }
+}
+
+private fun formatFileSize(size: Long): String {
+    return when {
+        size < 1024 -> "$size B"
+        size < 1024 * 1024 -> "${size / 1024} KB"
+        size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+        else -> "${size / (1024 * 1024 * 1024)} GB"
     }
 }
 
