@@ -34,6 +34,17 @@ class EpubWebView(context: Context) : WebView(context) {
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
         
+        // 允许从 file URL 加载内容（关键配置）
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+            settings.allowUniversalAccessFromFileURLs = true
+            settings.allowFileAccessFromFileURLs = true
+        }
+        
+        // 混合内容模式（如果需要）
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        }
+        
         // 添加 JavaScript 接口
         addJavascriptInterface(AndroidBridge(), "Android")
         
@@ -50,6 +61,21 @@ class EpubWebView(context: Context) : WebView(context) {
                 super.onPageFinished(view, url)
                 Log.d(TAG, "页面加载完成: $url")
             }
+            
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                super.onReceivedError(view, errorCode, description, failingUrl)
+                Log.e(TAG, "WebView 错误: $errorCode - $description")
+            }
+        }
+        
+        // 启用调试模式（开发时使用）
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            setWebContentsDebuggingEnabled(true)
         }
         
         // 加载 HTML 文件
@@ -61,13 +87,18 @@ class EpubWebView(context: Context) : WebView(context) {
      * @param epubFilePath EPUB 文件的绝对路径
      */
     fun loadEpub(epubFilePath: String) {
-        Log.d(TAG, "加载 EPUB 文件: $epubFilePath")
+        Log.d(TAG, "========== 开始加载 EPUB ==========")
+        Log.d(TAG, "EPUB 文件路径: $epubFilePath")
+        Log.d(TAG, "文件是否存在: ${java.io.File(epubFilePath).exists()}")
         
         // 等待页面加载完成后初始化
         postDelayed({
+            Log.d(TAG, "执行 JavaScript 初始化...")
             val jsCode = "window.EpubReader.init('$epubFilePath');"
-            evaluateJavascript(jsCode, null)
-        }, 500)
+            evaluateJavascript(jsCode) { result ->
+                Log.d(TAG, "JavaScript 执行结果: $result")
+            }
+        }, 1000) // 增加等待时间到 1 秒，确保 HTML 完全加载
     }
     
     /**

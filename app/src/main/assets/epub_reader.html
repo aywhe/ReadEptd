@@ -104,6 +104,11 @@
         
         // 初始化阅读器
         function initReader(epubUrl) {
+            console.log('=== EPUB Reader Init Start ===');
+            console.log('EPUB URL:', epubUrl);
+            console.log('ePub function exists:', typeof ePub !== 'undefined');
+            console.log('JSZip exists:', typeof JSZip !== 'undefined');
+            
             if (isLoaded) {
                 console.log('Reader already initialized');
                 return;
@@ -116,10 +121,18 @@
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('error').style.display = 'none';
                 
+                // 检查 ePub 函数是否存在
+                if (typeof ePub === 'undefined') {
+                    throw new Error('ePub library not loaded. Check js/epub.min.js file.');
+                }
+                
                 // 创建 EPUB 实例
+                console.log('Creating ePub instance...');
                 book = ePub(epubUrl);
+                console.log('ePub instance created:', book);
                 
                 // 创建渲染器 - 使用分页模式
+                console.log('Creating renderer...');
                 rendition = book.renderTo("viewer", {
                     width: "100%",
                     height: "100%",
@@ -129,20 +142,24 @@
                     minSpreadWidth: 9999, // 强制单页
                     allowScriptedContent: true
                 });
+                console.log('Renderer created');
                 
                 // 显示书籍
+                console.log('Displaying book...');
                 rendition.display().then(() => {
                     console.log('Book displayed successfully');
                     hideLoading();
                     isLoaded = true;
                     
                     // 生成位置信息
+                    console.log('Generating locations...');
                     return book.locations.generate(1024);
                 }).then(() => {
                     console.log('Locations generated');
                     getTotalPages();
                 }).catch((error) => {
                     console.error('Display error:', error);
+                    console.error('Error stack:', error.stack);
                     showError("显示书籍失败: " + error.message);
                 });
                 
