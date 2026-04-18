@@ -19,29 +19,19 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            /* 确保触摸事件不会被阻止 */
-            touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
         }
         
         #viewer {
             width: 100%;
             height: 100%;
             position: relative;
-            /* 确保触摸事件能够正常工作 */
-            touch-action: pan-y;
-            -webkit-overflow-scrolling: touch;
+            /* 确保 viewer 在最上层 */
+            z-index: 1;
         }
         
         .epub-container {
             width: 100%;
             height: 100%;
-            /* 允许水平滑动 */
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
         }
         
         /* 加载指示器 */
@@ -52,6 +42,13 @@
             transform: translate(-50%, -50%);
             text-align: center;
             z-index: 1000;
+            /* 隐藏时不阻挡事件 */
+            pointer-events: none;
+        }
+        
+        /* 当 loading 显示时，允许交互 */
+        #loading[style*="display: block"] {
+            pointer-events: auto;
         }
         
         .spinner {
@@ -121,13 +118,21 @@
             console.log('ePub function exists:', typeof ePub !== 'undefined');
             console.log('JSZip exists:', typeof JSZip !== 'undefined');
             
-            if (isLoaded) {
-                console.log('Reader already initialized');
-                return;
-            }
-            
             try {
                 console.log('Initializing reader with URL:', epubUrl);
+                
+                // 销毁旧的 rendition（如果存在）
+                if (rendition) {
+                    console.log('Destroying old rendition...');
+                    rendition.destroy();
+                    rendition = null;
+                }
+                if (book) {
+                    console.log('Destroying old book...');
+                    book.destroy();
+                    book = null;
+                }
+                isLoaded = false;
                 
                 // 显示加载指示器
                 document.getElementById('loading').style.display = 'block';
@@ -158,98 +163,53 @@
                 });
                 console.log('Renderer created');
                 
-                // 手动添加触摸事件处理（在 document 级别监听）
-                let touchStartX = 0;
-                let touchStartY = 0;
-                let touchEndX = 0;
-                let touchEndY = 0;
-                const minSwipeDistance = 50; // 最小滑动距离
-                
-                // 在 document 上监听，确保能捕获所有触摸事件
-                document.addEventListener('touchstart', function(e) {
-                    touchStartX = e.changedTouches[0].screenX;
-                    touchStartY = e.changedTouches[0].screenY;
-                    console.log('Touch start at:', touchStartX, touchStartY);
-                }, false);  // 不使用 passive，以便可以 preventDefault
-                
-                document.addEventListener('touchend', function(e) {
-                    touchEndX = e.changedTouches[0].screenX;
-                    touchEndY = e.changedTouches[0].screenY;
-                    console.log('Touch end at:', touchEndX, touchEndY);
-                    handleSwipe();
-                }, false);
-                
-                // 阻止默认的滚动行为
-                // document.addEventListener('touchmove', function(e) {
-                //    e.preventDefault();
-                // }, { passive: false });
-                
-                function handleSwipe() {
-                    const swipeDistanceX = touchEndX - touchStartX;
-                    const swipeDistanceY = touchEndY - touchStartY;
-                    
-                    console.log('Swipe distance X:', swipeDistanceX, 'Y:', swipeDistanceY);
-                    
-                    // 只处理水平滑动，忽略垂直滑动
-                    if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY) && 
-                        Math.abs(swipeDistanceX) > minSwipeDistance) {
-                        if (swipeDistanceX > 0) {
-                            // 向右滑动 - 上一页
-                            console.log('Swipe right - prev page');
-                            rendition.prev().then(() => {
-                                console.log('Prev page success');
-                            }).catch((err) => {
-                                console.error('Prev page error:', err);
-                            });
-                        } else {
-                            // 向左滑动 - 下一页
-                            console.log('Swipe left - next page');
-                            rendition.next().then(() => {
-                                console.log('Next page success');
-                            }).catch((err) => {
-                                console.error('Next page error:', err);
-                            });
-                        }
-                    } else {
-                        console.log('Swipe ignored (too short or vertical)');
-                    }
-                }
-                
-                // 显示书籍
+                // 显示书籍（不等待 locations 生成）
                 console.log('Displaying book...');
                 rendition.display().then(() => {
                     console.log('Book displayed successfully');
                     hideLoading();
                     isLoaded = true;
                     
-                    // 生成位置信息
-                    console.log('Generating locations...');
-                    return book.locations.generate(1024);
-                }).then(() => {
-                    console.log('Locations generated');
-                    getTotalPages();
+                    // 异步生成位置信息（不阻塞首屏）
+                    console.log('Generating locations asynchronously...');
+                    setTimeout(() => {
+                        book.locations.generate(1024).then(() => {
+                            console.log('Locations generated');
+                        }).catch((err) => {
+                            console.error('Location generation error:', err);
+                        });
+                    }, 100); // 延迟 100ms，让首屏先渲染
+                    
                 }).catch((error) => {
                     console.error('Display error:', error);
                     console.error('Error stack:', error.stack);
                     showError("显示书籍失败: " + error.message);
                 });
                 
-                // 监听位置变化
+                // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
+                    const totalPages = location.start.displayed.total || 1;
+                    const currentPage = location.start.displayed.page || 1;
+                    
                     const pageInfo = {
                         start: location.start.cfi,
                         end: location.end.cfi,
                         startPercentage: location.start.percentage || 0,
                         endPercentage: location.end.percentage || 0,
-                        currentPage: location.start.displayed.page || 1,
-                        totalPages: location.start.displayed.total || 1
+                        currentPage: currentPage,
+                        totalPages: totalPages
                     };
                     
                     console.log('Page relocated:', pageInfo);
                     
                     if (Android && Android.onPageChanged) {
                         Android.onPageChanged(JSON.stringify(pageInfo));
+                    }
+                    
+                    // 通知 Android 总页数（动态更新）
+                    if (Android && Android.onLoadComplete) {
+                        Android.onLoadComplete(totalPages);
                     }
                 });
                 
@@ -274,34 +234,7 @@
             }
         }
         
-        // 获取总页数
-        function getTotalPages() {
-            if (!book) return;
-            
-            // 尝试从 locations 获取
-            if (book.locations && book.locations.length()) {
-                const totalPages = book.locations.length();
-                if (Android && Android.onLoadComplete) {
-                    Android.onLoadComplete(totalPages);
-                }
-                return;
-            }
-            
-            // 或者从导航目录获取
-            book.loaded.navigation.then((toc) => {
-                const totalPages = toc.length;
-                if (Android && Android.onLoadComplete) {
-                    Android.onLoadComplete(totalPages);
-                }
-            }).catch((error) => {
-                console.error('Failed to get total pages:', error);
-                // 即使失败也通知 Android
-                if (Android && Android.onLoadComplete) {
-                    Android.onLoadComplete(0);
-                }
-            });
-        }
-        
+
         // 跳转到指定位置
         function goToLocation(cfi) {
             if (rendition) {
@@ -341,7 +274,12 @@
         
         // 隐藏加载指示器
         function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
+            const loadingEl = document.getElementById('loading');
+            loadingEl.style.display = 'none';
+            // 确保完全移除，不阻挡事件
+            loadingEl.style.visibility = 'hidden';
+            loadingEl.style.pointerEvents = 'none';
+            console.log('Loading indicator hidden, viewer should be interactive');
         }
         
         // 显示错误
