@@ -574,19 +574,19 @@ fun FileItemCard(
                         Text(
                             text = Utils.formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
-                            //color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = fileInfo.mimeType,
                             style = MaterialTheme.typography.bodySmall,
-                            //color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // 显示阅读进度
                         progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
-                                //color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (isFileAccessible == false) {
