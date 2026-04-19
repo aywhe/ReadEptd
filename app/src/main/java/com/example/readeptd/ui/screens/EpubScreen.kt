@@ -2,6 +2,7 @@ package com.example.readeptd.ui.screens
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,44 +71,52 @@ fun EpubScreen(
                     )
                 }
             }
+
             is EpubUiState.Ready -> {
-                // 准备完成，显示 WebView
-                AndroidView(
-                    factory = { context ->
-                        EpubWebView(state.tempFilePath, context).apply {
-                            layoutParams = android.widget.FrameLayout.LayoutParams(
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                            )
-                            
-                            // 设置页面变化监听器，自动保存阅读进度
-                            setOnPageChangedListener { locationJson ->
-                                Log.d("EpubScreen", "页面变化: $locationJson")
-                                // TODO: 解析 locationJson 并保存进度
-                                // 示例：viewModel.saveProgress(cfi, page, totalPages, progress)
-                            }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // 准备完成，显示 WebView
+                    AndroidView(
+                        factory = { context ->
+                            EpubWebView(state.tempFilePath, context).apply {
+                                layoutParams = android.widget.FrameLayout.LayoutParams(
+                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                                )
 
-                            setOnLoadCompleteListener { totalPages ->
-                                Log.d("EpubScreen", "加载完成，共 $totalPages 页")
-                                // TODO: 恢复阅读进度
-                            }
+                                // 设置页面变化监听器，自动保存阅读进度
+                                setOnPageChangedListener { locationJson ->
+                                    Log.d("EpubScreen", "页面变化: $locationJson")
+                                    // TODO: 解析 locationJson 并保存进度
+                                    // 示例：viewModel.saveProgress(cfi, page, totalPages, progress)
+                                }
 
-                            setOnErrorListener { errorMessage ->
-                                Log.e("EpubScreen", "错误: $errorMessage")
+                                setOnLoadCompleteListener { totalPages ->
+                                    Log.d("EpubScreen", "加载完成，共 $totalPages 页")
+                                    // TODO: 恢复阅读进度
+                                }
+
+                                setOnErrorListener { errorMessage ->
+                                    Log.e("EpubScreen", "错误: $errorMessage")
+                                }
                             }
-                        }
-                    },
-                    update = { webView ->
-                        // 可以在这里处理更新逻辑
-                    },
-                    onRelease = { webView ->
-                        Log.d("EpubScreen", "AndroidView 销毁")
-                        // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
-                        webView.destroy()
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                        },
+                        update = { webView ->
+                            // 可以在这里处理更新逻辑
+                        },
+                        onRelease = { webView ->
+                            Log.d("EpubScreen", "AndroidView 销毁")
+                            // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+                            webView.destroy()
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
+
             is EpubUiState.Error -> {
                 // 显示错误
                 Column(

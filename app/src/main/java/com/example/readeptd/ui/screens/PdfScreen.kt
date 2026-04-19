@@ -70,23 +70,31 @@ fun PdfScreen(
                     )
                 }
             }
+
             is PdfUiState.Ready -> {
-                // 加载完成，显示 PDF
-                AndroidView(
-                    factory = { context ->
-                        PdfView(context).apply {
-                            viewModel.getPdfDocument()?.let { doc ->
-                                pdfDocument = doc
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // 加载完成，显示 PDF
+                    AndroidView(
+                        factory = { context ->
+                            PdfView(context).apply {
+                                viewModel.getPdfDocument()?.let { doc ->
+                                    pdfDocument = doc
+                                }
                             }
-                        }
-                    },
-                    onRelease = { pdfView ->
-                        Log.d("PdfScreen", "PDF View 销毁")
-                        pdfView.pdfDocument?.close()
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                        },
+                        onRelease = { pdfView ->
+                            Log.d("PdfScreen", "PDF View 销毁")
+                            pdfView.pdfDocument?.close()
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
+
             is PdfUiState.Error -> {
                 // 显示错误
                 Column(
