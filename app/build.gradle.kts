@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.readeptd"
-        minSdk = 24
+        minSdk = 35
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -59,5 +59,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
-    
+    implementation("androidx.pdf:pdf-viewer:1.0.0-alpha16")
+    implementation("androidx.pdf:pdf-viewer-fragment:1.0.0-alpha16")
+    implementation("androidx.pdf:pdf-compose:1.0.0-alpha16")
 }

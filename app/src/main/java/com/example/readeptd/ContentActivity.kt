@@ -36,6 +36,7 @@ import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
+import com.example.readeptd.ui.screens.PdfScreen
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,6 +114,12 @@ fun FileContentScreen(
     when (fileInfo.mimeType) {
         "application/epub+zip" -> {
             EpubScreen(
+                fileInfo = fileInfo,
+                modifier = modifier
+            )
+        }
+        "application/pdf" -> {
+            PdfScreen(
                 fileInfo = fileInfo,
                 modifier = modifier
             )
