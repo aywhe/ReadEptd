@@ -1,6 +1,5 @@
 package com.example.readeptd
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -71,13 +70,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.FormatUtils
+import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
@@ -176,7 +176,7 @@ fun MainScreen(
                     )
 
                     FileInfo(
-                        uri = uri,
+                        uri = uri.toString(),
                         fileName = fileName,
                         fileSize = fileSize,
                         mimeType = mimeType
@@ -256,7 +256,7 @@ fun MainScreen(
                     val fileToRemove = state.readingFiles[index]
                     try {
                         context.contentResolver.releasePersistableUriPermission(
-                            fileToRemove.uri,
+                            fileToRemove.uri.toUri(),
                             Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
                         Log.d("MainActivity", "已释放 URI 读取权限: ${fileToRemove.uri}")
@@ -360,7 +360,7 @@ fun ContentScreen(
         }
     )
     val scope = rememberCoroutineScope()
-    LaunchedEffect(files.lastOrNull()?.uri.toString()) {
+    LaunchedEffect(files.lastOrNull()?.uri) {
         if (files.isNotEmpty()
             && !isMovingFile
         ) {
@@ -396,11 +396,11 @@ fun ContentScreen(
                 ) {
                     items(
                         count = files.size,
-                        key = { index -> files[index].uri.toString() }
+                        key = { index -> files[index].uri }
                     ) { index ->
                         ReorderableItem(
                             state = reorderableState,
-                            key = files[index].uri.toString(),
+                            key = files[index].uri,
                             modifier = Modifier.fillMaxWidth()
                         ) { isDragging ->
                             val animatedScale by animateFloatAsState(
@@ -499,21 +499,6 @@ fun DraggableFloatingButton(
 }
 
 /**
- * 检查 URI 指向的资源是否仍然存在且可访问
- */
-fun Context.uriExists(uri: Uri): Boolean {
-    return try {
-        // 尝试查询元数据，如果能查到至少一列，说明文件存在
-        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            cursor.count > 0
-        } ?: false
-    } catch (e: Exception) {
-        false
-    }
-}
-
-
-/**
  * 文件列表项卡片
  */
 @Composable
@@ -532,7 +517,7 @@ fun FileItemCard(
 
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
-            isFileAccessible = context.uriExists(fileInfo.uri)
+            isFileAccessible = Utils.uriExists(context, fileInfo.uri)
         }
     }
 
@@ -587,7 +572,7 @@ fun FileItemCard(
                     ) {
                         // 显示文件大小和 MIME 类型
                         Text(
-                            text = FormatUtils.formatFileSize(fileInfo.fileSize),
+                            text = Utils.formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
                             //color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

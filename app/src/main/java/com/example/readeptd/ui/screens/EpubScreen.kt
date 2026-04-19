@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.views.EpubWebView
@@ -33,7 +34,7 @@ fun EpubScreen(
 
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareEpubFile(fileInfo.uri, fileInfo.fileName)
+        viewModel.prepareEpubFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
     Column(modifier = modifier.fillMaxSize()) {

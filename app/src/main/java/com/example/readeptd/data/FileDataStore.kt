@@ -37,7 +37,7 @@ class FileDataStore(private val context: Context) {
             val jsonArray = JSONArray()
             files.forEach { file ->
                 val jsonObject = JSONObject().apply {
-                    put("uri", file.uri.toString())
+                    put("uri", file.uri)
                     put("fileName", file.fileName)
                     put("fileSize", file.fileSize)
                     put("mimeType", file.mimeType)
@@ -61,7 +61,7 @@ class FileDataStore(private val context: Context) {
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val fileInfo = FileInfo(
-                        uri = android.net.Uri.parse(jsonObject.getString("uri")),
+                        uri = jsonObject.getString("uri"),
                         fileName = jsonObject.getString("fileName"),
                         fileSize = jsonObject.getLong("fileSize"),
                         mimeType = jsonObject.getString("mimeType"),

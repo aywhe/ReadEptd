@@ -33,7 +33,7 @@ import com.example.readeptd.ui.ContentUiState
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.screens.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.FormatUtils
+import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
 
@@ -66,8 +66,8 @@ fun ContentScreen(
     viewModel: ContentViewModel = viewModel()
 ) {
     // 在首次组合或 fileInfo 变化时加载文件信息
-    // 使用 fileInfo?.uri.toString() 作为 key，确保不同文件能正确触发
-    LaunchedEffect(fileInfo?.uri.toString()) {
+    // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
+    LaunchedEffect(fileInfo?.uri) {
         viewModel.onEvent(ContentUiEvent.Initialize(fileInfo))
     }
 
@@ -174,7 +174,7 @@ fun UnsupportedFormatScreen(
         )
 
         Text(
-            text = "文件大小: ${formatFileSize(fileInfo.fileSize)}",
+            text = "文件大小: ${Utils.formatFileSize(fileInfo.fileSize)}",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -194,22 +194,13 @@ fun UnsupportedFormatScreen(
     }
 }
 
-private fun formatFileSize(size: Long): String {
-    return when {
-        size < 1024 -> "$size B"
-        size < 1024 * 1024 -> "${size / 1024} KB"
-        size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
-        else -> "${size / (1024 * 1024 * 1024)} GB"
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun ContentScreenPreview() {
     ReadEptdTheme {
         FileContentScreen(
             fileInfo = FileInfo(
-                uri = "content://test".toUri(),
+                uri = "content://test",
                 fileName = "测试文件.txt",
                 fileSize = 1024000,
                 mimeType = "text/plain"
