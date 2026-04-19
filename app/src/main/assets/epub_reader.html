@@ -104,6 +104,28 @@
                 Android.onHtmlReady();
             }
         };
+
+        function clearRendition(){
+            // 销毁旧的 rendition（如果存在）
+            if (rendition) {
+                console.log('Destroying old rendition...');
+                rendition.destroy();
+                rendition = null;
+            }
+        }
+        function clearBook(){
+            if (book) {
+                console.log('Destroying old book...');
+                book.destroy();
+                book = null;
+            }
+        }
+
+        window.onunload = function() {
+            // 清理资源
+            clearRendition();
+            clearBook();
+        };
         
         // Android 接口
         const Android = window.Android || {
@@ -130,18 +152,11 @@
             
             try {
                 console.log('Initializing reader with URL:', epubUrl);
-                
-                // 销毁旧的 rendition（如果存在）
-                if (rendition) {
-                    console.log('Destroying old rendition...');
-                    rendition.destroy();
-                    rendition = null;
-                }
-                if (book) {
-                    console.log('Destroying old book...');
-                    book.destroy();
-                    book = null;
-                }
+
+                // 清理资源
+                clearRendition();
+                clearBook();
+
                 isLoaded = false;
                 
                 // 显示加载指示器
@@ -304,6 +319,12 @@
                 Android.onError(message);
             }
         }
+        // 清理资源
+        function cleanUp() {
+            console.log('Resources cleaned up');
+            clearRendition();
+            clearBook();
+        }
         
         // 暴露给 Android 的方法
         window.EpubReader = {
@@ -311,7 +332,8 @@
             goToLocation: goToLocation,
             prevPage: prevPage,
             nextPage: nextPage,
-            goToPercentage: goToPercentage
+            goToPercentage: goToPercentage,
+            cleanUp: cleanUp
         };
     </script>
 </body>

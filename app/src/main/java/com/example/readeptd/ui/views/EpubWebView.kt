@@ -25,6 +25,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     init {
         setupWebView()
     }
+
+    override fun destroy() {
+        Log.d(TAG, "EpubWebView 销毁")
+        cleanUpNative()
+        super.destroy()
+    }
     
     private fun setupWebView() {
         // 启用 JavaScript
@@ -137,6 +143,17 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      */
     fun goToPercentage(percentage: Double) {
         val jsCode = "window.EpubReader.goToPercentage($percentage);"
+        evaluateJavascript(jsCode, null)
+    }
+
+    /**
+     * 清理 WebView 资源
+     */
+    private fun cleanUpNative() {
+        Log.d(TAG, "清理 WebView 资源")
+        // 这里可以执行一些 JavaScript 来清理 epub.js 的资源
+        // 例如：window.EpubReader.destroy()，如果 epub.js 提供了这样的接口
+        val jsCode = "window.EpubReader.cleanUp();"
         evaluateJavascript(jsCode, null)
     }
     

@@ -20,12 +20,22 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.views.EpubWebView
+import com.example.readeptd.viewmodel.EpubUiState
+import com.example.readeptd.viewmodel.EpubViewModel
 
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: EpubViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    // 准备 EPUB 文件
+    LaunchedEffect(fileInfo.uri) {
+        viewModel.prepareEpubFile(fileInfo.uri, fileInfo.fileName)
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         // 顶部信息栏
         Column(
@@ -40,43 +50,72 @@ fun EpubScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1
             )
-            Text(
-                text = "EPUB 阅读器 · 左右滑动翻页",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
         }
 
-        // EPUB WebView
-        AndroidView(
-            factory = { context ->
-                EpubWebView(fileInfo.uri.path ?: "",context).apply {
-                    layoutParams = android.widget.FrameLayout.LayoutParams(
-                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        // 根据状态显示不同内容
+        when (val state = uiState) {
+            is EpubUiState.Loading -> {
+                // 加载中
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "准备阅读器...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 16.dp)
                     )
-                    // 设置监听器
-                    setOnPageChangedListener { locationJson ->
-                        Log.d("EpubScreen", "页面变化: $locationJson")
-                    }
-
-                    setOnLoadCompleteListener { totalPages ->
-                        Log.d("EpubScreen", "加载完成，共 $totalPages 页")
-                    }
-
-                    setOnErrorListener { errorMessage ->
-                        Log.e("EpubScreen", "错误: $errorMessage")
-                    }
                 }
-            },
-            update = { webView ->
-                // 可以在这里处理更新逻辑
-            },
-            onRelease = { webView ->
-                // 关键：清理资源，防止内存泄漏
-                webView.destroy()
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
+            is EpubUiState.Ready -> {
+                // 准备完成，显示 WebView
+                AndroidView(
+                    factory = { context ->
+                        EpubWebView(state.tempFilePath, context).apply {
+                            layoutParams = android.widget.FrameLayout.LayoutParams(
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                            )
+                            setOnPageChangedListener { locationJson ->
+                                Log.d("EpubScreen", "页面变化: $locationJson")
+                            }
+
+                            setOnLoadCompleteListener { totalPages ->
+                                Log.d("EpubScreen", "加载完成，共 $totalPages 页")
+                            }
+
+                            setOnErrorListener { errorMessage ->
+                                Log.e("EpubScreen", "错误: $errorMessage")
+                            }
+                        }
+                    },
+                    update = { webView ->
+                        // 可以在这里处理更新逻辑
+                    },
+                    onRelease = { webView ->
+                        Log.d("EpubScreen", "AndroidView 销毁")
+                        // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+                        webView.destroy()
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            is EpubUiState.Error -> {
+                // 显示错误
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
     }
 }
