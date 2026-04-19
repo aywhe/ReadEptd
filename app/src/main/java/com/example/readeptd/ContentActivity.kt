@@ -113,7 +113,7 @@ fun FileContentScreen(
     when (fileInfo.mimeType) {
         "application/epub+zip" -> {
             EpubScreen(
-                fileUri = fileInfo.uri,
+                fileInfo = fileInfo,
                 modifier = modifier
             )
         }

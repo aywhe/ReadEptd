@@ -2,6 +2,8 @@ package com.example.readeptd.ui.views
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -175,7 +177,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             Log.d(TAG, "加载完成，总页数: $totalPages")
             onLoadCompleteListener?.invoke(totalPages)
         }
-        
+
         @JavascriptInterface
         fun onError(message: String) {
             Log.e(TAG, "错误: $message")
@@ -185,7 +187,9 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
-            loadEpub(epubFilePath)
+            Handler(Looper.getMainLooper()).post {
+                loadEpub(epubFilePath)
+            }
         }
     }
     

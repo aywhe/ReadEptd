@@ -99,7 +99,10 @@
         let isLoaded = false;
 
         window.onload = function() {
-            onHtmlReady();
+            // 通知 Android js 已经准备好
+            if (Android && Android.onHtmlReady){
+                Android.onHtmlReady();
+            }
         };
         
         // Android 接口
@@ -186,7 +189,7 @@
                         }).catch((err) => {
                             console.error('Location generation error:', err);
                         });
-                    }, 20); // 延迟 20ms，让首屏先渲染
+                    }, 100); // 延迟 100ms，让首屏先渲染
                     
                 }).catch((error) => {
                     console.error('Display error:', error);
