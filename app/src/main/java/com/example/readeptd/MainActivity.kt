@@ -521,6 +521,7 @@ fun FileItemCard(
     fileInfo: FileInfo,
     onRemove: () -> Unit,
     isDragging: Boolean = false,
+    progress: Float? = null,
     modifier: Modifier = Modifier
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
@@ -596,7 +597,7 @@ fun FileItemCard(
                             //color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // 显示阅读进度
-                        fileInfo.progress?.let { progress ->
+                        progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,

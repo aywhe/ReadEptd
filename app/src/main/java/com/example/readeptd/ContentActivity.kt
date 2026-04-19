@@ -212,9 +212,7 @@ fun ContentScreenPreview() {
                 uri = "content://test".toUri(),
                 fileName = "测试文件.txt",
                 fileSize = 1024000,
-                mimeType = "text/plain",
-                totalPage = 100,
-                currentPage = 50
+                mimeType = "text/plain"
             )
         )
     }
