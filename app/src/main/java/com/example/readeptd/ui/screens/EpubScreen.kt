@@ -78,12 +78,17 @@ fun EpubScreen(
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT
                             )
+                            
+                            // 设置页面变化监听器，自动保存阅读进度
                             setOnPageChangedListener { locationJson ->
                                 Log.d("EpubScreen", "页面变化: $locationJson")
+                                // TODO: 解析 locationJson 并保存进度
+                                // 示例：viewModel.saveProgress(cfi, page, totalPages, progress)
                             }
 
                             setOnLoadCompleteListener { totalPages ->
                                 Log.d("EpubScreen", "加载完成，共 $totalPages 页")
+                                // TODO: 恢复阅读进度
                             }
 
                             setOnErrorListener { errorMessage ->
