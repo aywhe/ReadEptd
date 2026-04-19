@@ -34,6 +34,9 @@ class PdfViewModel(
     private val _uiState = MutableStateFlow<PdfUiState>(PdfUiState.Loading)
     val uiState: StateFlow<PdfUiState> = _uiState.asStateFlow()
 
+    private val _pdfDocument = MutableStateFlow<PdfDocument?>(null)
+    val pdfDocument: StateFlow<PdfDocument?> = _pdfDocument.asStateFlow()
+
     private var pdfLoader: SandboxedPdfLoader? = null
     private var currentPdfDocument: PdfDocument? = null
     private var currentTempFile: File? = null
@@ -87,6 +90,7 @@ class PdfViewModel(
                 // 从临时文件加载 PDF 文档
                 val pdfDocument = pdfLoader!!.openDocument(Uri.fromFile(tempFile), null)
                 currentPdfDocument = pdfDocument
+                _pdfDocument.value = pdfDocument  // ✅ 暴露给 Compose
                 
                 Log.d("PdfViewModel", "PDF 加载成功")
                 _uiState.value = PdfUiState.Ready(tempFile.absolutePath)
@@ -128,6 +132,7 @@ class PdfViewModel(
             }
         }
         currentPdfDocument = null
+        _pdfDocument.value = null  // ✅ 清除 StateFlow
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.example.readeptd.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,13 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.pdf.view.PdfView
+import androidx.pdf.compose.PdfViewer
+import androidx.pdf.compose.PdfViewerState
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.viewmodel.PdfUiState
 import com.example.readeptd.viewmodel.PdfViewModel
@@ -31,6 +31,7 @@ fun PdfScreen(
     viewModel: PdfViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val pdfDocument by viewModel.pdfDocument.collectAsState()
 
     // 准备 PDF 文件
     LaunchedEffect(fileInfo.uri) {
@@ -38,21 +39,6 @@ fun PdfScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // 顶部信息栏
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = fileInfo.fileName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
-            )
-        }
-
         // 根据状态显示不同内容
         when (val state = uiState) {
             is PdfUiState.Loading -> {
@@ -72,24 +58,27 @@ fun PdfScreen(
             }
 
             is PdfUiState.Ready -> {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // 加载完成，显示 PDF
-                    AndroidView(
-                        factory = { context ->
-                            PdfView(context).apply {
-                                viewModel.getPdfDocument()?.let { doc ->
-                                    pdfDocument = doc
-                                }
-                            }
-                        },
-                        onRelease = { pdfView ->
-                            Log.d("PdfScreen", "PDF View 销毁")
-                            pdfView.pdfDocument?.close()
-                        },
+                // ✅ 使用 Compose PdfViewer（支持双页布局）
+                pdfDocument?.let { doc ->
+                    val pdfState = remember { PdfViewerState() }
+                    
+                    PdfViewer(
+                        pdfDocument = doc,
+                        state = pdfState,  // ✅ 必需的 state 参数
+                        
+                        // 📖 布局配置 - 设置为单页垂直滚动（如需双页改为 pagesPerRow = 2）
+                        pagesPerRow = 1,
+                        horizontalPageSpacing = 8.dp,
+                        verticalPageSpacing = 8.dp,
+                        
+                        // 🔍 缩放配置
+                        minZoom = 0.5f,
+                        maxZoom = 5.0f,
+                        
+                        // ✏️ 交互功能
+                        isFormFillingEnabled = false,
+                        isImageSelectionEnabled = true,
+                        
                         modifier = Modifier.fillMaxSize()
                     )
                 }
