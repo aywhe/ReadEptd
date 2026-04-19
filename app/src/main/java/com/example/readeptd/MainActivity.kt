@@ -511,7 +511,7 @@ fun FileItemCard(
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteButton by remember { mutableStateOf(false) }
-    var isFileAccessible by remember { mutableStateOf<Boolean?>(null) }
+    var isFileAccessible by remember { mutableStateOf<Boolean?>(true) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
