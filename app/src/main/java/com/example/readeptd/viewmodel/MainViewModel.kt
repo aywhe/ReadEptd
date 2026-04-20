@@ -112,6 +112,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val currentState = _uiState.value
             if (currentState is MainUiState.Success) {
                 if (index in currentState.readingFiles.indices) {
+                    val removedFile = currentState.readingFiles[index]
+                    
                     val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
@@ -122,6 +124,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // 保存到 DataStore
                     saveReadingFiles(updatedFiles)
+                    
+                    fileDataStore.deleteReadingState(removedFile.uri)
+                    Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }
