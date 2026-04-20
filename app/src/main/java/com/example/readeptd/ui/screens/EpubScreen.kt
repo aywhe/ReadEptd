@@ -39,21 +39,6 @@ fun EpubScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // 顶部信息栏
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = fileInfo.fileName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
-            )
-        }
-
         // 根据状态显示不同内容
         when (val state = uiState) {
             is EpubUiState.Loading -> {

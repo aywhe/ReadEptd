@@ -9,10 +9,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,23 +55,23 @@ class ContentActivity : ComponentActivity() {
         
         setContent {
             ReadEptdTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ContentScreen(
-                        fileInfo = fileInfo,
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                ContentScreen(
+                    fileInfo = fileInfo
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentScreen(
     fileInfo: FileInfo?,
     modifier: Modifier = Modifier,
     viewModel: ContentViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri) {
@@ -75,16 +82,47 @@ fun ContentScreen(
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
-    when (val state = uiState) {
-        is ContentUiState.Loading -> LoadingContentScreen(modifier = modifier)
-        is ContentUiState.Success -> FileContentScreen(
-            fileInfo = state.fileInfo,
-            modifier = modifier
-        )
-        is ContentUiState.Error -> ErrorContentScreen(
-            error = state.error,
-            modifier = modifier
-        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = when (val state = uiState) {
+                            is ContentUiState.Success -> state.fileInfo.fileName
+                            else -> "阅读"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (context is ComponentActivity) {
+                            context.finish()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        when (val state = uiState) {
+            is ContentUiState.Loading -> LoadingContentScreen(
+                modifier = modifier.padding(innerPadding)
+            )
+            is ContentUiState.Success -> FileContentScreen(
+                fileInfo = state.fileInfo,
+                modifier = modifier.padding(innerPadding)
+            )
+            is ContentUiState.Error -> ErrorContentScreen(
+                error = state.error,
+                modifier = modifier.padding(innerPadding)
+            )
+        }
     }
 }
 
