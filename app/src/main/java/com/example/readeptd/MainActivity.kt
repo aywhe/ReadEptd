@@ -344,6 +344,13 @@ fun ContentScreen(
         emptyList()
     }
     
+    // ✅ 按需加载阅读状态：当有文件时才启动监听
+    LaunchedEffect(files.isNotEmpty()) {
+        if (files.isNotEmpty()) {
+            viewModel.loadReadingStates()
+        }
+    }
+    
     var isMovingFile by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = if (files.isNotEmpty()) files.size - 1 else 0, // 反向布局时显示最后一个项目

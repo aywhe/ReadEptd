@@ -23,11 +23,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
     val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
-    
+
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
-        loadReadingStates()
     }
     
     override fun onCleared() {
@@ -49,7 +48,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun getProgress(uri: String): Float? {
         return _readingStates.value[uri]?.progress
     }
-    
+
     private fun loadInitialData() {
         viewModelScope.launch {
             // 从 DataStore 加载保存的文件列表
@@ -62,7 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private fun loadReadingStates() {
+    fun loadReadingStates() {
         viewModelScope.launch {
             fileDataStore.allReadingStatesFlow.collect { states ->
                 _readingStates.value = states
