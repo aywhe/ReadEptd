@@ -72,6 +72,10 @@ fun EpubScreen(
                 }
             }
             is EpubUiState.Ready -> {
+                // 获取上次阅读位置
+                val savedCfi = viewModel.getCurrentReadingState()?.cfi
+                Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
+                
                 // 准备完成，显示 WebView
                 AndroidView(
                     factory = { context ->
@@ -80,6 +84,9 @@ fun EpubScreen(
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT
                             )
+                            
+                            // 设置起始位置 CFI
+                            setStartCfi(savedCfi)
                             
                             // 设置页面变化监听器，自动保存阅读进度
                             setOnPageChangedListener { epubLocation ->
@@ -96,9 +103,6 @@ fun EpubScreen(
 
                             setOnLoadCompleteListener {
                                 Log.d("EpubScreen", "加载完成")
-                                val cfi = viewModel.getCurrentReadingState()?.cfi ?: ""
-                                Log.d("EpubScreen", "跳转到位置: $cfi")
-                                goToLocation(cfi)
                             }
 
                             setOnErrorListener { errorMessage ->

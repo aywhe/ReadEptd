@@ -25,6 +25,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onPageChangedListener: ((EpubLocation) -> Unit)? = null
     private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
+    private var startCfi: String? = null
     
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
@@ -110,16 +111,35 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
     
     /**
+     * 设置起始位置 CFI（用于恢复上次阅读进度）
+     * 必须在 HTML 加载完成前调用
+     * @param cfi 起始位置 CFI
+     */
+    fun setStartCfi(cfi: String?) {
+        this.startCfi = cfi
+        Log.d(TAG, "设置起始位置 CFI: ${cfi ?: "(无)"}")
+    }
+    
+    /**
      * 加载 EPUB 文件
      * @param epubFilePath EPUB 文件的绝对路径
      */
     fun loadEpub(epubFilePath: String) {
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
+        Log.d(TAG, "起始位置 CFI: ${startCfi ?: "(无，将显示首页)"}")
         Log.d(TAG, "文件是否存在: ${java.io.File(epubFilePath).exists()}")
 
         Log.d(TAG, "执行 JavaScript 初始化...")
-        executeJs("window.EpubReader.init('$epubFilePath')") { result ->
+        
+        // 构建 JavaScript 调用，安全地处理 CFI 参数
+        val cfiParam = if (startCfi != null && startCfi!!.isNotBlank()) {
+            "'$startCfi'"
+        } else {
+            "null"
+        }
+        
+        executeJs("window.EpubReader.init('$epubFilePath', $cfiParam)") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
     }
