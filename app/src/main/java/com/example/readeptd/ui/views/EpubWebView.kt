@@ -228,12 +228,16 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         
         @JavascriptInterface
         fun onPageChanged(locationJson: String) {
-            Log.d(TAG, "页面变化: $locationJson")
+            Log.d(TAG, "页面位置变化: $locationJson")
             try {
                 val pageInfo = parseLocationInfo(locationJson)
-                onPageChangedListener?.invoke(pageInfo)
+                if(pageInfo.percentage > 0) {
+                    onPageChangedListener?.invoke(pageInfo)
+                } else {
+                    Log.w(TAG, "无效的页面位置信息，跳过回调: $locationJson")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "解析页面信息失败", e)
+                Log.e(TAG, "解析页面位置信息失败", e)
             }
         }
         
