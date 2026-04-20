@@ -243,13 +243,23 @@
                 if (startCfi && typeof startCfi === 'string' && startCfi.trim() !== '') {
                     // CFI 通常以 "epubcfi(" 开头
                     if (startCfi.startsWith('epubcfi(')) {
+                        console.log('Valid CFI format detected:', startCfi);
                         displayCfi = startCfi;
                     } else {
                         console.warn('Invalid CFI format:', startCfi, '- will show first page instead');
                     }
                 }
+                console.log('Displaying book with CFI:', displayCfi);
 
-                rendition.display(displayCfi).then(() => {
+                // 只有当 displayCfi 有有效值时才传入参数，否则不传参以显示第一页
+                var displayPromise;
+                if (displayCfi) {
+                    displayPromise = rendition.display(displayCfi);
+                } else {
+                    displayPromise = rendition.display();
+                }
+
+                displayPromise.then(() => {
                     console.log('Book displayed successfully');
                     hideLoading();
                     isLoaded = true;
