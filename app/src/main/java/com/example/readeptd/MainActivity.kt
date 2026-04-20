@@ -266,6 +266,7 @@ fun MainScreen(
                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
                 },
                 onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
+                viewModel = viewModel,
                 modifier = Modifier.padding(innerPadding)
             )
 
@@ -345,7 +346,8 @@ fun ContentScreen(
     onDragButtonClick: () -> Unit,
     onRemoveFile: (Int) -> Unit,
     onMoveFile: (Int, Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: MainViewModel
 ) {
     var isMovingFile by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState(
@@ -360,6 +362,10 @@ fun ContentScreen(
         }
     )
     val scope = rememberCoroutineScope()
+    
+    // 收集所有阅读状态
+    val readingStates by viewModel.readingStates.collectAsState()
+    
     LaunchedEffect(files.lastOrNull()?.uri) {
         if (files.isNotEmpty()
             && !isMovingFile
@@ -407,10 +413,15 @@ fun ContentScreen(
                                 targetValue = if (isDragging) 1.02f else 1f,
                                 label = "scale"
                             )
+                            
+                            // 从收集的状态中获取进度
+                            val progress = readingStates[files[index].uri]?.progress
+                            
                             FileItemCard(
                                 fileInfo = files[index],
                                 onRemove = { onRemoveFile(index) },
                                 isDragging = isDragging,
+                                progress = progress,
                                 modifier = Modifier
                                     .zIndex(if (isDragging) 1f else 0f)
                                     .scale(animatedScale)
@@ -670,7 +681,8 @@ fun MainScreenPreview() {
             files = emptyList(),
             onDragButtonClick = {},
             onRemoveFile = {},
-            onMoveFile = { _, _ -> }
+            onMoveFile = { _, _ -> },
+            viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
         )
     }
 }
