@@ -24,10 +24,12 @@ import com.example.readeptd.data.ReadingState
 import com.example.readeptd.ui.views.EpubWebView
 import com.example.readeptd.viewmodel.EpubUiState
 import com.example.readeptd.viewmodel.EpubViewModel
+import com.example.readeptd.viewmodel.TtsViewModel
 
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
@@ -35,6 +37,7 @@ fun EpubScreen(
 
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
+        ttsModel.setQueueMode(TtsViewModel.QueueMode.ADD)
         viewModel.prepareEpubFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
@@ -92,6 +95,9 @@ fun EpubScreen(
 
                             setOnErrorListener { errorMessage ->
                                 Log.e("EpubScreen", "错误: $errorMessage")
+                            }
+                            ttsModel.onStartSpeek(){
+
                             }
                         }
                     },

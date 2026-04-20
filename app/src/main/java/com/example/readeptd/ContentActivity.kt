@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -19,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +46,7 @@ import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
+import com.example.readeptd.viewmodel.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,7 +72,8 @@ class ContentActivity : ComponentActivity() {
 fun ContentScreen(
     fileInfo: FileInfo?,
     modifier: Modifier = Modifier,
-    viewModel: ContentViewModel = viewModel()
+    viewModel: ContentViewModel = viewModel(),
+    ttsModel: TtsViewModel = viewModel()
 ) {
     val context = LocalContext.current
     
@@ -79,6 +84,7 @@ fun ContentScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+    val isSpeaking by ttsModel.isSpeaking.collectAsState()
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
@@ -106,6 +112,22 @@ fun ContentScreen(
                             contentDescription = "返回"
                         )
                     }
+                },
+                actions = {
+                    Button(
+                        onClick = {
+                            if(isSpeaking){
+                                ttsModel.onEvent(TtsEvent.StopSpeaking)
+                            } else {
+                                ttsModel.onEvent(TtsEvent.StartSpeaking)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.PlayArrow,
+                            contentDescription = if (isSpeaking) "暂停" else "播放"
+                        )
+                    }
                 }
             )
         }
@@ -116,6 +138,7 @@ fun ContentScreen(
             )
             is ContentUiState.Success -> FileContentScreen(
                 fileInfo = state.fileInfo,
+                ttsModel = ttsModel,
                 modifier = modifier.padding(innerPadding)
             )
             is ContentUiState.Error -> ErrorContentScreen(
@@ -145,6 +168,7 @@ fun LoadingContentScreen(modifier: Modifier = Modifier) {
 @Composable
 fun FileContentScreen(
     fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
     // 根据 mimeType 分发到不同的 Screen
@@ -152,6 +176,7 @@ fun FileContentScreen(
         "application/epub+zip" -> {
             EpubScreen(
                 fileInfo = fileInfo,
+                ttsModel = ttsModel,
                 modifier = modifier
             )
         }
@@ -228,21 +253,6 @@ fun UnsupportedFormatScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 16.dp)
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ContentScreenPreview() {
-    ReadEptdTheme {
-        FileContentScreen(
-            fileInfo = FileInfo(
-                uri = "content://test",
-                fileName = "测试文件.txt",
-                fileSize = 1024000,
-                mimeType = "text/plain"
-            )
         )
     }
 }
