@@ -100,7 +100,7 @@
 
         window.onload = function() {
             // 通知 Android js 已经准备好
-            if (Android && Android.onHtmlReady){
+            if (Android && Android.onHtmlReady) {
                 Android.onHtmlReady();
             }
         };
@@ -142,6 +142,21 @@
                 console.log('html ready');
             }
         };
+
+        function renditionDisplay(cfi,callback = null) {
+            if (rendition) {
+                rendition.display(cfi).then(() => {
+                    if(!isLoaded){
+                        isLoaded = true;
+                        hideLoading();
+                    }
+                    console.log('Book displayed');
+                    if(callback) callback();
+                }).catch((error) => {
+                    console.error('Failed to display book:', error);
+                });
+            }
+        }
         
         // 初始化阅读器
         function initReader(epubUrl) {
@@ -172,7 +187,7 @@
                 console.log('Creating ePub instance...');
                 book = ePub(epubUrl);
                 console.log('ePub instance created:', book);
-                
+
                 // 创建渲染器 - 使用分页模式
                 console.log('Creating renderer...');
                 rendition = book.renderTo("viewer", {
@@ -189,28 +204,34 @@
                 });
                 console.log('Renderer created');
 
-                // 显示书籍（不等待 locations 生成）
-                console.log('Displaying book...');
-                rendition.display().then(() => {
-                    console.log('Book displayed successfully');
-                    hideLoading();
-                    isLoaded = true;
-                    
+                // 通知 Android
+                if (Android && Android.onLoadComplete) {
+                    Android.onLoadComplete();
+                }
+
+                // 显示书籍（等待 locations 生成）
+                setTimeout(() => {
+                    if(!isLoaded){
+                        renditionDisplay("",() => {
+                            console.log('Initial display');
+                        });
+                    }
+                }, 100);
+
+                setTimeout(() => {
                     // 异步生成位置信息（不阻塞首屏）
                     console.log('Generating locations asynchronously...');
-                    setTimeout(() => {
+                    book.ready.then(() => {
+                        console.log('Book ready');
                         book.locations.generate(1024).then(() => {
                             console.log('Locations generated');
                         }).catch((err) => {
                             console.error('Location generation error:', err);
                         });
-                    }, 100); // 延迟 100ms，让首屏先渲染
-                    
-                }).catch((error) => {
-                    console.error('Display error:', error);
-                    console.error('Error stack:', error.stack);
-                    showError("显示书籍失败: " + error.message);
-                });
+                    }).catch((err) => {
+                        console.error('Book ready error:', err);
+                    });
+                }, 100);
 
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
@@ -250,11 +271,7 @@
             } catch (error) {
                 console.error('Init error:', error);
                 showError("初始化失败: " + error.message);
-                hideLoading(); // 即使初始化失败也要隐藏 Loading，否则用户无法操作}
-            }
-            // 通知 Android
-            if (Android && Android.onLoadComplete) {
-                Android.onLoadComplete();
+                hideLoading(); // 即使初始化失败也要隐藏 Loading，否则用户无法操作
             }
         }
         
@@ -262,22 +279,14 @@
         // 跳转到指定位置
         function goToLocation(cfi) {
             console.log('Going to location:', cfi);
-            if (rendition) {
-                rendition.display(cfi).then(() => {
-                    console.log('Location displayed');
-                }).catch((error) => {
-                    console.error('Failed to go to location:', error);
-                });
-            }
+            renditionDisplay(cfi);
         }
         
         // 上一页
         function prevPage() {
             console.log('Going to previous page');
             if (rendition) {
-                rendition.display().then(() => {
-                    console.log('Book displayed');
-                }).catch((error) => {
+                rendition.prev().catch((error) => {
                     console.error('Failed to go to previous page:', error);
                 });
             }
@@ -287,10 +296,8 @@
         function nextPage() {
             console.log('Going to next page');
             if (rendition) {
-                rendition.display().then(() => {
-                    console.log('Book displayed');
-                }).catch((error) => {
-                    console.error('Failed to go to next page:', error);
+                rendition.next().catch((error) => {
+                    console.error('Failed to go to previous page:', error);
                 });
             }
         }
@@ -303,11 +310,7 @@
                 const cfi = book.locations.cfiFromPercentage(percentage);
                 if (cfi) {
                     console.log('Generated CFI:', cfi);
-                    rendition.display(cfi).then(() => {;
-                        console.log('Percentage location displayed');
-                    }).catch((error) => {
-                        console.error('Failed to go to percentage location:', error);
-                    });
+                    renditionDisplay(cfi);
                 }
             } else {
                 console.error('Invalid percentage value');
