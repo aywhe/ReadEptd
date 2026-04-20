@@ -249,9 +249,9 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             )
 
-            is MainUiState.Success -> ContentScreen(
+            is MainUiState.Success -> {
+                ContentScreen(
                 files = state.readingFiles,
-                onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
                 onRemoveFile = { index ->
                     val fileToRemove = state.readingFiles[index]
                     try {
@@ -269,6 +269,11 @@ fun MainScreen(
                 viewModel = viewModel,
                 modifier = Modifier.padding(innerPadding)
             )
+
+            DraggableFloatingButton(
+                onClick = { filePickerLauncher.launch(getAllowedMimeTypes())  }
+            )
+        }
 
             is MainUiState.Error -> ErrorScreen(
                 error = state.error,
@@ -343,7 +348,6 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun ContentScreen(
     files: List<FileInfo>,
-    onDragButtonClick: () -> Unit,
     onRemoveFile: (Int) -> Unit,
     onMoveFile: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -436,10 +440,6 @@ fun ContentScreen(
                 }
             }
         }
-
-        DraggableFloatingButton(
-            onClick = onDragButtonClick
-        )
     }
 }
 
@@ -571,7 +571,9 @@ fun FileItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    modifier = Modifier.weight(1f).padding(4.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
                 ) {
                     Text(
                         text = fileInfo.fileName,
@@ -679,7 +681,6 @@ fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
             files = emptyList(),
-            onDragButtonClick = {},
             onRemoveFile = {},
             onMoveFile = { _, _ -> },
             viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
