@@ -1,7 +1,9 @@
 package com.example.readeptd.utils
 
-import android.content.Context
+import android.content.Intent
+import android.util.Log
 import androidx.core.net.toUri
+import android.content.Context
 
 /**
  * URI 工具类
@@ -17,7 +19,6 @@ object Utils {
      */
     fun uriExists(context: Context, uri: String): Boolean {
         return try {
-            // 尝试查询元数据，如果能查到至少一列，说明文件存在
             context.contentResolver.query(uri.toUri(), null, null, null, null)?.use { cursor ->
                 cursor.count > 0
             } ?: false
@@ -37,6 +38,42 @@ object Utils {
             size < 1024 * 1024 -> "${size / 1024} KB"
             size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
             else -> "${size / (1024 * 1024 * 1024)} GB"
+        }
+    }
+    
+    /**
+     * 获取 URI 的持久化读取权限
+     * @param context 上下文
+     * @param uri URI 字符串
+     */
+    fun takePersistableUriPermission(context: Context, uri: String) {
+        try {
+            val uriObj = uri.toUri()
+            context.contentResolver.takePersistableUriPermission(
+                uriObj,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            Log.d("Utils", "已获取 URI 持久化读取权限: $uri")
+        } catch (e: Exception) {
+            Log.e("Utils", "获取 URI 持久化权限失败: $uri", e)
+        }
+    }
+    
+    /**
+     * 释放 URI 的持久化读取权限
+     * @param context 上下文
+     * @param uri URI 字符串
+     */
+    fun releasePersistableUriPermission(context: Context, uri: String) {
+        try {
+            val uriObj = uri.toUri()
+            context.contentResolver.releasePersistableUriPermission(
+                uriObj,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            Log.d("Utils", "已释放 URI 持久化读取权限: $uri")
+        } catch (e: Exception) {
+            Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
         }
     }
 }
