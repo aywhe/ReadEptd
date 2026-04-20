@@ -132,8 +132,8 @@
             onPageChanged: function(location) {
                 console.log('Page changed:', location);
             },
-            onLoadComplete: function(totalPages) {
-                console.log('Load complete, total pages:', totalPages);
+            onLoadComplete: function() {
+                console.log('Load complete');
             },
             onError: function(message) {
                 console.error('Error:', message);
@@ -188,7 +188,7 @@
                     // ignoreClass: "annotator-hl"
                 });
                 console.log('Renderer created');
-                
+
                 // 显示书籍（不等待 locations 生成）
                 console.log('Displaying book...');
                 rendition.display().then(() => {
@@ -211,7 +211,7 @@
                     console.error('Error stack:', error.stack);
                     showError("显示书籍失败: " + error.message);
                 });
-                
+
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
@@ -219,10 +219,8 @@
                     const currentPage = location.start.displayed.page || 1;
                     
                     const pageInfo = {
-                        start: location.start.cfi,
-                        end: location.end.cfi,
-                        startPercentage: location.start.percentage || 0,
-                        endPercentage: location.end.percentage || 0,
+                        cfi: location.start.cfi,
+                        percentage: location.start.percentage || 0,
                         currentPage: currentPage,
                         totalPages: totalPages
                     };
@@ -231,11 +229,6 @@
                     
                     if (Android && Android.onPageChanged) {
                         Android.onPageChanged(JSON.stringify(pageInfo));
-                    }
-                    
-                    // 通知 Android 总页数（动态更新）
-                    if (Android && Android.onLoadComplete) {
-                        Android.onLoadComplete(totalPages);
                     }
                 });
                 
@@ -259,13 +252,20 @@
                 showError("初始化失败: " + error.message);
                 hideLoading(); // 即使初始化失败也要隐藏 Loading，否则用户无法操作}
             }
+            // 通知 Android
+            if (Android && Android.onLoadComplete) {
+                Android.onLoadComplete();
+            }
         }
         
 
         // 跳转到指定位置
         function goToLocation(cfi) {
+            console.log('Going to location:', cfi);
             if (rendition) {
-                rendition.display(cfi).catch((error) => {
+                rendition.display(cfi).then(() => {
+                    console.log('Location displayed');
+                }).catch((error) => {
                     console.error('Failed to go to location:', error);
                 });
             }
@@ -273,8 +273,11 @@
         
         // 上一页
         function prevPage() {
+            console.log('Going to previous page');
             if (rendition) {
-                rendition.prev().catch((error) => {
+                rendition.display().then(() => {
+                    console.log('Book displayed');
+                }).catch((error) => {
                     console.error('Failed to go to previous page:', error);
                 });
             }
@@ -282,8 +285,11 @@
         
         // 下一页
         function nextPage() {
+            console.log('Going to next page');
             if (rendition) {
-                rendition.next().catch((error) => {
+                rendition.display().then(() => {
+                    console.log('Book displayed');
+                }).catch((error) => {
                     console.error('Failed to go to next page:', error);
                 });
             }
@@ -291,11 +297,20 @@
         
         // 跳转到百分比位置
         function goToPercentage(percentage) {
-            if (book && percentage >= 0 && percentage <= 1) {
+            console.log('Going to percentage:', percentage);
+            if (book && rendition && percentage >= 0 && percentage <= 1) {
+                console.log('Generating locations...');
                 const cfi = book.locations.cfiFromPercentage(percentage);
                 if (cfi) {
-                    rendition.display(cfi);
+                    console.log('Generated CFI:', cfi);
+                    rendition.display(cfi).then(() => {;
+                        console.log('Percentage location displayed');
+                    }).catch((error) => {
+                        console.error('Failed to go to percentage location:', error);
+                    });
                 }
+            } else {
+                console.error('Invalid percentage value');
             }
         }
         

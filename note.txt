@@ -1,2 +1,3 @@
 - 问题： epub.js总是不能翻页
 方法： rendition = book.renderTo("viewer" ...... 中忘了设置 snap: true
+能找到比较清楚的文档： https://hqlili.github.io/information-house/frontend/epubjs/epubjs_learned.html

@@ -5,12 +5,16 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.example.readeptd.data.FileInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -18,9 +22,12 @@ import com.example.readeptd.data.FileInfo
 @SuppressLint("SetJavaScriptEnabled")
 class EpubWebView(val epubFilePath: String, context: Context) : WebView(context) {
     
-    private var onPageChangedListener: ((String) -> Unit)? = null
-    private var onLoadCompleteListener: ((Int) -> Unit)? = null
+    private var onPageChangedListener: ((EpubLocation) -> Unit)? = null
+    private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
+    
+    // ✅ 协程作用域，绑定到主线程
+    private val scope: CoroutineScope = MainScope()
     
     init {
         setupWebView()
@@ -29,6 +36,10 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     override fun destroy() {
         Log.d(TAG, "EpubWebView 销毁")
         cleanUpNative()
+        
+        // ✅ 取消所有协程，避免内存泄漏
+        scope.cancel()
+        
         super.destroy()
     }
     
@@ -108,8 +119,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "文件是否存在: ${java.io.File(epubFilePath).exists()}")
 
         Log.d(TAG, "执行 JavaScript 初始化...")
-        val jsCode = "window.EpubReader.init('$epubFilePath');"
-        evaluateJavascript(jsCode) { result ->
+        executeJs("window.EpubReader.init('$epubFilePath')") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
     }
@@ -119,22 +129,24 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * @param cfi CFIs 位置标识符
      */
     fun goToLocation(cfi: String) {
-        val jsCode = "window.EpubReader.goToLocation('$cfi');"
-        evaluateJavascript(jsCode, null)
+        Log.d(TAG, "执行 JavaScript 跳转...")
+        executeJs("window.EpubReader.goToLocation('$cfi')")
     }
     
     /**
      * 上一页
      */
     fun prevPage() {
-        evaluateJavascript("window.EpubReader.prevPage();", null)
+        Log.d(TAG, "执行 JavaScript 上一页...")
+        executeJs("window.EpubReader.prevPage()")
     }
     
     /**
      * 下一页
      */
     fun nextPage() {
-        evaluateJavascript("window.EpubReader.nextPage();", null)
+        Log.d(TAG, "执行 JavaScript 下一页...")
+        executeJs("window.EpubReader.nextPage()")
     }
     
     /**
@@ -142,8 +154,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * @param percentage 百分比 (0.0 - 1.0)
      */
     fun goToPercentage(percentage: Double) {
-        val jsCode = "window.EpubReader.goToPercentage($percentage);"
-        evaluateJavascript(jsCode, null)
+        Log.d(TAG, "跳转到百分比位置: $percentage")
+        executeJs("window.EpubReader.goToPercentage($percentage)")
     }
 
     /**
@@ -151,23 +163,34 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      */
     private fun cleanUpNative() {
         Log.d(TAG, "清理 WebView 资源")
-        // 这里可以执行一些 JavaScript 来清理 epub.js 的资源
-        // 例如：window.EpubReader.destroy()，如果 epub.js 提供了这样的接口
-        val jsCode = "window.EpubReader.cleanUp();"
-        evaluateJavascript(jsCode, null)
+        executeJs("window.EpubReader.cleanUp()")
     }
     
     /**
+     * ✅ 使用协程执行 JavaScript（自动切换到主线程）
+     * @param script JavaScript 代码
+     * @param callback 可选的回调，接收执行结果
+     */
+    private fun executeJs(script: String, callback: ((String?) -> Unit)? = null) {
+        val jsCode = if (script.endsWith(";")) script else "$script;"
+        
+        // ✅ 启动协程，自动切换到主线程
+        scope.launch(Dispatchers.Main) {
+            evaluateJavascript(jsCode, callback)
+        }
+    }
+
+    /**
      * 设置页面变化监听器
      */
-    fun setOnPageChangedListener(listener: (String) -> Unit) {
+    fun setOnPageChangedListener(listener: (EpubLocation) -> Unit) {
         onPageChangedListener = listener
     }
     
     /**
      * 设置加载完成监听器
      */
-    fun setOnLoadCompleteListener(listener: (Int) -> Unit) {
+    fun setOnLoadCompleteListener(listener: () -> Unit) {
         onLoadCompleteListener = listener
     }
     
@@ -186,13 +209,18 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onPageChanged(locationJson: String) {
             Log.d(TAG, "页面变化: $locationJson")
-            onPageChangedListener?.invoke(locationJson)
+            try {
+                val pageInfo = parseLocationInfo(locationJson)
+                onPageChangedListener?.invoke(pageInfo)
+            } catch (e: Exception) {
+                Log.e(TAG, "解析页面信息失败", e)
+            }
         }
         
         @JavascriptInterface
-        fun onLoadComplete(totalPages: Int) {
-            Log.d(TAG, "加载完成，总页数: $totalPages")
-            onLoadCompleteListener?.invoke(totalPages)
+        fun onLoadComplete() {
+            Log.d(TAG, "加载完成")
+            onLoadCompleteListener?.invoke()
         }
 
         @JavascriptInterface
@@ -204,13 +232,35 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
-            Handler(Looper.getMainLooper()).post {
-                loadEpub(epubFilePath)
-            }
+            loadEpub(epubFilePath)
         }
+    }
+    
+    /**
+     * 解析页面信息 JSON
+     */
+    private fun parseLocationInfo(jsonString: String): EpubLocation {
+        val json = JSONObject(jsonString)
+        return EpubLocation(
+            cfi = json.getString("cfi"),
+            percentage = (json.optDouble("percentage", 0.0)).toFloat(),
+            currentPage = json.optInt("currentPage", 1),
+            totalPages = json.optInt("totalPages", 1)
+        )
     }
     
     companion object {
         private const val TAG = "EpubWebView"
     }
 }
+
+/**
+ * EPUB 页面信息数据类
+ * 对应 epub.js relocated 事件返回的位置信息
+ */
+data class EpubLocation(
+    val cfi: String,              // 起始位置 CFI
+    val percentage: Float,    // 起始位置百分比 (0.0 - 1.0)
+    val currentPage: Int,           // 当前页码
+    val totalPages: Int             // 总页数
+)

@@ -7,9 +7,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -18,6 +20,7 @@ import java.io.FileOutputStream
  * EPUB 阅读器 UI 状态
  */
 sealed interface EpubUiState {
+
     object Loading : EpubUiState
     data class Ready(val tempFilePath: String) : EpubUiState
     data class Error(val message: String) : EpubUiState
@@ -42,6 +45,9 @@ class EpubViewModel(
     // 当前阅读状态
     private var currentReadingState: ReadingState.Epub? = null
     private var currentFileUri: String? = null
+    
+    // ✅ 用于防抖的 Flow
+    private val _pendingReadingState = MutableStateFlow<ReadingState.Epub?>(null)
 
     /**
      * 准备 EPUB 文件：将 content URI 复制到临时文件，并加载阅读状态
@@ -143,29 +149,55 @@ class EpubViewModel(
     }
     
     /**
-     * 保存阅读进度
-     * @param cfi EPUB CFI 位置标识符
-     * @param page 当前页码
-     * @param totalPages 总页数
-     * @param progress 阅读进度 (0.0-1.0)
+     * 保存阅读进度（带防抖）
+     * 不会立即写入，而是在停止更新 1 秒后自动保存
      */
-    fun saveProgress(cfi: String?, page: Int?, totalPages: Int?, progress: Float) {
-        val uri = currentFileUri ?: return
+    @OptIn(FlowPreview::class)
+    fun saveProgress(readingState: ReadingState.Epub) {
+        // 更新内存中的状态
+        currentReadingState = readingState
+        currentFileUri = readingState.uri
         
+        // 发送到防抖 Flow
+        _pendingReadingState.value = readingState
+    }
+    
+    /**
+     * 初始化防抖保存
+     * 在 ViewModel 创建时启动，监听状态变化并延迟保存
+     */
+    init {
         viewModelScope.launch {
-            try {
-                val state = ReadingState.Epub(
-                    uri = uri,
-                    cfi = cfi,
-                    page = page,
-                    totalPages = totalPages,
-                    progress = progress
-                )
-                currentReadingState = state
-                fileDataStore.saveReadingState(state)
-                Log.d(TAG, "保存阅读状态: CFI=$cfi, Page=$page, Progress=$progress")
-            } catch (e: Exception) {
-                Log.e(TAG, "保存阅读状态失败", e)
+            // ✅ 防抖：1 秒内没有新的更新才执行保存
+            _pendingReadingState
+                .debounce(1000)  // 1 秒防抖
+                .collect { readingState ->
+                    readingState?.let {
+                        persistReadingState(it)
+                    }
+                }
+        }
+    }
+    
+    /**
+     * 实际执行持久化操作
+     */
+    private suspend fun persistReadingState(readingState: ReadingState.Epub) {
+        try {
+            fileDataStore.saveReadingState(readingState)
+            Log.d(TAG, "持久化阅读状态: CFI=${readingState.cfi}, Page=${readingState.page}, Progress=${readingState.progress}")
+        } catch (e: Exception) {
+            Log.e(TAG, "持久化阅读状态失败", e)
+        }
+    }
+    
+    /**
+     * 立即保存（用于退出时）
+     */
+    fun saveProgressImmediately() {
+        currentReadingState?.let {
+            viewModelScope.launch {
+                persistReadingState(it)
             }
         }
     }
@@ -180,6 +212,10 @@ class EpubViewModel(
     override fun onCleared() {
         super.onCleared()
         Log.d("EpubViewModel", "ViewModel 清除，清理临时文件")
+        
+        // ✅ 退出前立即保存最后一次状态
+        saveProgressImmediately()
+        
         cleanupTempFile()
     }
 

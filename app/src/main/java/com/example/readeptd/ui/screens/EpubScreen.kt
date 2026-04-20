@@ -20,6 +20,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.ui.views.EpubWebView
 import com.example.readeptd.viewmodel.EpubUiState
 import com.example.readeptd.viewmodel.EpubViewModel
@@ -81,15 +82,23 @@ fun EpubScreen(
                             )
                             
                             // 设置页面变化监听器，自动保存阅读进度
-                            setOnPageChangedListener { locationJson ->
-                                Log.d("EpubScreen", "页面变化: $locationJson")
-                                // TODO: 解析 locationJson 并保存进度
-                                // 示例：viewModel.saveProgress(cfi, page, totalPages, progress)
+                            setOnPageChangedListener { epubLocation ->
+                                Log.d("EpubScreen", "保存进度: $epubLocation")
+                                // 并保存进度
+                                viewModel.saveProgress(ReadingState.Epub(
+                                    uri = fileInfo.uri,
+                                    cfi = epubLocation.cfi,
+                                    page = epubLocation.currentPage,
+                                    totalPages = epubLocation.totalPages,
+                                    progress = epubLocation.percentage
+                                ))
                             }
 
-                            setOnLoadCompleteListener { totalPages ->
-                                Log.d("EpubScreen", "加载完成，共 $totalPages 页")
-                                // TODO: 恢复阅读进度
+                            setOnLoadCompleteListener {
+                                Log.d("EpubScreen", "加载完成")
+                                val cfi = viewModel.getCurrentReadingState()?.cfi ?: ""
+                                Log.d("EpubScreen", "跳转到位置: $cfi")
+                                goToLocation(cfi)
                             }
 
                             setOnErrorListener { errorMessage ->
