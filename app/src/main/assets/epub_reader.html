@@ -91,7 +91,15 @@
     </div>
     
     <div id="viewer"></div>
-    
+    <div style="position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: fixed;
+    gap: 10px;">
+        <button id="nextPage"  onclick="onClickNext()" >下一页</button>
+    </div>
+
     <script>
         let book = null;
         let rendition = null;
@@ -123,8 +131,8 @@
 
         window.onunload = function() {
             // 清理资源
-            clearRendition();
-            clearBook();
+            //clearRendition();
+            //clearBook();
         };
 
         // Android 接口
@@ -214,6 +222,7 @@
                 rendition.on("resized", (size) => {
                     console.log('Renderer resized:', size);
                 });
+
                 
                 // 监听加载完成
                 book.ready.then(() => {
@@ -280,7 +289,7 @@
                 hideLoading();
             }
         }
-        
+
 
         // 跳转到指定位置
         function goToLocation(cfi) {
@@ -298,9 +307,7 @@
         function prevPage() {
             console.log('Going to previous page');
             if (rendition) {
-                rendition.display().then(() => {
-                    console.log('Book displayed');
-                }).catch((error) => {
+                rendition.prev().catch((error) => {
                     console.error('Failed to go to previous page:', error);
                 });
             }
@@ -309,13 +316,9 @@
         // 下一页
         function nextPage() {
             console.log('Going to next page');
-            if (rendition) {
-                rendition.display().then(() => {
-                    console.log('Book displayed');
-                }).catch((error) => {
-                    console.error('Failed to go to next page:', error);
-                });
-            }
+            rendition.next().catch((error) => {
+                console.error('Failed to go to previous page:', error);
+            });
         }
         
         // 跳转到百分比位置
@@ -362,6 +365,57 @@
             console.log('Resources cleaned up');
             clearRendition();
             clearBook();
+        }
+        function onClickNext() {
+            rendition.next().then(()=>{
+                console.log('Next page');
+                //===========================================================
+                try {
+                    var location = rendition.currentLocation();
+
+                    if (location && location.start && location.end) {
+                    console.log('Current location:', JSON.stringify(location));
+
+                        var views = rendition.manager ? rendition.manager.visible() : [];
+
+                        if (views && views.length > 0) {
+                            views.forEach(view => {
+                                if (view && view.contents) {
+                                    try {
+                                        // 1
+                                        var text = view.contents.content.textContent;
+                                        console.log('章节文本:', text);
+                                        // 2
+                                        var startRange = view.contents.range(location.start.cfi);
+                                        var endRange = view.contents.range(location.end.cfi);
+                                        console.log("开始位置偏移量:", startRange.startOffset, startRange.endOffset);
+                                        console.log("结束位置偏移量:", endRange.startOffset, endRange.endOffset);
+                                        if (startRange && endRange) {
+                                            var pageRange = view.contents.document.createRange();
+                                            pageRange.setStart(startRange.startContainer, startRange.startOffset);
+                                            pageRange.setEnd(endRange.endContainer, endRange.endOffset);
+                                            console.log("当前页范围偏移量:", pageRange.startOffset, pageRange.endOffset);
+                                            console.log("当前页文本:", pageRange.toString());
+                                        }
+                                    } catch (e) {
+                                        console.error('Error getting range:', e);
+                                    }
+                                }
+                            });
+                        } else {
+                            console.log('No visible views');
+                        }
+                    } else {
+                        console.warn('Invalid location data');
+                    }
+                } catch (error) {
+                    console.error('Error in onClickNext:', error);
+                }
+
+            }).catch((error)=>{
+                console.error('Failed to go to next page:', error);
+            });
+            //===========================================================
         }
         
         // 暴露给 Android 的方法

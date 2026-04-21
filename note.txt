@@ -2,4 +2,7 @@
 方法： rendition = book.renderTo("viewer" ...... 中忘了设置 snap: true
 能找到比较清楚的文档： https://hqlili.github.io/information-house/frontend/epubjs/epubjs_learned.html
 - 问题： epub.js的 relocated 事件，左右翻页时，有时候触发有时候不触发，导致保存进度不准确
-方法： 还没找到方法， displayed 事件也不行，它只触发了一次
+方法： 还没找到方法， displayed 事件也不行，它只触发了一次， scrolled事件与relocated同步，也不能用
+- 问题： epub.js左右翻页的时候，想要提取页面文本，rendition.currentLocation()是最接近的方法，
+但是它返回的CFI定位，级别只到<p>，没有到char级别，导致提取的文本都是整段落的，会提取当前页面同一个段落的没有显示再页面的那些文字
+方法： 还没有找到方法
