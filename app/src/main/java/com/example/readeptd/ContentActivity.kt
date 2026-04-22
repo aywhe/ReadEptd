@@ -87,7 +87,7 @@ fun ContentScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
-    val ttsInitialized  by ttsModel.isInitialized.collectAsState()
+    val ttsInitialized by ttsModel.isInitialized.collectAsState()
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
@@ -117,7 +117,7 @@ fun ContentScreen(
                     }
                 },
                 actions = {
-                    if(ttsInitialized) {
+                    if (ttsInitialized) {
                         IconButton(
                             onClick = {
                                 if (isSpeaking) {
@@ -143,11 +143,13 @@ fun ContentScreen(
             is ContentUiState.Loading -> LoadingContentScreen(
                 modifier = modifier.padding(innerPadding)
             )
+
             is ContentUiState.Success -> FileContentScreen(
                 fileInfo = state.fileInfo,
                 ttsModel = ttsModel,
                 modifier = modifier.padding(innerPadding)
             )
+
             is ContentUiState.Error -> ErrorContentScreen(
                 error = state.error,
                 modifier = modifier.padding(innerPadding)
@@ -217,7 +219,7 @@ fun ErrorContentScreen(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.error
         )
-        
+
         Text(
             text = error,
             style = MaterialTheme.typography.bodyMedium,
