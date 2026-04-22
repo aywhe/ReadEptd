@@ -3,7 +3,6 @@ package com.example.readeptd.viewmodel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.readeptd.service.TtsService
 import com.example.readeptd.ui.TtsEvent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,9 +30,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
 
     private var ttsService: TtsService? = null
     
-    // TTS 事件回调
+    // 自动朗读回调(当 TTS 开始/完成时触发,用于获取下一页文本)
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
+    private var onRequestSpeechStartCallback: (() -> Unit)? = null
 
     init {
         initializeTts()
@@ -61,6 +61,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
 
     override fun onSpeechStart(utteranceId: String?) {
         _isSpeaking.value = true
+        onSpeechStartCallback?.invoke()
     }
 
     override fun onSpeechDone(utteranceId: String?) {
@@ -141,17 +142,24 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     }
     
     /**
-     * 设置 TTS 开始朗读的回调
+     * 设置自动朗读开始回调(TTS 开始朗读时触发,用于获取当前页文本)
      */
-    fun onStartSpeak(callback: () -> Unit) {
+    fun setOnSpeechStartListener(callback: () -> Unit) {
         onSpeechStartCallback = callback
     }
     
     /**
-     * 设置 TTS 朗读完成的回调
+     * 设置自动朗读完成回调(TTS 朗读完成时触发,用于翻页并获取下一页文本)
      */
-    fun onSpeakDone(callback: (String?) -> Unit) {
+    fun setOnSpeechDoneListener(callback: (String?) -> Unit) {
         onSpeechDoneCallback = callback
+    }
+
+    /**
+     * 获取自动朗读请求回调(当请求自动朗读时触发,用于获取当前页文本)
+     */
+    fun setOnRequestSpeechStartListener(callback: () -> Unit) {
+        onRequestSpeechStartCallback = callback
     }
     
     /**
@@ -160,6 +168,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun clearCallbacks() {
         onSpeechStartCallback = null
         onSpeechDoneCallback = null
+        onRequestSpeechStartCallback = null
     }
 
     /**
@@ -167,8 +176,9 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun onEvent(event: TtsEvent) {
         when (event) {
-            is TtsEvent.StartSpeaking -> {
-                onSpeechStartCallback?.invoke()
+            is TtsEvent.RequestAutoSpeak -> {
+                // 请求开始自动朗读,触发回调获取文本并开始朗读
+                onRequestSpeechStartCallback?.invoke()
             }
             is TtsEvent.StopSpeaking -> {
                 stop()

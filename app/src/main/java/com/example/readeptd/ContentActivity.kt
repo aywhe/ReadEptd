@@ -124,8 +124,8 @@ fun ContentScreen(
                                     Log.d("ContentActivity", "停止朗读按钮被点击")
                                     ttsModel.onEvent(TtsEvent.StopSpeaking)
                                 } else {
-                                    Log.d("ContentActivity", "开始朗读按钮被点击")
-                                    ttsModel.onEvent(TtsEvent.StartSpeaking)
+                                    Log.d("ContentActivity", "请求开始自动朗读")
+                                    ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
                                 }
                             }
                         ) {

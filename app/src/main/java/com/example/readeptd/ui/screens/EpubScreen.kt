@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -96,30 +95,33 @@ fun EpubScreen(
                                 Log.e("EpubScreen", "错误: $errorMessage")
                             }
                             
-                            // 设置 TTS 回调，实现自动朗读功能
-                            ttsModel.onStartSpeak {
-                                Log.d("EpubScreen", "TTS 开始朗读")
+                            // 设置自动朗读回调
+                            // 当 TTS 开始朗读时,获取当前页文本并开始朗读
+                            ttsModel.setOnSpeechStartListener {
+                                Log.d("EpubScreen", "自动朗读开始,获取当前页文本")
                                 getCurrentPageText { text ->
-                                    Log.d("EpubScreen", "onStartSpeak 回调中获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
+                                    Log.d("EpubScreen", "获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
                                     if (text.isNotBlank()) {
-                                        Log.d("EpubScreen", "准备调用 ttsModel.speak()")
+                                        Log.d("EpubScreen", "调用 ttsModel.speak() 开始朗读")
                                         ttsModel.speak(text)
-                                        Log.d("EpubScreen", "已调用 ttsModel.speak()")
                                     } else {
                                         Log.w("EpubScreen", "文本为空,不调用 speak()")
                                     }
                                 }
                             }
                             
-                            ttsModel.onSpeakDone { utteranceId ->
-                                Log.d("EpubScreen", "TTS 朗读完成: $utteranceId")
-                                // 自动翻页并朗读下一页
+                            // 当 TTS 朗读完成时,自动翻页并朗读下一页
+                            ttsModel.setOnSpeechDoneListener { utteranceId ->
+                                Log.d("EpubScreen", "自动朗读完成: $utteranceId, 准备翻页")
                                 nextPage()
-                                // 延迟一点等待页面加载，然后获取文本并朗读
+                                // 延迟等待页面加载,然后获取文本并朗读
                                 postDelayed({
                                     getCurrentPageText { text ->
                                         if (text.isNotBlank()) {
+                                            Log.d("EpubScreen", "获取到下一页文本,开始朗读")
                                             ttsModel.speak(text)
+                                        } else {
+                                            Log.w("EpubScreen", "下一页文本为空,停止自动朗读")
                                         }
                                     }
                                 }, 500)

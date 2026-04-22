@@ -5,9 +5,9 @@ package com.example.readeptd.ui
  */
 sealed interface TtsEvent {
     /**
-     * 开始朗读当前页
+     * 请求开始自动朗读(获取文本并朗读)
      */
-    object StartSpeaking : TtsEvent
+    object RequestAutoSpeak : TtsEvent
     
     /**
      * 停止朗读
