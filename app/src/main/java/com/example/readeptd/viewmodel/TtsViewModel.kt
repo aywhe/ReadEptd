@@ -93,6 +93,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun stop() {
         ttsService?.stop()
+        _isSpeaking.value = false  // 立即更新状态
     }
 
     /**
