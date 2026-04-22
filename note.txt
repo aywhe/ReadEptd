@@ -5,4 +5,10 @@
 方法： 还没找到方法， displayed 事件也不行，它只触发了一次， scrolled事件与relocated同步，也不能用
 - 问题： epub.js左右翻页的时候，想要提取页面文本，rendition.currentLocation()是最接近的方法，
 但是它返回的CFI定位，级别只到<p>，没有到char级别，导致提取的文本都是整段落的，会提取当前页面同一个段落的没有显示再页面的那些文字
-方法： 还没有找到方法
+方法： 借助AI帮助，分析项目 https://github.com/futurepress/epub.js 和文档 http://epubjs.org/documentation/0.3/，
+找到原因是 rendition.mananger.mapping.splitTextNodeIntoRanges() 这个函数中，默认使用的分隔符是空格，
+所以如果是英文的话，能正常获取当前页面显示的文本，但是如果是中文的话，就没有空格可以分隔，所以只能获取到整段文本，
+而且也没有适合中文的分隔符作为参数给它，所以要重写这个函数并且hook，不使用分隔符，而是每个字符分割，效率降低了。
+另外注意 rendition.manager.mapping 在 rendition.manager.updateLayout() 中会被重重建，
+所以也要 hook updateLayout，重建后重新hook splitTextNodeIntoRanges。
+hook 时需要 rendition 准备好，我是在第一次display().then()中进行的。

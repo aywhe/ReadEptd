@@ -7,6 +7,7 @@
     <!-- 使用本地 JS 库，支持离线阅读 -->
     <script src="js/jszip.min.js"></script>
     <script src="js/epub.min.js"></script>
+    <script src="js/epub.custom.js"></script>
     <style>
         * {
             margin: 0;
@@ -150,7 +151,7 @@
                 console.log('html ready');
             }
         };
-        
+
         // 初始化阅读器
         function initReader(epubUrl, startCfi) {
             console.log('=== EPUB Reader Init Start ===');
@@ -158,7 +159,7 @@
             console.log('Start CFI:', startCfi || '(none, will show first page)');
             console.log('ePub function exists:', typeof ePub !== 'undefined');
             console.log('JSZip exists:', typeof JSZip !== 'undefined');
-            
+
             try {
                 console.log('Initializing reader with URL:', epubUrl);
 
@@ -167,16 +168,16 @@
                 clearBook();
 
                 isLoaded = false;
-                
+
                 // 显示加载指示器
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('error').style.display = 'none';
-                
+
                 // 检查 ePub 函数是否存在
                 if (typeof ePub === 'undefined') {
                     throw new Error('ePub library not loaded. Check js/epub.min.js file.');
                 }
-                
+
                 // 创建 EPUB 实例
                 console.log('Creating ePub instance...');
                 book = ePub(epubUrl);
@@ -203,27 +204,27 @@
                     currentLocation = location;
                     const totalPages = location.start.displayed.total || 1;
                     const currentPage = location.start.displayed.page || 1;
-                    
+
                     const pageInfo = {
                         cfi: location.start.cfi,
                         percentage: location.start.percentage || 0,
                         currentPage: currentPage,
                         totalPages: totalPages
                     };
-                    
+
                     console.log('Page relocated:', pageInfo);
-                    
+
                     if (Android && Android.onPageChanged) {
                         Android.onPageChanged(JSON.stringify(pageInfo));
                     }
                 });
-                
+
                 // 监听渲染器调整大小
                 rendition.on("resized", (size) => {
                     console.log('Renderer resized:', size);
                 });
 
-                
+
                 // 监听加载完成
                 book.ready.then(() => {
                     console.log('Book ready');
@@ -273,6 +274,9 @@
                     hideLoading();
                     isLoaded = true;
 
+                    // 自定义mapping中的字符分割函数
+                    hookMappingFunctions();
+
                     // 通知 Android 加载完成
                     if (Android && Android.onLoadComplete) {
                         Android.onLoadComplete();
@@ -302,7 +306,7 @@
                 });
             }
         }
-        
+
         // 上一页
         function prevPage() {
             console.log('Going to previous page');
@@ -312,7 +316,7 @@
                 });
             }
         }
-        
+
         // 下一页
         function nextPage() {
             console.log('Going to next page');
@@ -320,7 +324,7 @@
                 console.error('Failed to go to previous page:', error);
             });
         }
-        
+
         // 跳转到百分比位置
         function goToPercentage(percentage) {
             console.log('Going to percentage:', percentage);
@@ -339,7 +343,7 @@
                 console.error('Invalid percentage value');
             }
         }
-        
+
         // 隐藏加载指示器
         function hideLoading() {
             const loadingEl = document.getElementById('loading');
@@ -349,13 +353,13 @@
             loadingEl.style.pointerEvents = 'none';
             console.log('Loading indicator hidden, viewer should be interactive');
         }
-        
+
         // 显示错误
         function showError(message) {
             hideLoading();
             document.getElementById('error').style.display = 'block';
             document.getElementById('error-message').textContent = message;
-            
+
             if (Android && Android.onError) {
                 Android.onError(message);
             }
@@ -366,13 +370,44 @@
             clearRendition();
             clearBook();
         }
+
+        // 替换mapping中用于定位的字符分割函数
+        function hookMappingFunctions() {
+            if(rendition && rendition.manager) {
+                // mapping 在 updateLayout 中被重新创建，所以需要在 updateLayout 完成后重新 hook
+                const originalUpdateLayout = rendition.manager.updateLayout.bind(rendition.manager);
+                rendition.manager.updateLayout = function() {
+                    originalUpdateLayout();
+                    // updateLayout 完成后立即重新 hook
+                    if (this.mapping) {
+                        const mapping = rendition.manager.mapping;
+                        console.log('Replacing mapping functions ...');
+                        mapping.findTextStartRange = (node, start, end) => {
+                            console.log('Custom findTextStartRange called with:', { node, start, end });
+                            return cus.findTextStartRangeByChar.call(mapping,node, start, end);
+                        }
+                        mapping.findTextEndRange = (node, start, end) => {
+                            console.log('Custom findTextEndRange called with:', { node, start, end });
+                            return cus.findTextEndRangeByChar.call(mapping,node, start, end);
+                        }
+                        mapping.splitTextNodeIntoRanges = (node) => {
+                            console.log('Custom splitTextNodeIntoRanges called with node:', node);
+                            return cus.splitTextNodeIntoCharRanges.call(mapping,node);
+                        }
+                    }
+                }
+            }
+        }
+
         function onClickNext() {
             rendition.next().then(()=>{
                 console.log('Next page');
                 //===========================================================
                 try {
-                    var location = rendition.currentLocation();
 
+                    // 替换mapping中用于定位的字符分割函数
+                    //replaceMapping(rendition.manager.mapping);
+                    var location = rendition.currentLocation();
                     if (location && location.start && location.end) {
                     console.log('Current location:', JSON.stringify(location));
 
@@ -382,10 +417,6 @@
                             views.forEach(view => {
                                 if (view && view.contents) {
                                     try {
-                                        // 1
-                                        var text = view.contents.content.textContent;
-                                        console.log('章节文本:', text);
-                                        // 2
                                         var startRange = view.contents.range(location.start.cfi);
                                         var endRange = view.contents.range(location.end.cfi);
                                         console.log("开始位置偏移量:", startRange.startOffset, startRange.endOffset);
@@ -417,7 +448,7 @@
             });
             //===========================================================
         }
-        
+
         // 暴露给 Android 的方法
         window.EpubReader = {
             init: initReader,
