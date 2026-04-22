@@ -95,14 +95,34 @@ fun EpubScreen(
                             setOnErrorListener { errorMessage ->
                                 Log.e("EpubScreen", "错误: $errorMessage")
                             }
-                            ttsModel.onStartSpeek {
+                            
+                            // 设置 TTS 回调，实现自动朗读功能
+                            ttsModel.onStartSpeak {
                                 Log.d("EpubScreen", "TTS 开始朗读")
-                                ttsModel.speak(getCurrentPageText())
+                                getCurrentPageText { text ->
+                                    Log.d("EpubScreen", "onStartSpeak 回调中获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
+                                    if (text.isNotBlank()) {
+                                        Log.d("EpubScreen", "准备调用 ttsModel.speak()")
+                                        ttsModel.speak(text)
+                                        Log.d("EpubScreen", "已调用 ttsModel.speak()")
+                                    } else {
+                                        Log.w("EpubScreen", "文本为空,不调用 speak()")
+                                    }
+                                }
                             }
-                            ttsModel.onSpeekDone {utteranceId ->
-                                Log.d("EpubScreen", "TTS 朗读完成")
+                            
+                            ttsModel.onSpeakDone { utteranceId ->
+                                Log.d("EpubScreen", "TTS 朗读完成: $utteranceId")
+                                // 自动翻页并朗读下一页
                                 nextPage()
-                                ttsModel.speak(getCurrentPageText())
+                                // 延迟一点等待页面加载，然后获取文本并朗读
+                                postDelayed({
+                                    getCurrentPageText { text ->
+                                        if (text.isNotBlank()) {
+                                            ttsModel.speak(text)
+                                        }
+                                    }
+                                }, 500)
                             }
                         }
                     },

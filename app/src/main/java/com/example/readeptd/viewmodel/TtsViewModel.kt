@@ -1,9 +1,11 @@
 package com.example.readeptd.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.service.TtsService
+import com.example.readeptd.ui.TtsEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     val pitch: StateFlow<Float> = _pitch.asStateFlow()
 
     private var ttsService: TtsService? = null
+    
+    // TTS 事件回调
+    private var onSpeechStartCallback: (() -> Unit)? = null
+    private var onSpeechDoneCallback: ((String?) -> Unit)? = null
 
     init {
         initializeTts()
@@ -59,6 +65,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
 
     override fun onSpeechDone(utteranceId: String?) {
         _isSpeaking.value = false
+        onSpeechDoneCallback?.invoke(utteranceId)
     }
 
     override fun onSpeechError(utteranceId: String?) {
@@ -71,8 +78,12 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 朗读文本
      */
     fun speak(text: String) {
+        Log.d(TAG, "TtsViewModel.speak() 被调用, 文本长度: ${text.length}, isInitialized: ${_isInitialized.value}")
         if (_isInitialized.value) {
+            Log.d(TAG, "调用 ttsService?.speak()")
             ttsService?.speak(text)
+        } else {
+            Log.e(TAG, "TTS 未初始化,无法朗读")
         }
     }
 
@@ -128,13 +139,55 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun isReady(): Boolean {
         return ttsService?.isReady() ?: false
     }
+    
+    /**
+     * 设置 TTS 开始朗读的回调
+     */
+    fun onStartSpeak(callback: () -> Unit) {
+        onSpeechStartCallback = callback
+    }
+    
+    /**
+     * 设置 TTS 朗读完成的回调
+     */
+    fun onSpeakDone(callback: (String?) -> Unit) {
+        onSpeechDoneCallback = callback
+    }
+    
+    /**
+     * 清除回调
+     */
+    fun clearCallbacks() {
+        onSpeechStartCallback = null
+        onSpeechDoneCallback = null
+    }
 
+    /**
+     * 处理 TTS 事件
+     */
+    fun onEvent(event: TtsEvent) {
+        when (event) {
+            is TtsEvent.StartSpeaking -> {
+                onSpeechStartCallback?.invoke()
+            }
+            is TtsEvent.StopSpeaking -> {
+                stop()
+            }
+        }
+    }
+    
     /**
      * 清理资源
      */
     override fun onCleared() {
         super.onCleared()
+        // 清除回调，避免内存泄漏
+        clearCallbacks()
         ttsService?.shutdown()
         ttsService = null
+    }
+
+    companion object {
+        private const val TAG = "TtsViewModel"
     }
 }

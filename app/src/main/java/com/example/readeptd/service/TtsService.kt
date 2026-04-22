@@ -96,6 +96,7 @@ class TtsService(
      * @param utteranceId 语音段ID，用于追踪
      */
     fun speak(text: String, utteranceId: String? = null) {
+        Log.d(TAG, "TtsService.speak() 被调用, isInitialized: $isInitialized, textToSpeech != null: ${textToSpeech != null}")
         if (!isInitialized) {
             Log.e(TAG, "TTS 未初始化")
             return
@@ -108,6 +109,7 @@ class TtsService(
 
         currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
         
+        Log.d(TAG, "准备调用 textToSpeech?.speak(), utteranceId: $currentUtteranceId")
         // 使用 QUEUE_FLUSH 模式：清除队列中的其他语音，立即播放当前文本
         textToSpeech?.speak(
             text,

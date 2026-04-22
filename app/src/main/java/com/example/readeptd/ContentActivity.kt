@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,17 +47,18 @@ import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
+import com.example.readeptd.ui.TtsEvent
 import com.example.readeptd.viewmodel.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
-        val fileInfo = intent.getBundleExtra("file_info")?.let { 
-            FileInfo.fromBundle(it) 
+
+        val fileInfo = intent.getBundleExtra("file_info")?.let {
+            FileInfo.fromBundle(it)
         }
-        
+
         setContent {
             ReadEptdTheme {
                 ContentScreen(
@@ -76,7 +78,7 @@ fun ContentScreen(
     ttsModel: TtsViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    
+
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri) {
@@ -85,6 +87,7 @@ fun ContentScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
+    val ttsInitialized  by ttsModel.isInitialized.collectAsState()
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
@@ -114,19 +117,23 @@ fun ContentScreen(
                     }
                 },
                 actions = {
-                    Button(
-                        onClick = {
-                            if(isSpeaking){
-                                ttsModel.onEvent(TtsEvent.StopSpeaking)
-                            } else {
-                                ttsModel.onEvent(TtsEvent.StartSpeaking)
+                    if(ttsInitialized) {
+                        IconButton(
+                            onClick = {
+                                if (isSpeaking) {
+                                    Log.d("ContentActivity", "停止朗读按钮被点击")
+                                    ttsModel.onEvent(TtsEvent.StopSpeaking)
+                                } else {
+                                    Log.d("ContentActivity", "开始朗读按钮被点击")
+                                    ttsModel.onEvent(TtsEvent.StartSpeaking)
+                                }
                             }
+                        ) {
+                            Icon(
+                                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                                contentDescription = if (isSpeaking) "停止朗读" else "开始朗读"
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.PlayArrow,
-                            contentDescription = if (isSpeaking) "暂停" else "播放"
-                        )
                     }
                 }
             )
