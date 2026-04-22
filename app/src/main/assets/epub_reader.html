@@ -140,7 +140,10 @@
                 console.error('Error:', message);
             },
             onHtmlReady: function() {
-                console.log('html ready');
+                console.log('Html ready');
+            },
+            onPageActionComplete: function(action){
+                console.log('Page action complete:', action);
             }
         };
 
@@ -302,7 +305,11 @@
         function prevPage() {
             console.log('Going to previous page');
             if (rendition) {
-                rendition.prev().catch((error) => {
+                rendition.prev().then(() => {
+                    if(Android && Android.onPageActionComplete){
+                        Android.onPageActionComplete('prev complete');
+                    }
+                }).catch((error) => {
                     console.error('Failed to go to previous page:', error);
                 });
             }
@@ -311,8 +318,12 @@
         // 下一页
         function nextPage() {
             console.log('Going to next page');
-            rendition.next().catch((error) => {
-                console.error('Failed to go to previous page:', error);
+            rendition.next().then(() => {
+                if(Android && Android.onPageActionComplete){
+                    Android.onPageActionComplete('next complete');
+                }
+            }).catch((error) => {
+                console.error('Failed to go to next page:', error);
             });
         }
 
@@ -326,6 +337,9 @@
                     console.log('Generated CFI:', cfi);
                     rendition.display(cfi).then(() => {;
                         console.log('Percentage location displayed');
+                        if(Android && Android.onPageActionComplete){
+                            Android.onPageActionComplete('go to percentage complete');
+                        }
                     }).catch((error) => {
                         console.error('Failed to go to percentage location:', error);
                     });

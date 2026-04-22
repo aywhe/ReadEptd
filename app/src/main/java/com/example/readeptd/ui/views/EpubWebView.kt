@@ -25,8 +25,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onPageChangedListener: ((EpubLocation) -> Unit)? = null
     private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
+    private var onPageActionCompleteListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     
+    // ✅ 添加翻页完成的临时回调
+    private var pageActionPendingCallback: (() -> Unit)? = null
+
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
     
@@ -154,21 +158,30 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
     
     /**
-     * 上一页
+     * 下一页
      */
-    fun prevPage() {
-        Log.d(TAG, "执行 JavaScript 上一页...")
-        executeJs("window.EpubReader.prevPage()")
+    fun nextPage(callback: (() -> Unit)? = null) {
+        Log.d(TAG, "执行 JavaScript 下一页...")
+        
+        // ✅ 如果有回调，先保存起来，等 JS 通知完成时再调用
+        if (callback != null) {
+            pageActionPendingCallback = callback
+        }
+        
+        executeJs("window.EpubReader.nextPage()")
     }
     
     /**
-     * 下一页
+     * 上一页
      */
-    fun nextPage(callback: () -> Unit = {}) {
-        Log.d(TAG, "执行 JavaScript 下一页...")
-        executeJs("window.EpubReader.nextPage()"){
-            callback()
+    fun prevPage(callback: (() -> Unit)? = null) {
+        Log.d(TAG, "执行 JavaScript 上一页...")
+        
+        if (callback != null) {
+            pageActionPendingCallback = callback
         }
+        
+        executeJs("window.EpubReader.prevPage()")
     }
     
     /**
@@ -265,6 +278,17 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onError(message: String) {
             Log.e(TAG, "错误: $message")
             onErrorListener?.invoke(message)
+        }
+
+        @JavascriptInterface
+        fun onPageActionComplete(action: String) {
+            Log.d(TAG, "页面操作完成: $action")
+            
+            // ✅ 触发待处理的回调
+            pageActionPendingCallback?.invoke()
+            pageActionPendingCallback = null
+            
+            onPageActionCompleteListener?.invoke(action)
         }
 
         @JavascriptInterface
