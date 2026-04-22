@@ -4,7 +4,9 @@ import kotlin.math.ceil
 
 data class TextChunk(
     val content: String,
-    val index: Int
+    val index: Int,
+    val startPos: Long,
+    val endPos: Long
 )
 
 /**
@@ -19,6 +21,7 @@ class TextSplitter(
     private var index = 0
     private var currentContent = StringBuilder()
     private var currentLines = 0
+    private var currentPosition: Long = 0
 
     init {
 
@@ -52,10 +55,22 @@ class TextSplitter(
             text = "\n"
         }
         if(text.isNotEmpty()) {
+            val startPos = if (text == "\n") {
+                currentPosition
+            } else {
+                currentPosition - text.length
+            }
+            val endPos = if (text == "\n") {
+                currentPosition + 1
+            } else {
+                currentPosition
+            }
             emitCallback(
                 TextChunk(
                     content = text,
-                    index = getCurrentIndex()
+                    index = getCurrentIndex(),
+                    startPos = startPos,
+                    endPos = endPos
                 )
             )
         }
@@ -71,10 +86,14 @@ class TextSplitter(
 
     private suspend fun flushCurrentPage() {
         if (currentContent.isNotEmpty()) {
+            val content = currentContent.toString()
+            val startPos = currentPosition - content.length
             emitCallback(
                 TextChunk(
-                    content = currentContent.toString(),
-                    index = getCurrentIndex()
+                    content = content,
+                    index = getCurrentIndex(),
+                    startPos = startPos,
+                    endPos = currentPosition
                 )
             )
             incrementIndex()
@@ -92,11 +111,14 @@ class TextSplitter(
             val endIndex = startIndex + chunkSize
             val pageTextBuilder = StringBuilder(chunkSize + 1)
             pageTextBuilder.append(line, startIndex, endIndex)
-
+            val pageText = pageTextBuilder.toString()
+            
             emitCallback(
                 TextChunk(
-                    content = pageTextBuilder.toString(),
-                    index = getCurrentIndex()
+                    content = pageText,
+                    index = getCurrentIndex(),
+                    startPos = currentPosition + startIndex,
+                    endPos = currentPosition + endIndex
                 )
             )
             incrementIndex()
@@ -112,6 +134,7 @@ class TextSplitter(
 
     private fun appendLineToCurrentPage(line: String) {
         currentContent.append(line).append('\n')
+        currentPosition += line.length + 1
         currentLines += calculateLinesNeeded(line)
     }
 
