@@ -97,7 +97,7 @@ fun EpubScreen(
                             
                             // 设置自动朗读回调
                             // 当 TTS 开始朗读时,获取当前页文本并开始朗读
-                            ttsModel.setOnSpeechStartListener {
+                            ttsModel.setOnRequestSpeechStartListener {
                                 Log.d("EpubScreen", "自动朗读开始,获取当前页文本")
                                 getCurrentPageText { text ->
                                     Log.d("EpubScreen", "获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
