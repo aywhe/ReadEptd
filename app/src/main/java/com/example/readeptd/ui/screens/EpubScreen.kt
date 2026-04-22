@@ -21,7 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.ui.views.EpubWebView
-import com.example.readeptd.viewmodel.EpubUiState
+import com.example.readeptd.viewmodel.BookUiState
 import com.example.readeptd.viewmodel.EpubViewModel
 import com.example.readeptd.viewmodel.TtsViewModel
 import kotlinx.coroutines.delay
@@ -37,13 +37,13 @@ fun EpubScreen(
 
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareEpubFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
     }
 
     Column(modifier = modifier.fillMaxSize()) {
         // 根据状态显示不同内容
         when (val state = uiState) {
-            is EpubUiState.Loading -> {
+            is BookUiState.Loading -> {
                 // 加载中
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -58,9 +58,9 @@ fun EpubScreen(
                     )
                 }
             }
-            is EpubUiState.Ready -> {
+            is BookUiState.Ready -> {
                 // 获取上次阅读位置
-                val savedCfi = viewModel.getCurrentReadingState()?.cfi
+                val savedCfi = viewModel.getCurrentState()?.cfi
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 
                 // 准备完成，显示 WebView
@@ -79,13 +79,13 @@ fun EpubScreen(
                             setOnPageChangedListener { epubLocation ->
                                 Log.d("EpubScreen", "保存进度: $epubLocation")
                                 // 并保存进度
-                                viewModel.saveProgress(ReadingState.Epub(
+                                viewModel.saveEpubProgress(
                                     uri = fileInfo.uri,
                                     cfi = epubLocation.cfi,
                                     page = epubLocation.currentPage,
                                     totalPages = epubLocation.totalPages,
                                     progress = epubLocation.percentage
-                                ))
+                                )
                             }
 
                             setOnLoadCompleteListener {
@@ -140,7 +140,7 @@ fun EpubScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            is EpubUiState.Error -> {
+            is BookUiState.Error -> {
                 // 显示错误
                 Column(
                     modifier = Modifier.fillMaxSize(),
