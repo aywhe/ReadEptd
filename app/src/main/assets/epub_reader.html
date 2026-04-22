@@ -124,8 +124,8 @@
 
         window.onunload = function() {
             // 清理资源
-            //clearRendition();
-            //clearBook();
+            clearRendition();
+            clearBook();
         };
 
         // Android 接口
@@ -215,7 +215,6 @@
                 rendition.on("resized", (size) => {
                     console.log('Renderer resized:', size);
                 });
-
 
                 // 监听加载完成
                 book.ready.then(() => {
@@ -431,7 +430,7 @@
             } catch (error) {
                 console.error('Error in getCurrentPageText:', error);
             }
-            return text;
+            return result;
         }
 
         // 暴露给 Android 的方法
@@ -441,7 +440,8 @@
             prevPage: prevPage,
             nextPage: nextPage,
             goToPercentage: goToPercentage,
-            cleanUp: cleanUp
+            cleanUp: cleanUp,
+            getCurrentPageText: getCurrentPageText
         };
     </script>
 </body>
