@@ -37,7 +37,6 @@ fun EpubScreen(
 
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
-        ttsModel.setQueueMode(TtsViewModel.QueueMode.ADD)
         viewModel.prepareEpubFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
@@ -96,8 +95,14 @@ fun EpubScreen(
                             setOnErrorListener { errorMessage ->
                                 Log.e("EpubScreen", "错误: $errorMessage")
                             }
-                            ttsModel.onStartSpeek(){
-
+                            ttsModel.onStartSpeek {
+                                Log.d("EpubScreen", "TTS 开始朗读")
+                                ttsModel.speak(getCurrentPageText())
+                            }
+                            ttsModel.onSpeekDone {utteranceId ->
+                                Log.d("EpubScreen", "TTS 朗读完成")
+                                nextPage()
+                                ttsModel.speak(getCurrentPageText())
                             }
                         }
                     },

@@ -185,7 +185,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "清理 WebView 资源")
         executeJs("window.EpubReader.cleanUp()")
     }
-    
+
+    fun getCurrentPageText(): String{
+        Log.d(TAG, "执行 JavaScript 获取当前页文本...")
+        executeJs("window.EpubReader.getCurrentPageText()"){result -> return@executeJs result}
+    }
     /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
