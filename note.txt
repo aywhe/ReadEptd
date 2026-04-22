@@ -1,5 +1,15 @@
 - 问题： epub.js总是不能翻页
 方法： rendition = book.renderTo("viewer" ...... 中忘了设置 snap: true
 能找到比较清楚的文档： https://hqlili.github.io/information-house/frontend/epubjs/epubjs_learned.html
+
 - 问题： epub.js的 relocated 事件，左右翻页时，有时候触发有时候不触发，导致保存进度不准确
 方法： 还没找到方法， displayed 事件也不行，它只触发了一次
+
+- 问题： TextToSpeech(context) 失败返回 status -1
+方法：manifest中添加
+   <queries>
+       <intent>
+           <action android:name="android.intent.action.TTS_SERVICE" />
+       </intent>
+   </queries>
+
