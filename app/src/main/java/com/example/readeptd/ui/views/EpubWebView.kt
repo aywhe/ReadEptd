@@ -164,9 +164,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     /**
      * 下一页
      */
-    fun nextPage() {
+    fun nextPage(callback: () -> Unit = {}) {
         Log.d(TAG, "执行 JavaScript 下一页...")
-        executeJs("window.EpubReader.nextPage()")
+        executeJs("window.EpubReader.nextPage()"){
+            callback()
+        }
     }
     
     /**
@@ -194,7 +196,6 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "执行 JavaScript 获取当前页文本...")
         executeJs("window.EpubReader.getCurrentPageText()") { result ->
             val text = result ?: ""
-            Log.d(TAG, "获取到文本: $text")
             Log.d(TAG, "获取到文本长度: ${text.length}")
             callback(text)
         }

@@ -24,6 +24,7 @@ import com.example.readeptd.ui.views.EpubWebView
 import com.example.readeptd.viewmodel.EpubUiState
 import com.example.readeptd.viewmodel.EpubViewModel
 import com.example.readeptd.viewmodel.TtsViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun EpubScreen(
@@ -103,7 +104,8 @@ fun EpubScreen(
                                     Log.d("EpubScreen", "获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
                                     if (text.isNotBlank()) {
                                         Log.d("EpubScreen", "调用 ttsModel.speak() 开始朗读")
-                                        ttsModel.speak(text)
+                                        val cleanedText = text.replace("\\n", " ").trim()
+                                        ttsModel.speak(cleanedText)
                                     } else {
                                         Log.w("EpubScreen", "文本为空,不调用 speak()")
                                     }
@@ -113,18 +115,17 @@ fun EpubScreen(
                             // 当 TTS 朗读完成时,自动翻页并朗读下一页
                             ttsModel.setOnSpeechDoneListener { utteranceId ->
                                 Log.d("EpubScreen", "自动朗读完成: $utteranceId, 准备翻页")
-                                nextPage()
-                                // 延迟等待页面加载,然后获取文本并朗读
-                                postDelayed({
+                                nextPage{
                                     getCurrentPageText { text ->
                                         if (text.isNotBlank()) {
                                             Log.d("EpubScreen", "获取到下一页文本,开始朗读")
-                                            ttsModel.speak(text)
+                                            val cleanedText = text.replace("\\n", " ").trim()
+                                            ttsModel.speak(cleanedText)
                                         } else {
                                             Log.w("EpubScreen", "下一页文本为空,停止自动朗读")
                                         }
                                     }
-                                }, 500)
+                                }
                             }
                         }
                     },
