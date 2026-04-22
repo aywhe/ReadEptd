@@ -61,4 +61,6 @@ dependencies {
 
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
     
+    implementation("com.github.albfernandez:juniversalchardet:2.5.0")
+
 }
