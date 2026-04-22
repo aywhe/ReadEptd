@@ -1,6 +1,7 @@
 package com.example.readeptd.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.compose.ui.unit.IntSize
 import androidx.core.net.toUri
@@ -115,8 +116,15 @@ class TxtViewModel(
      * 初始化分页
      */
     suspend fun initPages() {
-        if (viewSize.width <= 0 || viewSize.height <= 0 || currentTempFile == null) {
-            Log.d(TAG, "分页条件不满足: viewSize=$viewSize, file=${currentTempFile != null}")
+        if (viewSize.width <= 0 || viewSize.height <= 0) {
+            Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
+            return
+        }
+        
+        // 从 UI 状态中获取临时文件路径
+        val currentState = uiState.value
+        if (currentState !is BookUiState.Ready) {
+            Log.d(TAG, "文件未准备好，当前状态: $currentState")
             return
         }
         
@@ -134,10 +142,13 @@ class TxtViewModel(
                 tempPages.add(chunk)
             }
             
-            textExtractor.extractTextRaw(currentTempFile?.toUri()).collect { line ->
+            textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
                 splitter.processLine(line)
             }
+            
+            // 处理剩余内容
             splitter.flushRemaining()
+            
             // 赋值不可变列表给 StateFlow
             _pages.value = tempPages.toList()
             

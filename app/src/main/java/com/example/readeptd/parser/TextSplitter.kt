@@ -4,9 +4,7 @@ import kotlin.math.ceil
 
 data class TextChunk(
     val content: String,
-    val index: Int,
-    val startPos: Long,
-    val endPos: Long
+    val index: Int
 )
 
 /**
