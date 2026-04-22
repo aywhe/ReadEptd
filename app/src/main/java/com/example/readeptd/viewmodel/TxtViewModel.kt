@@ -77,8 +77,7 @@ class TxtViewModel(
         // 保存阅读进度
         saveTxtProgress(
             uri = currentFileUri ?: return,
-            lineIndex = pageIndex,
-            progress = if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
+            pageIndex = pageIndex
         )
     }
 
@@ -180,16 +179,13 @@ class TxtViewModel(
      */
     fun saveTxtProgress(
         uri: String,
-        charOffset: Long = 0,
-        lineIndex: Int = 0,
-        scrollPosition: Float = 0f,
-        progress: Float = 0f
+        pageIndex: Int
     ) {
+        val progress = if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
+        val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
         val state = ReadingState.Txt(
             uri = uri,
             charOffset = charOffset,
-            lineIndex = lineIndex,
-            scrollPosition = scrollPosition,
             progress = progress,
             lastReadTime = System.currentTimeMillis()
         )

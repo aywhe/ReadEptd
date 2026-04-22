@@ -46,8 +46,6 @@ sealed interface ReadingState {
     data class Txt(
         override val uri: String,
         val charOffset: Long = 0,          // 字符偏移量
-        val lineIndex: Int = 0,            // 行号
-        val scrollPosition: Float = 0f,    // 滚动位置百分比 0.0-1.0
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "text/plain"
