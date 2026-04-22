@@ -178,8 +178,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun onEvent(event: TtsEvent) {
         when (event) {
             is TtsEvent.RequestAutoSpeak -> {
-                // 请求开始自动朗读,触发回调获取文本并开始朗读
-                onRequestSpeechStartCallback?.invoke()
+                if(!_isSpeaking.value) {
+                    // 请求开始自动朗读,触发回调获取文本并开始朗读
+                    onRequestSpeechStartCallback?.invoke()
+                }
             }
             is TtsEvent.StopSpeaking -> {
                 stop()
