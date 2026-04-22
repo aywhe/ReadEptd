@@ -48,6 +48,7 @@ import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
 import com.example.readeptd.ui.TtsEvent
+import com.example.readeptd.ui.screens.TextScreen
 import com.example.readeptd.viewmodel.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
@@ -184,6 +185,13 @@ fun FileContentScreen(
     when (fileInfo.mimeType) {
         "application/epub+zip" -> {
             EpubScreen(
+                fileInfo = fileInfo,
+                ttsModel = ttsModel,
+                modifier = modifier
+            )
+        }
+        "text/plain" -> {
+            TextScreen(
                 fileInfo = fileInfo,
                 ttsModel = ttsModel,
                 modifier = modifier

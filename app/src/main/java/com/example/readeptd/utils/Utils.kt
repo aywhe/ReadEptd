@@ -76,4 +76,22 @@ object Utils {
             Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
         }
     }
+    fun calculatePageCharsParams(
+        pageWidth: Int,
+        pageHeight: Int,
+        fontSize: Int,
+        lineHeight: Int
+    ): Pair<Int, Int> {
+
+        val charAspectRatio = 1.0f
+        val charSpacingFactor = 1.05f
+
+        val effectiveCharWidth = fontSize * charAspectRatio * charSpacingFactor
+        // 1. 计算每行平均字符数（像素相除，结果无单位）
+        val avgCharsPerLine = (pageWidth.toFloat() / effectiveCharWidth).toInt()
+
+        // 2. 计算每页最大行数（像素相除，结果无单位）
+        val maxLinesPerPage = (pageHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
+        return Pair(avgCharsPerLine, maxLinesPerPage)
+    }
 }

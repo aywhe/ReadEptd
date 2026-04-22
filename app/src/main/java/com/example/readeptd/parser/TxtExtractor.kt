@@ -19,7 +19,7 @@ import java.io.SequenceInputStream
  */
 class TxtExtractor(private val context: Context) {
     
-    fun extractTextRaw(uri: Uri): Flow<String> = flow {
+    fun extractTextRaw(uri: Uri?): Flow<String> = flow {
         try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 // 检测文件编码

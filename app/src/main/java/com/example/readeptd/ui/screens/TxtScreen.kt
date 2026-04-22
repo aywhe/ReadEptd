@@ -1,0 +1,99 @@
+package com.example.readeptd.ui.screens
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.data.FileInfo
+import com.example.readeptd.ui.TxtEvent
+import com.example.readeptd.viewmodel.BookUiState
+import com.example.readeptd.viewmodel.TxtViewModel
+import com.example.readeptd.viewmodel.TtsViewModel
+
+@Composable
+fun TextScreen(
+    fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
+    modifier: Modifier = Modifier,
+    viewModel: TxtViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // 准备 TXT 文件
+    LaunchedEffect(fileInfo.uri) {
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        when (val state = uiState) {
+            is BookUiState.Loading -> {
+                // 加载中
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "准备阅读器...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            }
+            is BookUiState.Ready -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onSizeChanged { size ->
+                            viewModel.onEvent(TxtEvent.OnViewSizeChanged(size))
+                        }
+                ) {
+                    val pagerState = rememberPagerState(
+                        initialPage = 0,
+                        pageCount = { viewModel.getPagesCount() }
+                    )
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 10//Int.MAX_VALUE
+                    ) { page ->
+
+                    }
+                }
+            }
+            is BookUiState.Error -> {
+                // 显示错误
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
