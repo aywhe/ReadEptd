@@ -37,6 +37,10 @@ class TxtViewModel(
     // 当前页码
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
+    
+    // 初始页码（用于恢复阅读进度）
+    private val _initialPage = MutableStateFlow(0)
+    val initialPage: StateFlow<Int> = _initialPage.asStateFlow()
 
     /**
      * 处理 UI 事件
@@ -153,8 +157,56 @@ class TxtViewModel(
             
             Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
             
+            // 根据保存的阅读进度恢复页码
+            restorePageFromProgress()
+            
         } catch (e: Exception) {
             Log.e(TAG, "分页失败", e)
+        }
+    }
+
+    /**
+     * 根据保存的阅读进度恢复页码
+     */
+    private fun restorePageFromProgress() {
+        val savedState = currentReadingState
+        if (savedState == null || _pages.value.isEmpty()) {
+            Log.d(TAG, "没有保存的阅读状态或页面为空，从第一页开始")
+            _initialPage.value = 0
+            _currentPage.value = 0
+            return
+        }
+        
+        val charOffset = savedState.charOffset
+        Log.d(TAG, "尝试恢复到字符偏移量: $charOffset")
+        
+        // 查找包含该字符偏移量的页面
+        val targetPageIndex = findPageByCharOffset(charOffset)
+        
+        Log.d(TAG, "恢复到页码: $targetPageIndex")
+        _initialPage.value = targetPageIndex
+        _currentPage.value = targetPageIndex
+    }
+
+    /**
+     * 根据字符偏移量查找对应的页码
+     */
+    private fun findPageByCharOffset(charOffset: Long): Int {
+        if (_pages.value.isEmpty()) return 0
+        
+        // 二分查找或直接遍历
+        for ((index, page) in _pages.value.withIndex()) {
+            // 检查字符偏移量是否在当前页面范围内
+            if (charOffset >= page.startPos && charOffset < page.endPos) {
+                return index
+            }
+        }
+        
+        // 如果没找到，返回最后一页或第一页
+        return if (charOffset >= _pages.value.last().endPos) {
+            _pages.value.size - 1
+        } else {
+            0
         }
     }
 

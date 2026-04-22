@@ -35,6 +35,7 @@ fun TextScreen(
     viewModel: TxtViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val initialPage by viewModel.initialPage.collectAsState()
     val context = LocalContext.current
 
     // 准备 TXT 文件
@@ -68,15 +69,22 @@ fun TextScreen(
                         }
                 ) {
                     val pagerState = rememberPagerState(
-                        initialPage = 0,
+                        initialPage = initialPage,
                         pageCount = { viewModel.getPagesCount() }
                     )
+                    
+                    LaunchedEffect(initialPage) {
+                        if (initialPage > 0) {
+                            pagerState.scrollToPage(initialPage)
+                        }
+                    }
+                    
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 10//Int.MAX_VALUE
+                        beyondViewportPageCount = 10
                     ) { page ->
-
+                        // 页面内容
                     }
                 }
             }
