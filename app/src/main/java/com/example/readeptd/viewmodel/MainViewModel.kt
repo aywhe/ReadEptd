@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.ui.MainUiEvent
 import com.example.readeptd.ui.MainUiState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
     
+    private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
+    val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
+
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
@@ -38,6 +42,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * 查询指定文件的阅读进度
+     */
+    fun getProgress(uri: String): Float? {
+        return _readingStates.value[uri]?.progress
+    }
+
     private fun loadInitialData() {
         viewModelScope.launch {
             // 从 DataStore 加载保存的文件列表
@@ -49,7 +60,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
+    
+    fun loadReadingStates() {
+        viewModelScope.launch {
+            fileDataStore.allReadingStatesFlow.collect { states ->
+                _readingStates.value = states
+                Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
+            }
+        }
+    }
+    
     private fun handleFilesSelected(files: List<FileInfo>) {
         viewModelScope.launch {
             Log.d("MainViewModel", "收到 ${files.size} 个文件")
@@ -92,6 +112,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val currentState = _uiState.value
             if (currentState is MainUiState.Success) {
                 if (index in currentState.readingFiles.indices) {
+                    val removedFile = currentState.readingFiles[index]
+                    
                     val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
@@ -102,6 +124,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // 保存到 DataStore
                     saveReadingFiles(updatedFiles)
+                    
+                    fileDataStore.deleteReadingState(removedFile.uri)
+                    Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }

@@ -5,9 +5,10 @@ package com.example.readeptd.data
  * 不同的文件格式有不同的阅读状态属性
  */
 sealed interface ReadingState {
-    val uri: String                    // 文件 URI，用于关联具体文件
-    val lastReadTime: Long             // 最后阅读时间
-    val mimeType: String               // 文件 MIME 类型
+    val uri: String
+    val lastReadTime: Long
+    val mimeType: String
+    val progress: Float
     
     /**
      * EPUB 格式的阅读状态
@@ -18,7 +19,7 @@ sealed interface ReadingState {
         val cfi: String? = null,           // EPUB CFI 定位符
         val page: Int? = null,             // 当前页码
         val totalPages: Int? = null,       // 总页数
-        val progress: Float = 0f,          // 阅读进度 0.0-1.0
+        override val progress: Float = 0f,          // 阅读进度 0.0-1.0
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/epub+zip"
     ) : ReadingState
@@ -33,6 +34,7 @@ sealed interface ReadingState {
         val totalPages: Int = 1,           // 总页数
         val zoom: Float = 1.0f,            // 缩放比例
         val scrollOffset: Float = 0f,      // 滚动偏移量
+        override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf"
     ) : ReadingState
@@ -44,8 +46,7 @@ sealed interface ReadingState {
     data class Txt(
         override val uri: String,
         val charOffset: Long = 0,          // 字符偏移量
-        val lineIndex: Int = 0,            // 行号
-        val scrollPosition: Float = 0f,    // 滚动位置百分比 0.0-1.0
+        override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "text/plain"
     ) : ReadingState
@@ -56,6 +57,7 @@ sealed interface ReadingState {
      */
     data class Unknown(
         override val uri: String,
+        override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/octet-stream"
     ) : ReadingState

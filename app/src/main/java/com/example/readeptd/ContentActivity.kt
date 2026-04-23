@@ -9,10 +9,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,35 +48,39 @@ import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
 import androidx.core.net.toUri
 import com.example.readeptd.ui.screens.PdfScreen
+import com.example.readeptd.ui.TtsEvent
+import com.example.readeptd.ui.screens.TextScreen
+import com.example.readeptd.viewmodel.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
-        val fileInfo = intent.getBundleExtra("file_info")?.let { 
-            FileInfo.fromBundle(it) 
+
+        val fileInfo = intent.getBundleExtra("file_info")?.let {
+            FileInfo.fromBundle(it)
         }
-        
+
         setContent {
             ReadEptdTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ContentScreen(
-                        fileInfo = fileInfo,
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                ContentScreen(
+                    fileInfo = fileInfo
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentScreen(
     fileInfo: FileInfo?,
     modifier: Modifier = Modifier,
-    viewModel: ContentViewModel = viewModel()
+    viewModel: ContentViewModel = viewModel(),
+    ttsModel: TtsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri) {
@@ -73,19 +88,75 @@ fun ContentScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+    val isSpeaking by ttsModel.isSpeaking.collectAsState()
+    val ttsInitialized by ttsModel.isInitialized.collectAsState()
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
-    when (val state = uiState) {
-        is ContentUiState.Loading -> LoadingContentScreen(modifier = modifier)
-        is ContentUiState.Success -> FileContentScreen(
-            fileInfo = state.fileInfo,
-            modifier = modifier
-        )
-        is ContentUiState.Error -> ErrorContentScreen(
-            error = state.error,
-            modifier = modifier
-        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = when (val state = uiState) {
+                            is ContentUiState.Success -> state.fileInfo.fileName
+                            else -> "阅读"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (context is ComponentActivity) {
+                            context.finish()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
+                },
+                actions = {
+                    if (ttsInitialized) {
+                        IconButton(
+                            onClick = {
+                                if (isSpeaking) {
+                                    Log.d("ContentActivity", "停止朗读按钮被点击")
+                                    ttsModel.onEvent(TtsEvent.StopSpeaking)
+                                } else {
+                                    Log.d("ContentActivity", "请求开始自动朗读")
+                                    ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                                contentDescription = if (isSpeaking) "停止朗读" else "开始朗读"
+                            )
+                        }
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        when (val state = uiState) {
+            is ContentUiState.Loading -> LoadingContentScreen(
+                modifier = modifier.padding(innerPadding)
+            )
+
+            is ContentUiState.Success -> FileContentScreen(
+                fileInfo = state.fileInfo,
+                ttsModel = ttsModel,
+                modifier = modifier.padding(innerPadding)
+            )
+
+            is ContentUiState.Error -> ErrorContentScreen(
+                error = state.error,
+                modifier = modifier.padding(innerPadding)
+            )
+        }
     }
 }
 
@@ -108,6 +179,7 @@ fun LoadingContentScreen(modifier: Modifier = Modifier) {
 @Composable
 fun FileContentScreen(
     fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
     // 根据 mimeType 分发到不同的 Screen
@@ -115,6 +187,14 @@ fun FileContentScreen(
         "application/epub+zip" -> {
             EpubScreen(
                 fileInfo = fileInfo,
+                ttsModel = ttsModel,
+                modifier = modifier
+            )
+        }
+        "text/plain" -> {
+            TextScreen(
+                fileInfo = fileInfo,
+                ttsModel = ttsModel,
                 modifier = modifier
             )
         }
@@ -154,7 +234,7 @@ fun ErrorContentScreen(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.error
         )
-        
+
         Text(
             text = error,
             style = MaterialTheme.typography.bodyMedium,
@@ -197,21 +277,6 @@ fun UnsupportedFormatScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 16.dp)
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ContentScreenPreview() {
-    ReadEptdTheme {
-        FileContentScreen(
-            fileInfo = FileInfo(
-                uri = "content://test",
-                fileName = "测试文件.txt",
-                fileSize = 1024000,
-                mimeType = "text/plain"
-            )
         )
     }
 }

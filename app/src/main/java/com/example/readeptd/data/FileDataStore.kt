@@ -197,13 +197,13 @@ class FileDataStore(private val context: Context) {
             put("mimeType", state.mimeType)
             put("uri", state.uri)
             put("lastReadTime", state.lastReadTime)
+            put("progress", state.progress)
             
             when (state) {
                 is ReadingState.Epub -> {
                     if (state.cfi != null) put("cfi", state.cfi)
                     if (state.page != null) put("page", state.page)
                     if (state.totalPages != null) put("totalPages", state.totalPages)
-                    put("progress", state.progress)
                 }
                 is ReadingState.Pdf -> {
                     put("page", state.page)
@@ -213,8 +213,6 @@ class FileDataStore(private val context: Context) {
                 }
                 is ReadingState.Txt -> {
                     put("charOffset", state.charOffset)
-                    put("lineIndex", state.lineIndex)
-                    put("scrollPosition", state.scrollPosition)
                 }
                 is ReadingState.Unknown -> {
                     // 无额外字段
@@ -231,6 +229,7 @@ class FileDataStore(private val context: Context) {
         val mimeType = jsonObject.optString("mimeType", "application/octet-stream")
         val uri = jsonObject.getString("uri")
         val lastReadTime = jsonObject.optLong("lastReadTime", System.currentTimeMillis())
+        val progress = jsonObject.optDouble("progress", 0.0).toFloat()
         
         return when {
             mimeType == "application/epub+zip" || mimeType.contains("epub") -> ReadingState.Epub(
@@ -238,7 +237,7 @@ class FileDataStore(private val context: Context) {
                 cfi = if (jsonObject.has("cfi")) jsonObject.getString("cfi") else null,
                 page = if (jsonObject.has("page")) jsonObject.getInt("page") else null,
                 totalPages = if (jsonObject.has("totalPages")) jsonObject.getInt("totalPages") else null,
-                progress = jsonObject.optDouble("progress", 0.0).toFloat(),
+                progress = progress,
                 lastReadTime = lastReadTime
             )
             mimeType == "application/pdf" -> ReadingState.Pdf(
@@ -247,17 +246,18 @@ class FileDataStore(private val context: Context) {
                 totalPages = jsonObject.optInt("totalPages", 1),
                 zoom = jsonObject.optDouble("zoom", 1.0).toFloat(),
                 scrollOffset = jsonObject.optDouble("scrollOffset", 0.0).toFloat(),
+                progress = progress,
                 lastReadTime = lastReadTime
             )
             mimeType == "text/plain" -> ReadingState.Txt(
                 uri = uri,
                 charOffset = jsonObject.optLong("charOffset", 0),
-                lineIndex = jsonObject.optInt("lineIndex", 0),
-                scrollPosition = jsonObject.optDouble("scrollPosition", 0.0).toFloat(),
+                progress = progress,
                 lastReadTime = lastReadTime
             )
             else -> ReadingState.Unknown(
                 uri = uri,
+                progress = progress,
                 lastReadTime = lastReadTime
             )
         }

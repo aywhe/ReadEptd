@@ -129,8 +129,7 @@ fun MainScreen(
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             it.forEach { uri ->
                 try {
-                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                    Log.d("MainActivity", "已获取持久化读取权限: $uri")
+                    Utils.takePersistableUriPermission(context, uri.toString())
                 } catch (e: Exception) {
                     Log.e("MainActivity", "获取持久化权限失败: $uri", e)
                 }
@@ -249,25 +248,16 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             )
 
-            is MainUiState.Success -> ContentScreen(
-                files = state.readingFiles,
-                onDragButtonClick = { filePickerLauncher.launch(getAllowedMimeTypes()) },
-                onRemoveFile = { index ->
-                    val fileToRemove = state.readingFiles[index]
-                    try {
-                        context.contentResolver.releasePersistableUriPermission(
-                            fileToRemove.uri.toUri(),
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-                        Log.d("MainActivity", "已释放 URI 读取权限: ${fileToRemove.uri}")
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "释放 URI 权限失败", e)
-                    }
-                    viewModel.onEvent(MainUiEvent.RemoveFile(index))
-                },
-                onMoveFile = { from, to -> viewModel.onEvent(MainUiEvent.MoveFile(from, to)) },
-                modifier = Modifier.padding(innerPadding)
-            )
+            is MainUiState.Success -> {
+                ContentScreen(
+                    viewModel = viewModel,
+                    modifier = Modifier.padding(innerPadding)
+                )
+
+                DraggableFloatingButton(
+                    onClick = { filePickerLauncher.launch(getAllowedMimeTypes())  }
+                )
+            }
 
             is MainUiState.Error -> ErrorScreen(
                 error = state.error,
@@ -341,12 +331,26 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 
 @Composable
 fun ContentScreen(
-    files: List<FileInfo>,
-    onDragButtonClick: () -> Unit,
-    onRemoveFile: (Int) -> Unit,
-    onMoveFile: (Int, Int) -> Unit,
+    viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val readingStates by viewModel.readingStates.collectAsState()
+    val context = LocalContext.current
+    
+    val files = if (uiState is MainUiState.Success) {
+        (uiState as MainUiState.Success).readingFiles
+    } else {
+        emptyList()
+    }
+    
+    // ✅ 按需加载阅读状态：当有文件时才启动监听
+    LaunchedEffect(files.isNotEmpty()) {
+        if (files.isNotEmpty()) {
+            viewModel.loadReadingStates()
+        }
+    }
+    
     var isMovingFile by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = if (files.isNotEmpty()) files.size - 1 else 0, // 反向布局时显示最后一个项目
@@ -356,14 +360,13 @@ fun ContentScreen(
         lazyListState = lazyListState,
         onMove = { from, to ->
             isMovingFile = true
-            onMoveFile(from.index, to.index)
+            viewModel.onEvent(MainUiEvent.MoveFile(from.index, to.index))
         }
     )
     val scope = rememberCoroutineScope()
+    
     LaunchedEffect(files.lastOrNull()?.uri) {
-        if (files.isNotEmpty()
-            && !isMovingFile
-        ) {
+        if (files.isNotEmpty() && !isMovingFile) {
             scope.launch {
                 Log.d(
                     "MainActivity",
@@ -373,10 +376,10 @@ fun ContentScreen(
             }
         }
     }
+    
     Box(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
             if (files.isEmpty()) {
                 Text(
@@ -407,10 +410,18 @@ fun ContentScreen(
                                 targetValue = if (isDragging) 1.02f else 1f,
                                 label = "scale"
                             )
+                            
+                            // 从收集的状态中获取进度
+                            val progress = readingStates[files[index].uri]?.progress
+                            
                             FileItemCard(
                                 fileInfo = files[index],
-                                onRemove = { onRemoveFile(index) },
+                                onRemove = { 
+                                    Utils.releasePersistableUriPermission(context, files[index].uri)
+                                    viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                                },
                                 isDragging = isDragging,
+                                progress = progress,
                                 modifier = Modifier
                                     .zIndex(if (isDragging) 1f else 0f)
                                     .scale(animatedScale)
@@ -425,10 +436,6 @@ fun ContentScreen(
                 }
             }
         }
-
-        DraggableFloatingButton(
-            onClick = onDragButtonClick
-        )
     }
 }
 
@@ -560,7 +567,9 @@ fun FileItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    modifier = Modifier.weight(1f).padding(4.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
                 ) {
                     Text(
                         text = fileInfo.fileName,
@@ -574,19 +583,19 @@ fun FileItemCard(
                         Text(
                             text = Utils.formatFileSize(fileInfo.fileSize),
                             style = MaterialTheme.typography.bodySmall,
-                            //color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = fileInfo.mimeType,
                             style = MaterialTheme.typography.bodySmall,
-                            //color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // 显示阅读进度
                         progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
-                                //color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (isFileAccessible == false) {
@@ -667,10 +676,7 @@ fun FileItemCard(
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
-            files = emptyList(),
-            onDragButtonClick = {},
-            onRemoveFile = {},
-            onMoveFile = { _, _ -> }
+            viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
         )
     }
 }

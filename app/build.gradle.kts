@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation("androidx.compose.material:material-icons-extended")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -59,7 +60,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
-    implementation("androidx.pdf:pdf-viewer:1.0.0-alpha16")
-    implementation("androidx.pdf:pdf-viewer-fragment:1.0.0-alpha16")
-    implementation("androidx.pdf:pdf-compose:1.0.0-alpha16")
+
+    implementation("com.github.albfernandez:juniversalchardet:2.5.0")
+
 }

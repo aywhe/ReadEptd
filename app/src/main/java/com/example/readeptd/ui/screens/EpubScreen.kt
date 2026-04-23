@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,13 +20,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.ui.views.EpubWebView
-import com.example.readeptd.viewmodel.EpubUiState
+import com.example.readeptd.viewmodel.BookUiState
 import com.example.readeptd.viewmodel.EpubViewModel
+import com.example.readeptd.viewmodel.TtsViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
@@ -35,28 +38,13 @@ fun EpubScreen(
 
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareEpubFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // 顶部信息栏
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = fileInfo.fileName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
-            )
-        }
-
         // 根据状态显示不同内容
         when (val state = uiState) {
-            is EpubUiState.Loading -> {
+            is BookUiState.Loading -> {
                 // 加载中
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -71,53 +59,89 @@ fun EpubScreen(
                     )
                 }
             }
+            is BookUiState.Ready -> {
+                // 获取上次阅读位置
+                val savedCfi = viewModel.getCurrentState()?.cfi
+                Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
 
-            is EpubUiState.Ready -> {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // 准备完成，显示 WebView
-                    AndroidView(
-                        factory = { context ->
-                            EpubWebView(state.tempFilePath, context).apply {
-                                layoutParams = android.widget.FrameLayout.LayoutParams(
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                // 准备完成，显示 WebView
+                AndroidView(
+                    factory = { context ->
+                        EpubWebView(state.tempFilePath, context).apply {
+                            layoutParams = android.widget.FrameLayout.LayoutParams(
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                            )
+
+                            // 设置起始位置 CFI
+                            setStartCfi(savedCfi)
+
+                            // 设置页面变化监听器，自动保存阅读进度
+                            setOnPageChangedListener { epubLocation ->
+                                Log.d("EpubScreen", "保存进度: $epubLocation")
+                                // 并保存进度
+                                viewModel.saveEpubProgress(
+                                    uri = fileInfo.uri,
+                                    cfi = epubLocation.cfi,
+                                    page = epubLocation.currentPage,
+                                    totalPages = epubLocation.totalPages,
+                                    progress = epubLocation.percentage
                                 )
+                            }
 
-                                // 设置页面变化监听器，自动保存阅读进度
-                                setOnPageChangedListener { locationJson ->
-                                    Log.d("EpubScreen", "页面变化: $locationJson")
-                                    // TODO: 解析 locationJson 并保存进度
-                                    // 示例：viewModel.saveProgress(cfi, page, totalPages, progress)
-                                }
+                            setOnLoadCompleteListener {
+                                Log.d("EpubScreen", "加载完成")
+                            }
 
-                                setOnLoadCompleteListener { totalPages ->
-                                    Log.d("EpubScreen", "加载完成，共 $totalPages 页")
-                                    // TODO: 恢复阅读进度
-                                }
+                            setOnErrorListener { errorMessage ->
+                                Log.e("EpubScreen", "错误: $errorMessage")
+                            }
 
-                                setOnErrorListener { errorMessage ->
-                                    Log.e("EpubScreen", "错误: $errorMessage")
+                            // 设置自动朗读回调
+                            // 当 TTS 开始朗读时,获取当前页文本并开始朗读
+                            ttsModel.setOnRequestSpeechStartListener {
+                                Log.d("EpubScreen", "自动朗读开始,获取当前页文本")
+                                getCurrentPageText { text ->
+                                    Log.d("EpubScreen", "获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
+                                    if (text.isNotBlank()) {
+                                        Log.d("EpubScreen", "调用 ttsModel.speak() 开始朗读")
+                                        val cleanedText = text.replace("\\n", " ").trim()
+                                        ttsModel.speak(cleanedText)
+                                    } else {
+                                        Log.w("EpubScreen", "文本为空,不调用 speak()")
+                                    }
                                 }
                             }
-                        },
-                        update = { webView ->
-                            // 可以在这里处理更新逻辑
-                        },
-                        onRelease = { webView ->
-                            Log.d("EpubScreen", "AndroidView 销毁")
-                            // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
-                            webView.destroy()
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
 
-            is EpubUiState.Error -> {
+                            // 当 TTS 朗读完成时,自动翻页并朗读下一页
+                            ttsModel.setOnSpeechDoneListener { utteranceId ->
+                                Log.d("EpubScreen", "自动朗读完成: $utteranceId, 准备翻页")
+                                nextPage{
+                                    getCurrentPageText { text ->
+                                        if (text.isNotBlank()) {
+                                            Log.d("EpubScreen", "获取到下一页文本,开始朗读")
+                                            val cleanedText = text.replace("\\n", " ").trim()
+                                            ttsModel.speak(cleanedText)
+                                        } else {
+                                            Log.w("EpubScreen", "下一页文本为空,停止自动朗读")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    update = { webView ->
+                        // 可以在这里处理更新逻辑
+                    },
+                    onRelease = { webView ->
+                        Log.d("EpubScreen", "AndroidView 销毁")
+                        // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+                        webView.destroy()
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            is BookUiState.Error -> {
                 // 显示错误
                 Column(
                     modifier = Modifier.fillMaxSize(),

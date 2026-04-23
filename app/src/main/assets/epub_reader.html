@@ -7,6 +7,7 @@
     <!-- 使用本地 JS 库，支持离线阅读 -->
     <script src="js/jszip.min.js"></script>
     <script src="js/epub.min.js"></script>
+    <script src="js/epub.custom.js"></script>
     <style>
         * {
             margin: 0;
@@ -91,7 +92,7 @@
     </div>
     
     <div id="viewer"></div>
-    
+
     <script>
         let book = null;
         let rendition = null;
@@ -126,30 +127,34 @@
             clearRendition();
             clearBook();
         };
-        
+
         // Android 接口
         const Android = window.Android || {
             onPageChanged: function(location) {
                 console.log('Page changed:', location);
             },
-            onLoadComplete: function(totalPages) {
-                console.log('Load complete, total pages:', totalPages);
+            onLoadComplete: function() {
+                console.log('Load complete');
             },
             onError: function(message) {
                 console.error('Error:', message);
             },
             onHtmlReady: function() {
-                console.log('html ready');
+                console.log('Html ready');
+            },
+            onPageActionComplete: function(action){
+                console.log('Page action complete:', action);
             }
         };
-        
+
         // 初始化阅读器
-        function initReader(epubUrl) {
+        function initReader(epubUrl, startCfi) {
             console.log('=== EPUB Reader Init Start ===');
             console.log('EPUB URL:', epubUrl);
+            console.log('Start CFI:', startCfi || '(none, will show first page)');
             console.log('ePub function exists:', typeof ePub !== 'undefined');
             console.log('JSZip exists:', typeof JSZip !== 'undefined');
-            
+
             try {
                 console.log('Initializing reader with URL:', epubUrl);
 
@@ -158,21 +163,21 @@
                 clearBook();
 
                 isLoaded = false;
-                
+
                 // 显示加载指示器
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('error').style.display = 'none';
-                
+
                 // 检查 ePub 函数是否存在
                 if (typeof ePub === 'undefined') {
                     throw new Error('ePub library not loaded. Check js/epub.min.js file.');
                 }
-                
+
                 // 创建 EPUB 实例
                 console.log('Creating ePub instance...');
                 book = ePub(epubUrl);
                 console.log('ePub instance created:', book);
-                
+
                 // 创建渲染器 - 使用分页模式
                 console.log('Creating renderer...');
                 rendition = book.renderTo("viewer", {
@@ -188,62 +193,32 @@
                     // ignoreClass: "annotator-hl"
                 });
                 console.log('Renderer created');
-                
-                // 显示书籍（不等待 locations 生成）
-                console.log('Displaying book...');
-                rendition.display().then(() => {
-                    console.log('Book displayed successfully');
-                    hideLoading();
-                    isLoaded = true;
-                    
-                    // 异步生成位置信息（不阻塞首屏）
-                    console.log('Generating locations asynchronously...');
-                    setTimeout(() => {
-                        book.locations.generate(1024).then(() => {
-                            console.log('Locations generated');
-                        }).catch((err) => {
-                            console.error('Location generation error:', err);
-                        });
-                    }, 100); // 延迟 100ms，让首屏先渲染
-                    
-                }).catch((error) => {
-                    console.error('Display error:', error);
-                    console.error('Error stack:', error.stack);
-                    showError("显示书籍失败: " + error.message);
-                });
-                
+
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
                     const totalPages = location.start.displayed.total || 1;
                     const currentPage = location.start.displayed.page || 1;
-                    
+
                     const pageInfo = {
-                        start: location.start.cfi,
-                        end: location.end.cfi,
-                        startPercentage: location.start.percentage || 0,
-                        endPercentage: location.end.percentage || 0,
+                        cfi: location.start.cfi,
+                        percentage: location.start.percentage || 0,
                         currentPage: currentPage,
                         totalPages: totalPages
                     };
-                    
+
                     console.log('Page relocated:', pageInfo);
-                    
+
                     if (Android && Android.onPageChanged) {
                         Android.onPageChanged(JSON.stringify(pageInfo));
                     }
-                    
-                    // 通知 Android 总页数（动态更新）
-                    if (Android && Android.onLoadComplete) {
-                        Android.onLoadComplete(totalPages);
-                    }
                 });
-                
+
                 // 监听渲染器调整大小
                 rendition.on("resized", (size) => {
                     console.log('Renderer resized:', size);
                 });
-                
+
                 // 监听加载完成
                 book.ready.then(() => {
                     console.log('Book ready');
@@ -253,52 +228,127 @@
                 }).catch((error) => {
                     console.error('Book ready error:', error);
                 });
-                
+
+                // 异步生成位置信息（不阻塞首屏）
+                book.ready.then(() => {
+                    console.log('Generating locations asynchronously...');
+                    return book.locations.generate(1024);
+                }).then(() => {
+                    console.log('Locations generated');
+                }).catch((err) => {
+                    console.error('Location generation error:', err);
+                });
+
+                // 显示书籍（如果有 startCfi 则跳转到该位置，否则显示首页）
+                console.log('Displaying book...', startCfi ? 'at saved position: ' + startCfi : '(first page)');
+
+                // 验证 cfi 的有效性
+                var displayCfi = null;
+                if (startCfi && typeof startCfi === 'string' && startCfi.trim() !== '') {
+                    // CFI 通常以 "epubcfi(" 开头
+                    if (startCfi.startsWith('epubcfi(')) {
+                        console.log('Valid CFI format detected:', startCfi);
+                        displayCfi = startCfi;
+                    } else {
+                        console.warn('Invalid CFI format:', startCfi, '- will show first page instead');
+                    }
+                }
+                console.log('Displaying book with CFI:', displayCfi);
+
+                // 只有当 displayCfi 有有效值时才传入参数，否则不传参以显示第一页
+                var displayPromise;
+                if (displayCfi) {
+                    displayPromise = rendition.display(displayCfi);
+                } else {
+                    displayPromise = rendition.display();
+                }
+
+                displayPromise.then(() => {
+                    console.log('Book displayed successfully');
+                    hideLoading();
+                    isLoaded = true;
+
+                    // 自定义mapping中的字符分割函数
+                    hookMappingFunctions();
+
+                    // 通知 Android 加载完成
+                    if (Android && Android.onLoadComplete) {
+                        Android.onLoadComplete();
+                    }
+                }).catch((error) => {
+                    console.error('Display error:', error);
+                    console.error('Error stack:', error.stack);
+                    showError("显示书籍失败: " + error.message);
+                });
+
             } catch (error) {
                 console.error('Init error:', error);
                 showError("初始化失败: " + error.message);
-                hideLoading(); // 即使初始化失败也要隐藏 Loading，否则用户无法操作}
+                hideLoading();
             }
         }
-        
+
 
         // 跳转到指定位置
         function goToLocation(cfi) {
+            console.log('Going to location:', cfi);
             if (rendition) {
-                rendition.display(cfi).catch((error) => {
+                rendition.display(cfi).then(() => {
+                    console.log('Location displayed');
+                }).catch((error) => {
                     console.error('Failed to go to location:', error);
                 });
             }
         }
-        
+
         // 上一页
         function prevPage() {
+            console.log('Going to previous page');
             if (rendition) {
-                rendition.prev().catch((error) => {
+                rendition.prev().then(() => {
+                    if(Android && Android.onPageActionComplete){
+                        Android.onPageActionComplete('prev complete');
+                    }
+                }).catch((error) => {
                     console.error('Failed to go to previous page:', error);
                 });
             }
         }
-        
+
         // 下一页
         function nextPage() {
-            if (rendition) {
-                rendition.next().catch((error) => {
-                    console.error('Failed to go to next page:', error);
-                });
-            }
+            console.log('Going to next page');
+            rendition.next().then(() => {
+                if(Android && Android.onPageActionComplete){
+                    Android.onPageActionComplete('next complete');
+                }
+            }).catch((error) => {
+                console.error('Failed to go to next page:', error);
+            });
         }
-        
+
         // 跳转到百分比位置
         function goToPercentage(percentage) {
-            if (book && percentage >= 0 && percentage <= 1) {
+            console.log('Going to percentage:', percentage);
+            if (book && rendition && percentage >= 0 && percentage <= 1) {
+                console.log('Generating locations...');
                 const cfi = book.locations.cfiFromPercentage(percentage);
                 if (cfi) {
-                    rendition.display(cfi);
+                    console.log('Generated CFI:', cfi);
+                    rendition.display(cfi).then(() => {;
+                        console.log('Percentage location displayed');
+                        if(Android && Android.onPageActionComplete){
+                            Android.onPageActionComplete('go to percentage complete');
+                        }
+                    }).catch((error) => {
+                        console.error('Failed to go to percentage location:', error);
+                    });
                 }
+            } else {
+                console.error('Invalid percentage value');
             }
         }
-        
+
         // 隐藏加载指示器
         function hideLoading() {
             const loadingEl = document.getElementById('loading');
@@ -308,13 +358,13 @@
             loadingEl.style.pointerEvents = 'none';
             console.log('Loading indicator hidden, viewer should be interactive');
         }
-        
+
         // 显示错误
         function showError(message) {
             hideLoading();
             document.getElementById('error').style.display = 'block';
             document.getElementById('error-message').textContent = message;
-            
+
             if (Android && Android.onError) {
                 Android.onError(message);
             }
@@ -325,7 +375,78 @@
             clearRendition();
             clearBook();
         }
-        
+
+        // 替换mapping中用于定位的字符分割函数
+        function hookMappingFunctions() {
+            if(rendition && rendition.manager) {
+                // mapping 在 updateLayout 中被重新创建，所以需要在 updateLayout 完成后重新 hook
+                const originalUpdateLayout = rendition.manager.updateLayout.bind(rendition.manager);
+                rendition.manager.updateLayout = function() {
+                    originalUpdateLayout();
+                    // updateLayout 完成后立即重新 hook
+                    if (this.mapping) {
+                        const mapping = rendition.manager.mapping;
+                        console.log('Replacing mapping functions ...');
+                        mapping.findTextStartRange = (node, start, end) => {
+                            console.log('Custom findTextStartRange called with:', { node, start, end });
+                            return cus.findTextStartRangeByChar.call(mapping,node, start, end);
+                        }
+                        mapping.findTextEndRange = (node, start, end) => {
+                            console.log('Custom findTextEndRange called with:', { node, start, end });
+                            return cus.findTextEndRangeByChar.call(mapping,node, start, end);
+                        }
+                        mapping.splitTextNodeIntoRanges = (node) => {
+                            console.log('Custom splitTextNodeIntoRanges called with node:', node);
+                            return cus.splitTextNodeIntoCharRanges.call(mapping,node);
+                        }
+                    }
+                }
+            }
+        }
+
+        function getCurrentPageText() {
+            var result = '';
+            try {
+                var location = rendition.currentLocation();
+                if (location && location.start && location.end) {
+                    console.log('Current location:', JSON.stringify(location));
+
+                    var views = rendition.manager ? rendition.manager.visible() : [];
+
+                    if (views && views.length > 0) {
+                        views.forEach(view => {
+                            if (view && view.contents) {
+                                try {
+                                    var startRange = view.contents.range(location.start.cfi);
+                                    var endRange = view.contents.range(location.end.cfi);
+                                    console.log("开始位置偏移量:", startRange.startOffset, startRange.endOffset);
+                                    console.log("结束位置偏移量:", endRange.startOffset, endRange.endOffset);
+                                    if (startRange && endRange) {
+                                        var pageRange = view.contents.document.createRange();
+                                        pageRange.setStart(startRange.startContainer, startRange.startOffset);
+                                        pageRange.setEnd(endRange.endContainer, endRange.endOffset);
+                                        console.log("当前页范围偏移量:", pageRange.startOffset, pageRange.endOffset);
+                                        var text = pageRange.toString();
+                                        console.log("当前页文本:", text);
+                                        result += text;
+                                    }
+                                } catch (e) {
+                                    console.error('Error getting range:', e);
+                                }
+                            }
+                        });
+                    } else {
+                        console.log('No visible views');
+                    }
+                } else {
+                    console.warn('Invalid location data');
+                }
+            } catch (error) {
+                console.error('Error in getCurrentPageText:', error);
+            }
+            return result;
+        }
+
         // 暴露给 Android 的方法
         window.EpubReader = {
             init: initReader,
@@ -333,7 +454,8 @@
             prevPage: prevPage,
             nextPage: nextPage,
             goToPercentage: goToPercentage,
-            cleanUp: cleanUp
+            cleanUp: cleanUp,
+            getCurrentPageText: getCurrentPageText
         };
     </script>
 </body>
