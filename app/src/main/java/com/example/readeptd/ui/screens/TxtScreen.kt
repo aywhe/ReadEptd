@@ -42,31 +42,19 @@ fun TextScreen(
     
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
-    val rightPaddingPx = 16
-    val topPaddingPx = 16
-    val bottomPaddingPx = 16
+    val rightPaddingDp = 16
+    val topPaddingDp = 16
+    val bottomPaddingDp = 16
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
-        end = rightPaddingPx.dp,
-        top = topPaddingPx.dp,
-        bottom = bottomPaddingPx.dp
+        end = rightPaddingDp.dp,
+        top = topPaddingDp.dp,
+        bottom = bottomPaddingDp.dp
     )
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
-    }
-    
-    // 传递 padding 给 ViewModel
-    LaunchedEffect(Unit) {
-        viewModel.onEvent(
-            TxtEvent.OnPaddingChanged(
-                leftPaddingDp,
-                rightPaddingPx,
-                topPaddingPx,
-                bottomPaddingPx
-            )
-        )
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -94,6 +82,17 @@ fun TextScreen(
                             viewModel.onEvent(TxtEvent.OnViewSizeChanged(size))
                         }
                 ) {
+                    // 传递 padding 给 ViewModel
+                    LaunchedEffect(Unit) {
+                        viewModel.onEvent(
+                            TxtEvent.OnPaddingChanged(
+                                leftPaddingDp,
+                                rightPaddingDp,
+                                topPaddingDp,
+                                bottomPaddingDp
+                            )
+                        )
+                    }
                     val pagerState = rememberPagerState(
                         initialPage = initialPage,
                         pageCount = { viewModel.getPagesCount() }
