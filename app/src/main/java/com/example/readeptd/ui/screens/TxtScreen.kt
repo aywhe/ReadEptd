@@ -36,7 +36,7 @@ import com.example.readeptd.viewmodel.TtsViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun TextScreen(
+fun TxtScreen(
     fileInfo: FileInfo,
     contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
     ttsModel: TtsViewModel,
@@ -153,7 +153,7 @@ fun TextScreen(
                                 ttsModel.setOnRequestSpeechStartListener {
                                     val text = viewModel.getPageContent(pagerState.currentPage)
                                     if (text.isNotBlank()) {
-                                        ttsModel.speak(text)
+                                        ttsModel.speak(text, "txt_${pagerState.currentPage}")
                                     }
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
@@ -162,7 +162,7 @@ fun TextScreen(
                                         pagerState.scrollToPage(pagerState.currentPage + 1)
                                         val text = viewModel.getPageContent(pagerState.currentPage)
                                         if (text.isNotBlank()) {
-                                            ttsModel.speak(text)
+                                            ttsModel.speak(text,"txt_${pagerState.currentPage}")
                                         }
                                     }
                                 }

@@ -9,12 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,19 +23,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.ui.ContentUiEvent
 import com.example.readeptd.ui.ContentUiState
@@ -46,10 +38,9 @@ import com.example.readeptd.ui.screens.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
-import androidx.core.net.toUri
 import com.example.readeptd.ui.screens.PdfScreen
 import com.example.readeptd.ui.TtsEvent
-import com.example.readeptd.ui.screens.TextScreen
+import com.example.readeptd.ui.screens.TxtScreen
 import com.example.readeptd.viewmodel.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
@@ -206,7 +197,7 @@ fun FileContentScreen(
             )
         }
         "text/plain" -> {
-            TextScreen(
+            TxtScreen(
                 fileInfo = fileInfo,
                 contentViewModel = contentViewModel,
                 ttsModel = ttsModel,

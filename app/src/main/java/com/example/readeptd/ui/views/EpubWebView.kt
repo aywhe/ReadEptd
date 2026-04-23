@@ -25,7 +25,6 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onPageChangedListener: ((EpubLocation) -> Unit)? = null
     private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
-    private var onPageActionCompleteListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     
     // ✅ 添加翻页完成的临时回调
@@ -288,7 +287,6 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             pageActionPendingCallback?.invoke()
             pageActionPendingCallback = null
             
-            onPageActionCompleteListener?.invoke(action)
         }
 
         @JavascriptInterface

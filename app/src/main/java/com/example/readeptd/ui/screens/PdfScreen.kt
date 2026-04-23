@@ -187,7 +187,7 @@ fun PdfLazyViewer(
             pdfRenderer?.let { renderer ->
                 val text = getPageText(renderer, pagerState.currentPage)
                 if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text)
+                    ttsModel.speak(text,"pdf_${pagerState.currentPage}")
                 }
             }
         }
@@ -200,7 +200,7 @@ fun PdfLazyViewer(
                     pdfRenderer?.let { renderer ->
                         val text = getPageText(renderer, nextPage)
                         if (!text.isNullOrBlank()) {
-                            ttsModel.speak(text)
+                            ttsModel.speak(text, "pdf_${pagerState.currentPage}")
                         }
                     }
                 }
@@ -333,7 +333,9 @@ private fun getPageText(renderer: PdfRenderer, pageIndex: Int): String? {
         }
         val page = renderer.openPage(pageIndex)
         val textContents = page.getTextContents()
+        Log.d("PdfLazyViewer", "获取页面 $pageIndex 文本 contents 数量为 ${textContents.size}")
         val fullText = textContents.joinToString(" ") { it.text ?: "" }
+        Log.d("PdfLazyViewer", "获取页面 $pageIndex 的文本 ${fullText.take(50)}")
         page.close()
         fullText.takeIf { it.isNotBlank() }
     } catch (e: Exception) {
