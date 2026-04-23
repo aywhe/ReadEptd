@@ -1,5 +1,6 @@
 package com.example.readeptd.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,9 +13,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -28,6 +31,7 @@ import com.example.readeptd.ui.TxtEvent
 import com.example.readeptd.viewmodel.BookUiState
 import com.example.readeptd.viewmodel.TxtViewModel
 import com.example.readeptd.viewmodel.TtsViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun TextScreen(
@@ -40,6 +44,7 @@ fun TextScreen(
     val initialPage by viewModel.initialPage.collectAsState()
     val isPagesReady by viewModel.isPagesReady.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -129,6 +134,31 @@ fun TextScreen(
                             LaunchedEffect(pagerState.currentPage) {
                                 viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
                             }
+
+                            DisposableEffect(Unit) {
+                                // 设置自动朗读回调
+                                // 当 TTS 开始朗读时,获取当前页文本并开始朗读
+                                ttsModel.setOnRequestSpeechStartListener {
+                                    val text = viewModel.getPageContent(pagerState.currentPage)
+                                    if (text.isNotBlank()) {
+                                        ttsModel.speak(text)
+                                    }
+                                }
+                                // 当 TTS 朗读完成时,自动翻页并朗读下一页
+                                ttsModel.setOnSpeechDoneListener { utteranceId ->
+                                    scope.launch {
+                                        pagerState.scrollToPage(pagerState.currentPage + 1)
+                                        val text = viewModel.getPageContent(pagerState.currentPage)
+                                        if (text.isNotBlank()) {
+                                            ttsModel.speak(text)
+                                        }
+                                    }
+                                }
+                                onDispose {
+                                    ttsModel.clearCallbacks()
+                                }
+                            }
+
 
                             HorizontalPager(
                                 state = pagerState,
