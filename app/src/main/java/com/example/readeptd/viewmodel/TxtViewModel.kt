@@ -58,6 +58,10 @@ class TxtViewModel(
     private val _initialPage = MutableStateFlow(0)
     val initialPage: StateFlow<Int> = _initialPage.asStateFlow()
     
+    // 分页是否完成（独立于 BookUiState）
+    private val _isPagesReady = MutableStateFlow(false)
+    val isPagesReady: StateFlow<Boolean> = _isPagesReady.asStateFlow()
+    
     // 暴露字体大小和行距给 UI
     val currentFontSizeSp: Int get() = fontSizeSp
     val currentLineHeightSp: Int get() = lineHeightSp
@@ -228,6 +232,9 @@ class TxtViewModel(
      * 初始化分页（保证串行执行，避免并发问题）
      */
     suspend fun initPages() {
+        // 重置分页状态
+        _isPagesReady.value = false
+        
         // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
             if (viewSize.width <= 0 || viewSize.height <= 0) {
@@ -266,6 +273,9 @@ class TxtViewModel(
                 
                 // 更新缓存的分页参数
                 lastCharsParams = charsParams
+                
+                // 标记分页完成
+                _isPagesReady.value = true
                 
                 Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
                 

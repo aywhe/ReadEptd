@@ -13,6 +13,7 @@ import org.mozilla.universalchardet.UniversalDetector
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
+import java.io.File
 
 /**
  * TXT 文件文本提取器
@@ -21,25 +22,24 @@ class TxtExtractor(private val context: Context) {
     
     fun extractTextRaw(uri: Uri): Flow<String> = flow {
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                // 检测文件编码
-                val detectedCharset = detectFileEncoding(inputStream)
+            val inputStream = openInputStream(uri) ?: throw IllegalStateException("无法打开文件输入流")
+            
+            inputStream.use { stream ->
+                val detectedCharset = detectFileEncoding(stream)
                 
                 val combinedStream = SequenceInputStream(
                     ByteArrayInputStream(detectedData),
-                    inputStream
+                    stream
                 )
                 
                 BufferedReader(InputStreamReader(combinedStream, detectedCharset)).use { reader ->
                     var line: String?
-                    var nextLine: String? = reader.readLine() // 预读一行
+                    var nextLine: String? = reader.readLine()
                     
                     while (nextLine != null) {
                         line = nextLine
-                        nextLine = reader.readLine() // 读取下一行
+                        nextLine = reader.readLine()
                         
-                        // 如果没有下一行了，说明这是文件的最后一行
-                        val isFileLastLine = nextLine == null
                         emit(line)
                     }
                 }
@@ -51,6 +51,20 @@ class TxtExtractor(private val context: Context) {
     }.flowOn(Dispatchers.IO)
     
     private var detectedData = ByteArray(0)
+    
+    private fun openInputStream(uri: Uri): InputStream? {
+        return when (uri.scheme) {
+            "content" -> {
+                context.contentResolver.openInputStream(uri)
+            }
+            "file" -> {
+                uri.path?.let { File(it).inputStream() }
+            }
+            else -> {
+                uri.path?.let { File(it).inputStream() }
+            }
+        }
+    }
     
     /**
      * 检测文件编码
