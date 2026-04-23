@@ -1,6 +1,11 @@
 package com.example.readeptd.ui.screens
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -15,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +63,7 @@ fun PdfScreen(
     viewModel: PdfViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
         viewModel.preparePdfFile(fileInfo.uri.toUri(), fileInfo.fileName)
@@ -66,45 +71,43 @@ fun PdfScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
         when (val state = uiState) {
-            is PdfUiState.Loading -> LoadingView()
-            is PdfUiState.Ready -> PdfLazyViewer(
-                filePath = state.tempFilePath,
-                ttsModel = ttsModel,
-                modifier = Modifier.fillMaxSize()
-            )
-            is PdfUiState.Error -> ErrorView(message = state.message)
+            is PdfUiState.Loading -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "加载中...",
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            is PdfUiState.Ready -> {
+                PdfLazyViewer(
+                    filePath = state.tempFilePath,
+                    ttsModel = ttsModel,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            is PdfUiState.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun LoadingView() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator()
-        Text(
-            text = "加载中...",
-            modifier = Modifier.padding(top = 8.dp),
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
-}
-
-@Composable
-private fun ErrorView(message: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error
-        )
     }
 }
 
@@ -128,7 +131,11 @@ fun PdfLazyViewer(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(filePath) {
-        loadPdfRenderer(filePath)?.let { renderer ->
+        try {
+            val file = File(filePath)
+            val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            val renderer = PdfRenderer(fileDescriptor)
+            
             pdfRenderer = renderer
             pageCount = renderer.pageCount
             
@@ -139,22 +146,64 @@ fun PdfLazyViewer(
             if (pagerState.currentPage + 1 < renderer.pageCount) {
                 renderPage(renderer, pagerState.currentPage + 1, pageBitmaps, renderingPages)
             }
+        } catch (e: Exception) {
+            Log.e("PdfLazyViewer", "加载 PDF 失败", e)
         }
     }
 
     LaunchedEffect(pagerState.currentPage) {
         pdfRenderer?.let { renderer ->
-            preloadPages(renderer, pagerState.currentPage, pageCount, pageBitmaps, renderingPages)
-            cleanupUnusedPages(pagerState.currentPage, pageCount, pageBitmaps)
+            val currentPage = pagerState.currentPage
+            
+            renderPage(renderer, currentPage, pageBitmaps, renderingPages)
+            
+            if (currentPage > 0) {
+                renderPage(renderer, currentPage - 1, pageBitmaps, renderingPages)
+            }
+            if (currentPage + 1 < pageCount) {
+                renderPage(renderer, currentPage + 1, pageBitmaps, renderingPages)
+            }
+            
+            val pagesToKeep = setOf(currentPage, currentPage - 1, currentPage + 1)
+            val pagesToRemove = pageBitmaps.keys.filter { it !in pagesToKeep }
+            pagesToRemove.forEach { pageIndex ->
+                pageBitmaps.remove(pageIndex)?.recycle()
+                Log.d("PdfLazyViewer", "释放页面 $pageIndex 的 Bitmap")
+            }
         }
     }
 
     DisposableEffect(Unit) {
-        setupTtsCallbacks(ttsModel, pdfRenderer, pagerState, pageCount, scope)
+        ttsModel.setOnRequestSpeechStartListener {
+            pdfRenderer?.let { renderer ->
+                val text = getPageText(renderer, pagerState.currentPage)
+                if (!text.isNullOrBlank()) {
+                    ttsModel.speak(text)
+                }
+            }
+        }
+        
+        ttsModel.setOnSpeechDoneListener { utteranceId ->
+            scope.launch {
+                val nextPage = pagerState.currentPage + 1
+                if (nextPage < pageCount) {
+                    pagerState.scrollToPage(nextPage)
+                    pdfRenderer?.let { renderer ->
+                        val text = getPageText(renderer, nextPage)
+                        if (!text.isNullOrBlank()) {
+                            ttsModel.speak(text)
+                        }
+                    }
+                }
+            }
+        }
         
         onDispose {
             ttsModel.clearCallbacks()
-            releaseAllResources(pageBitmaps, pdfRenderer)
+            pageBitmaps.values.forEach { it.recycle() }
+            pageBitmaps.clear()
+            pdfRenderer?.close()
+            Log.d("PdfLazyViewer", "资源已释放")
         }
     }
 
@@ -168,10 +217,13 @@ fun PdfLazyViewer(
                 }
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
-                        handleTransformGesture(pan, zoom, scale, offset, containerSize) { newScale, newOffset ->
-                            scale = newScale
-                            offset = newOffset
-                        }
+                        scale = (scale * zoom).coerceIn(0.5f, 5f)
+                        val maxXOffset = if (scale > 1f) containerSize.width * (scale - 1) / 2 else 0f
+                        val maxYOffset = if (scale > 1f) containerSize.height * (scale - 1) / 2 else 0f
+                        offset = Offset(
+                            (offset.x + pan.x).coerceIn(-maxXOffset, maxXOffset),
+                            (offset.y + pan.y).coerceIn(-maxYOffset, maxYOffset)
+                        )
                     }
                 }
         ) {
@@ -179,13 +231,48 @@ fun PdfLazyViewer(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                PageContent(
-                    page = page,
-                    pageBitmaps = pageBitmaps,
-                    scale = scale,
-                    offset = offset
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val bitmap = pageBitmaps[page]
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "PDF 第 ${page + 1} 页",
+                            modifier = Modifier
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y
+                                )
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+                }
             }
+            
+            Text(
+                text = "${pagerState.currentPage + 1} / $pageCount",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        MaterialTheme.shapes.medium
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     } else {
         Box(
@@ -193,144 +280,6 @@ fun PdfLazyViewer(
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
-        }
-    }
-}
-
-private fun loadPdfRenderer(filePath: String): PdfRenderer? {
-    return try {
-        val file = File(filePath)
-        val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        PdfRenderer(fileDescriptor)
-    } catch (e: Exception) {
-        Log.e("PdfLazyViewer", "加载 PDF 失败", e)
-        null
-    }
-}
-
-private fun preloadPages(
-    renderer: PdfRenderer,
-    currentPage: Int,
-    pageCount: Int,
-    pageBitmaps: MutableMap<Int, Bitmap>,
-    renderingPages: MutableMap<Int, Boolean>
-) {
-    renderPage(renderer, currentPage, pageBitmaps, renderingPages)
-    
-    if (currentPage > 0) {
-        renderPage(renderer, currentPage - 1, pageBitmaps, renderingPages)
-    }
-    if (currentPage + 1 < pageCount) {
-        renderPage(renderer, currentPage + 1, pageBitmaps, renderingPages)
-    }
-}
-
-private fun cleanupUnusedPages(
-    currentPage: Int,
-    pageCount: Int,
-    pageBitmaps: MutableMap<Int, Bitmap>
-) {
-    val pagesToKeep = setOf(currentPage, currentPage - 1, currentPage + 1)
-    val pagesToRemove = pageBitmaps.keys.filter { it !in pagesToKeep }
-    pagesToRemove.forEach { pageIndex ->
-        pageBitmaps.remove(pageIndex)?.recycle()
-        Log.d("PdfLazyViewer", "释放页面 $pageIndex 的 Bitmap")
-    }
-}
-
-private fun setupTtsCallbacks(
-    ttsModel: TtsViewModel,
-    pdfRenderer: PdfRenderer?,
-    pagerState: PagerState,
-    pageCount: Int,
-    scope: kotlinx.coroutines.CoroutineScope
-) {
-    ttsModel.setOnRequestSpeechStartListener {
-        pdfRenderer?.let { renderer ->
-            val text = getPageText(renderer, pagerState.currentPage)
-            if (!text.isNullOrBlank()) {
-                ttsModel.speak(text)
-            }
-        }
-    }
-    
-    ttsModel.setOnSpeechDoneListener { utteranceId ->
-        scope.launch {
-            val nextPage = pagerState.currentPage + 1
-            if (nextPage < pageCount) {
-                pagerState.scrollToPage(nextPage)
-                pdfRenderer?.let { renderer ->
-                    val text = getPageText(renderer, nextPage)
-                    if (!text.isNullOrBlank()) {
-                        ttsModel.speak(text)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun releaseAllResources(
-    pageBitmaps: MutableMap<Int, Bitmap>,
-    pdfRenderer: PdfRenderer?
-) {
-    pageBitmaps.values.forEach { it.recycle() }
-    pageBitmaps.clear()
-    pdfRenderer?.close()
-    Log.d("PdfLazyViewer", "资源已释放")
-}
-
-private fun handleTransformGesture(
-    pan: Offset,
-    zoom: Float,
-    currentScale: Float,
-    currentOffset: Offset,
-    containerSize: IntSize,
-    onUpdate: (Float, Offset) -> Unit
-) {
-    val newScale = (currentScale * zoom).coerceIn(0.5f, 5f)
-    val maxXOffset = if (newScale > 1f) containerSize.width * (newScale - 1) / 2 else 0f
-    val maxYOffset = if (newScale > 1f) containerSize.height * (newScale - 1) / 2 else 0f
-    val newOffset = Offset(
-        (currentOffset.x + pan.x).coerceIn(-maxXOffset, maxXOffset),
-        (currentOffset.y + pan.y).coerceIn(-maxYOffset, maxYOffset)
-    )
-    onUpdate(newScale, newOffset)
-}
-
-@Composable
-private fun PageContent(
-    page: Int,
-    pageBitmaps: Map<Int, Bitmap>,
-    scale: Float,
-    offset: Offset
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        val bitmap = pageBitmaps[page]
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "PDF 第 ${page + 1} 页",
-                modifier = Modifier
-                    .graphicsLayer(
-                        scaleX = scale,
-                        scaleY = scale,
-                        translationX = offset.x,
-                        translationY = offset.y
-                    )
-            )
-        } else {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(40.dp)
-                )
-            }
         }
     }
 }
