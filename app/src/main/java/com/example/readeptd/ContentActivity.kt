@@ -90,6 +90,7 @@ fun ContentScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
+    val progressText by viewModel.progressText.collectAsState()
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
@@ -119,6 +120,16 @@ fun ContentScreen(
                     }
                 },
                 actions = {
+                    if(progressText.isNotBlank()) {
+                        TextButton(
+                            onClick = { viewModel.onEvent(ContentUiEvent.OnClickProgressInfo(progressText)) }
+                        ) {
+                            Text(
+                                text = progressText,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
                     if (ttsInitialized) {
                         IconButton(
                             onClick = {

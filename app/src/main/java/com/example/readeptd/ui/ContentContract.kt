@@ -16,4 +16,5 @@ sealed interface ContentUiState {
  */
 sealed interface ContentUiEvent {
     data class Initialize(val fileInfo: FileInfo?) : ContentUiEvent
+    data class OnClickProgressInfo(val progressText: String): ContentUiEvent
 }

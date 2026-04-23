@@ -20,6 +20,9 @@ class ContentViewModel(
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()
+    private val _progressText = MutableStateFlow("")
+    val progressText: StateFlow<String> = _progressText.asStateFlow()
+    private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -35,7 +38,21 @@ class ContentViewModel(
     fun onEvent(event: ContentUiEvent) {
         when (event) {
             is ContentUiEvent.Initialize -> handleInitialize(event.fileInfo)
+            is ContentUiEvent.OnClickProgressInfo -> {
+                _onClickProgressInfoCallback?.invoke(event.progressText)
+            }
         }
+    }
+
+    fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
+        _onClickProgressInfoCallback = callback
+    }
+
+    /**
+     * 更新进度信息
+     */
+    fun updateProgressText(progressText: String) {
+        _progressText.value = progressText
     }
 
     /**
