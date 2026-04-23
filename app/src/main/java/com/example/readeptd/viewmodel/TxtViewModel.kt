@@ -71,31 +71,47 @@ class TxtViewModel(
      */
     fun onEvent(event: TxtEvent) {
         when (event) {
-            is TxtEvent.OnViewSizeChanged -> handleViewSizeChanged(event.size)
-            is TxtEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
-            is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
-            is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
-            is TxtEvent.OnPaddingChanged -> handlePaddingChanged(
+            is TxtEvent.OnViewMetricsChanged -> handleViewMetricsChanged(
+                event.size,
                 event.leftPaddingDp,
                 event.rightPaddingDp,
                 event.topPaddingDp,
                 event.bottomPaddingDp
             )
+            is TxtEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
+            is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
+            is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
         }
     }
 
     /**
-     * 处理 UI 尺寸变化
+     * 处理视图尺寸和边距变化
      */
-    private fun handleViewSizeChanged(size: IntSize) {
-        if (viewSize == size) return
+    private fun handleViewMetricsChanged(
+        size: IntSize,
+        leftPaddingDp: Int,
+        rightPaddingDp: Int,
+        topPaddingDp: Int,
+        bottomPaddingDp: Int
+    ) {
+        val sizeChanged = viewSize != size
+        val paddingChanged = this.leftPaddingDp != leftPaddingDp ||
+                            this.rightPaddingDp != rightPaddingDp ||
+                            this.topPaddingDp != topPaddingDp ||
+                            this.bottomPaddingDp != bottomPaddingDp
         
-        Log.d(TAG, "UI 尺寸变化: ${size.width}x${size.height}")
+        if (!sizeChanged && !paddingChanged) return
+        
+        Log.d(TAG, "视图指标变化: size=${size.width}x${size.height}, padding=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)")
+        
         viewSize = size
+        this.leftPaddingDp = leftPaddingDp
+        this.rightPaddingDp = rightPaddingDp
+        this.topPaddingDp = topPaddingDp
+        this.bottomPaddingDp = bottomPaddingDp
         
-        // 尺寸变化后重新分页
         viewModelScope.launch {
-            initPages()
+            reinitPagesIfNeeded()
         }
     }
 
@@ -137,34 +153,6 @@ class TxtViewModel(
         
         Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
-        
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
-        }
-    }
-
-    /**
-     * 处理 Padding 变化
-     */
-    private fun handlePaddingChanged(
-        leftPaddingDp: Int,
-        rightPaddingDp: Int,
-        topPaddingDp: Int,
-        bottomPaddingDp: Int
-    ) {
-        val changed = this.leftPaddingDp != leftPaddingDp ||
-                      this.rightPaddingDp != rightPaddingDp ||
-                      this.topPaddingDp != topPaddingDp ||
-                      this.bottomPaddingDp != bottomPaddingDp
-        
-        if (!changed) return
-        
-        this.leftPaddingDp = leftPaddingDp
-        this.rightPaddingDp = rightPaddingDp
-        this.topPaddingDp = topPaddingDp
-        this.bottomPaddingDp = bottomPaddingDp
-        
-        Log.d(TAG, "Padding 变化: left=$leftPaddingDp, right=$rightPaddingDp, top=$topPaddingDp, bottom=$bottomPaddingDp")
         
         viewModelScope.launch {
             reinitPagesIfNeeded()

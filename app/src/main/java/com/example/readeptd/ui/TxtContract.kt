@@ -8,10 +8,21 @@ import androidx.compose.ui.unit.IntSize
 sealed interface TxtEvent {
 
     /**
-     * UI 尺寸变化事件
-     * @param size 新的视图尺寸
+     * 视图尺寸和边距变化事件
+     * @param size 视图尺寸
+     * @param leftPaddingDp 左边距（dp）
+     * @param rightPaddingDp 右边距（dp）
+     * @param topPaddingDp 上边距（dp）
+     * @param bottomPaddingDp 下边距（dp）
      */
-    data class OnViewSizeChanged(val size: IntSize) : TxtEvent
+    data class OnViewMetricsChanged(
+        val size: IntSize,
+        val leftPaddingDp: Int,
+        val rightPaddingDp: Int,
+        val topPaddingDp: Int,
+        val bottomPaddingDp: Int
+    ) : TxtEvent
+
 
     /**
      * 翻页事件
@@ -31,13 +42,4 @@ sealed interface TxtEvent {
      */
     data class OnLineHeightChanged(val lineHeight: Int) : TxtEvent
 
-    /**
-     * Padding 设置事件
-     */
-    data class OnPaddingChanged(
-        val leftPaddingDp: Int,
-        val rightPaddingDp: Int,
-        val topPaddingDp: Int,
-        val bottomPaddingDp: Int
-    ) : TxtEvent
 }

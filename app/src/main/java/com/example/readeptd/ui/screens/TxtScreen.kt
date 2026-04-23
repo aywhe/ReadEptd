@@ -40,7 +40,7 @@ fun TextScreen(
     val initialPage by viewModel.initialPage.collectAsState()
     val isPagesReady by viewModel.isPagesReady.collectAsState()
     val context = LocalContext.current
-    
+
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
     val rightPaddingDp = 16
@@ -58,7 +58,9 @@ fun TextScreen(
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
         when (val state = uiState) {
             is BookUiState.Loading -> {
                 // 加载中
@@ -75,66 +77,77 @@ fun TextScreen(
                     )
                 }
             }
+
             is BookUiState.Ready -> {
-                if (!isPagesReady) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        CircularProgressIndicator()
-                        Text(
-                            text = "正在分页...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 16.dp)
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .onSizeChanged { size ->
-                                viewModel.onEvent(TxtEvent.OnViewSizeChanged(size))
-                            }
-                    ) {
-                        // 传递 padding 给 ViewModel
-                        LaunchedEffect(Unit) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onSizeChanged { size ->
                             viewModel.onEvent(
-                                TxtEvent.OnPaddingChanged(
-                                    leftPaddingDp,
-                                    rightPaddingDp,
-                                    topPaddingDp,
-                                    bottomPaddingDp
+                                TxtEvent.OnViewMetricsChanged(
+                                    size = size,
+                                    leftPaddingDp = leftPaddingDp,
+                                    rightPaddingDp = rightPaddingDp,
+                                    topPaddingDp = topPaddingDp,
+                                    bottomPaddingDp = bottomPaddingDp
                                 )
                             )
                         }
-                        val pagerState = rememberPagerState(
-                            initialPage = initialPage.coerceIn(0, viewModel.getPagesCount() - 1),
-                            pageCount = { viewModel.getPagesCount() }
-                        )
-                        
-                        LaunchedEffect(initialPage) {
-                            if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
-                                pagerState.scrollToPage(initialPage)
-                            }
-                        }
-                        
-                        HorizontalPager(
-                            state = pagerState,
+                ) {
+                    if (!isPagesReady) {
+                        Column(
                             modifier = Modifier.fillMaxSize(),
-                            beyondViewportPageCount = 10
-                        ) { page ->
-                            val pageContent = viewModel.getPageContent(page)
-                            PageContent(
-                                pageContent = pageContent,
-                                fontSize = viewModel.currentFontSizeSp,
-                                lineHeight = viewModel.currentLineHeightSp,
-                                contentPadding = contentPadding
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator()
+                            Text(
+                                text = "正在分页...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 16.dp)
                             )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                        ) {
+                            val pagerState = rememberPagerState(
+                                initialPage = initialPage.coerceIn(
+                                    0,
+                                    viewModel.getPagesCount() - 1
+                                ),
+                                pageCount = { viewModel.getPagesCount() }
+                            )
+
+                            LaunchedEffect(initialPage) {
+                                if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
+                                    pagerState.scrollToPage(initialPage)
+                                }
+                            }
+
+                            LaunchedEffect(pagerState.currentPage) {
+                                viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+                            }
+
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                beyondViewportPageCount = 10
+                            ) { page ->
+                                val pageContent = viewModel.getPageContent(page)
+                                PageContent(
+                                    pageContent = pageContent,
+                                    fontSize = viewModel.currentFontSizeSp,
+                                    lineHeight = viewModel.currentLineHeightSp,
+                                    contentPadding = contentPadding
+                                )
+                            }
                         }
                     }
                 }
             }
+
             is BookUiState.Error -> {
                 // 显示错误
                 Column(
