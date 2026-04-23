@@ -1,7 +1,6 @@
 package com.example.readeptd.viewmodel
 
 import android.app.Application
-import android.net.Uri
 import android.util.Log
 import androidx.compose.ui.unit.IntSize
 import androidx.core.net.toUri
@@ -27,8 +26,14 @@ class TxtViewModel(
 
     private val textExtractor = TxtExtractor(application)
     private var viewSize: IntSize = IntSize(0, 0)
-    private var lineHeight: Int = 36
-    private var fontSize: Int = 16
+    private var lineHeightSp: Int = 36
+    private var fontSizeSp: Int = 16
+    
+    // Padding 设置（由 UI 层传入，单位：像素）
+    private var leftPaddingPx: Int = 0
+    private var rightPaddingPx: Int = 0
+    private var topPaddingPx: Int = 0
+    private var bottomPaddingPx: Int = 0
     
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -41,6 +46,10 @@ class TxtViewModel(
     // 初始页码（用于恢复阅读进度）
     private val _initialPage = MutableStateFlow(0)
     val initialPage: StateFlow<Int> = _initialPage.asStateFlow()
+    
+    // 暴露字体大小和行距给 UI
+    val currentFontSizeSp: Int get() = fontSizeSp
+    val currentLineHeightSp: Int get() = lineHeightSp
 
     /**
      * 处理 UI 事件
@@ -51,6 +60,12 @@ class TxtViewModel(
             is TxtEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
+            is TxtEvent.OnPaddingChanged -> handlePaddingChanged(
+                event.leftPaddingPx,
+                event.rightPaddingPx,
+                event.topPaddingPx,
+                event.bottomPaddingPx
+            )
         }
     }
 
@@ -89,10 +104,10 @@ class TxtViewModel(
      * 处理字体大小变化
      */
     private fun handleFontSizeChanged(newFontSize: Int) {
-        if (fontSize == newFontSize) return
+        if (fontSizeSp == newFontSize) return
         
-        Log.d(TAG, "字体大小变化: $fontSize -> $newFontSize")
-        fontSize = newFontSize
+        Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
+        fontSizeSp = newFontSize
         
         // 字体变化后重新分页
         viewModelScope.launch {
@@ -104,12 +119,34 @@ class TxtViewModel(
      * 处理行距变化
      */
     private fun handleLineHeightChanged(newLineHeight: Int) {
-        if (lineHeight == newLineHeight) return
+        if (lineHeightSp == newLineHeight) return
         
-        Log.d(TAG, "行距变化: $lineHeight -> $newLineHeight")
-        lineHeight = newLineHeight
+        Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
+        lineHeightSp = newLineHeight
         
         // 行距变化后重新分页
+        viewModelScope.launch {
+            initPages()
+        }
+    }
+
+    /**
+     * 处理 Padding 变化
+     */
+    private fun handlePaddingChanged(
+        leftPaddingPx: Int,
+        rightPaddingPx: Int,
+        topPaddingPx: Int,
+        bottomPaddingPx: Int
+    ) {
+        this.leftPaddingPx = leftPaddingPx
+        this.rightPaddingPx = rightPaddingPx
+        this.topPaddingPx = topPaddingPx
+        this.bottomPaddingPx = bottomPaddingPx
+        
+        Log.d(TAG, "Padding 变化: left=$leftPaddingPx, right=$rightPaddingPx, top=$topPaddingPx, bottom=$bottomPaddingPx")
+        
+        // Padding 变化后重新分页
         viewModelScope.launch {
             initPages()
         }
@@ -132,7 +169,19 @@ class TxtViewModel(
         }
         
         try {
-            val charsParams = Utils.calculatePageCharsParams(viewSize.width, viewSize.height, fontSize, lineHeight)
+            val density = getApplication<Application>().resources.displayMetrics.density
+            val fontSizePx = (fontSizeSp * density).toInt()
+            val lineHeightPx = (lineHeightSp * density).toInt()
+            val charsParams = Utils.calculatePageCharsParams(
+                pageWidth = viewSize.width,
+                pageHeight = viewSize.height,
+                fontSize = fontSizePx,
+                lineHeight = lineHeightPx,
+                leftPadding = leftPaddingPx,
+                rightPadding = rightPaddingPx,
+                topPadding = topPaddingPx,
+                bottomPadding = bottomPaddingPx
+            )
             val avgCharsPerLine = charsParams.first
             val maxLinesPerPage = charsParams.second
             

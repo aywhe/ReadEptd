@@ -27,7 +27,18 @@ sealed interface TxtEvent {
 
     /**
      * 行距调整事件
-     * @param lineHeight 新的行距（px）
+     * @param lineHeight 新的行距（sp）
      */
     data class OnLineHeightChanged(val lineHeight: Int) : TxtEvent
+
+    /**
+     * Padding 设置事件
+     * @param padding 内边距值（像素）
+     */
+    data class OnPaddingChanged(
+        val leftPaddingPx: Int,
+        val rightPaddingPx: Int,
+        val topPaddingPx: Int,
+        val bottomPaddingPx: Int
+    ) : TxtEvent
 }

@@ -3,6 +3,7 @@ package com.example.readeptd.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
@@ -37,6 +39,7 @@ fun TextScreen(
     val uiState by viewModel.uiState.collectAsState()
     val initialPage by viewModel.initialPage.collectAsState()
     val context = LocalContext.current
+
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
@@ -74,7 +77,7 @@ fun TextScreen(
                     )
                     
                     LaunchedEffect(initialPage) {
-                        if (initialPage > 0) {
+                        if (initialPage > 0 && initialPage < viewModel.getPagesCount()) {
                             pagerState.scrollToPage(initialPage)
                         }
                     }
@@ -84,7 +87,13 @@ fun TextScreen(
                         modifier = Modifier.fillMaxSize(),
                         beyondViewportPageCount = 10
                     ) { page ->
-                        // 页面内容
+                        val pageContent = viewModel.getPageContent(page)
+                        PageContent(
+                            pageContent = pageContent,
+                            fontSize = viewModel.currentFontSizeSp,
+                            lineHeight = viewModel.currentLineHeightSp,
+                            contentPadding = contentPadding
+                        )
                     }
                 }
             }
@@ -104,4 +113,19 @@ fun TextScreen(
             }
         }
     }
+}
+
+@Composable
+fun PageContent(
+    pageContent: String,
+    fontSize: Int,
+    lineHeight: Int,
+    contentPadding: PaddingValues = PaddingValues()
+) {
+    Text(
+        text = pageContent,
+        fontSize = fontSize.sp,
+        lineHeight = lineHeight.sp,
+        modifier = Modifier.padding(contentPadding)
+    )
 }

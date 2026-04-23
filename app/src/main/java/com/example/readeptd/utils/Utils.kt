@@ -76,22 +76,42 @@ object Utils {
             Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
         }
     }
+    /**
+     * 计算页面字符参数，注意单位统一
+     * @param pageWidth 页面宽度（像素）
+     * @param pageHeight 页面高度（像素）
+     * @param fontSize 字体大小（像素）
+     * @param lineHeight 行高（像素）
+     * @param leftPadding 左边距（像素）
+     * @param rightPadding 右边距（像素）
+     * @param topPadding 上边距（像素）
+     * @param bottomPadding 下边距（像素）
+     * @return 一个 Pair 对象，包含每行平均字符数和每页最大行数
+     */
     fun calculatePageCharsParams(
         pageWidth: Int,
         pageHeight: Int,
         fontSize: Int,
-        lineHeight: Int
+        lineHeight: Int,
+        leftPadding: Int = 0,
+        rightPadding: Int = 0,
+        topPadding: Int = 0,
+        bottomPadding: Int = 0
     ): Pair<Int, Int> {
 
         val charAspectRatio = 1.0f
         val charSpacingFactor = 1.05f
 
+        // 减去 padding 得到有效显示区域
+        val effectiveWidth = (pageWidth - leftPadding - rightPadding).coerceAtLeast(1)
+        val effectiveHeight = (pageHeight - topPadding - bottomPadding).coerceAtLeast(1)
+
         val effectiveCharWidth = fontSize * charAspectRatio * charSpacingFactor
         // 1. 计算每行平均字符数（像素相除，结果无单位）
-        val avgCharsPerLine = (pageWidth.toFloat() / effectiveCharWidth).toInt()
+        val avgCharsPerLine = (effectiveWidth.toFloat() / effectiveCharWidth).toInt()
 
         // 2. 计算每页最大行数（像素相除，结果无单位）
-        val maxLinesPerPage = (pageHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
+        val maxLinesPerPage = (effectiveHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
         return Pair(avgCharsPerLine, maxLinesPerPage)
     }
 }
