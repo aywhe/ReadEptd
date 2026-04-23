@@ -275,10 +275,18 @@ private fun renderPage(
         val page = renderer.openPage(pageIndex)
         val bitmap = createBitmap(page.width * 2, page.height * 2)
         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-        val text = page.textContents.toString()
-        Log.d("PdfLazyViewer", "页面 $pageIndex 的文本内容: $text")
+        // 提取所有文本
+        val textContents = page.getTextContents()
+
+// 拼接成完整文本
+        val fullText = textContents.joinToString(" ") { it.text ?: "" }
+
+// 或者遍历处理每个文本块
+        textContents.forEach { content ->
+            Log.d("PDF", "文本: ${content.text}, 位置: ${content.bounds}")
+        }
         page.close()
-        
+
         pageBitmaps[pageIndex] = bitmap
         Log.d("PdfLazyViewer", "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
     } catch (e: Exception) {
