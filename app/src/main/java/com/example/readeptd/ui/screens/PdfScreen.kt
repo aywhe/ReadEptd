@@ -183,39 +183,18 @@ fun PdfLazyViewer(
                     containerSize = coordinates.size
                 }
                 .pointerInput(Unit) {
-                    detectTransformGestures { centroid, pan, zoom, _ ->
-                        val oldScale = scale
+                    detectTransformGestures { _, pan, zoom, _ ->
                         scale = (scale * zoom).coerceIn(0.5f, 5f)
-                        
-                        // ✅ 以手势中心为锚点缩放
-                        val scaleRatio = scale / oldScale
-                        val anchorX = centroid.x - containerSize.width / 2f
-                        val anchorY = centroid.y - containerSize.height / 2f
-                        
-                        var newOffsetX = (offset.x - anchorX) * scaleRatio + anchorX + pan.x
-                        var newOffsetY = (offset.y - anchorY) * scaleRatio + anchorY + pan.y
-                        
-                        // ✅ 计算边界（考虑 Bitmap 实际尺寸）
-                        if (scale > 1.0f) {
-                            val currentBitmap = pageBitmaps[pagerState.currentPage]
-                            if (currentBitmap != null && containerSize != IntSize.Zero) {
-                                val scaledWidth = currentBitmap.width * scale
-                                val scaledHeight = currentBitmap.height * scale
-                                
-                                val maxX = (scaledWidth - containerSize.width) / 2f
-                                val maxY = (scaledHeight - containerSize.height) / 2f
-                                
-                                // ✅ 使用更宽松的边界，允许轻微溢出以提升流畅度
-                                newOffsetX = newOffsetX.coerceIn(-maxX * 1.2f, maxX * 1.2f)
-                                newOffsetY = newOffsetY.coerceIn(-maxY * 1.2f, maxY * 1.2f)
-                            }
-                        } else {
-                            // 缩小时逐渐回归中心
-                            newOffsetX *= 0.9f
-                            newOffsetY *= 0.9f
-                        }
-                        
-                        offset = Offset(newOffsetX, newOffsetY)
+                        offset = Offset(
+                            (offset.x + pan.x).coerceIn(
+                                -containerSize.width * (scale - 1) / 2,
+                                containerSize.width * (scale - 1) / 2
+                            ),
+                            (offset.y + pan.y).coerceIn(
+                                -containerSize.height * (scale - 1) / 2,
+                                containerSize.height * (scale - 1) / 2
+                            )
+                        )
                     }
                 }
         ) {
