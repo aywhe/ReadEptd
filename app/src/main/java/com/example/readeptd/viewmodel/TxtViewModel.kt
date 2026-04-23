@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.readeptd.ui.TxtEvent
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * TXT 阅读器 ViewModel
@@ -34,6 +36,15 @@ class TxtViewModel(
     private var rightPaddingDp: Int = 0
     private var topPaddingDp: Int = 0
     private var bottomPaddingDp: Int = 0
+    
+    // 用于保证分页操作串行执行的互斥锁
+    private val pagesMutex = Mutex()
+    
+    // 当前正在执行的分页任务，用于取消
+    private var currentPageJob: kotlinx.coroutines.Job? = null
+    
+    // 缓存上一次的分页参数，用于判断是否需要重新分页
+    private var lastCharsParams: Utils.CharsParams? = null
     
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -109,9 +120,8 @@ class TxtViewModel(
         Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
         
-        // 字体变化后重新分页
         viewModelScope.launch {
-            initPages()
+            reinitPagesIfNeeded()
         }
     }
 
@@ -124,9 +134,8 @@ class TxtViewModel(
         Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
         
-        // 行距变化后重新分页
         viewModelScope.launch {
-            initPages()
+            reinitPagesIfNeeded()
         }
     }
 
@@ -139,16 +148,22 @@ class TxtViewModel(
         topPaddingDp: Int,
         bottomPaddingDp: Int
     ) {
+        val changed = this.leftPaddingDp != leftPaddingDp ||
+                      this.rightPaddingDp != rightPaddingDp ||
+                      this.topPaddingDp != topPaddingDp ||
+                      this.bottomPaddingDp != bottomPaddingDp
+        
+        if (!changed) return
+        
         this.leftPaddingDp = leftPaddingDp
         this.rightPaddingDp = rightPaddingDp
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
         
-        Log.d(TAG, "Padding 变化: left=${this@TxtViewModel.leftPaddingDp}, right=${this@TxtViewModel.rightPaddingDp}, top=${this@TxtViewModel.topPaddingDp}, bottom=${this@TxtViewModel.bottomPaddingDp}")
+        Log.d(TAG, "Padding 变化: left=$leftPaddingDp, right=$rightPaddingDp, top=$topPaddingDp, bottom=$bottomPaddingDp")
         
-        // Padding 变化后重新分页
         viewModelScope.launch {
-            initPages()
+            reinitPagesIfNeeded()
         }
     }
 
@@ -180,51 +195,86 @@ class TxtViewModel(
     }
 
     /**
-     * 初始化分页
+     * 根据参数变化判断是否需要重新分页
      */
-    suspend fun initPages() {
+    private suspend fun reinitPagesIfNeeded() {
         if (viewSize.width <= 0 || viewSize.height <= 0) {
             Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
             return
         }
         
-        // 从 UI 状态中获取临时文件路径
-        val currentState = uiState.value
-        if (currentState !is BookUiState.Ready) {
-            Log.d(TAG, "文件未准备好，当前状态: $currentState")
+        val newCharsParams = calculatePageCharsParams()
+        
+        // 如果分页参数没有变化，不需要重新分页
+        if (lastCharsParams != null && 
+            lastCharsParams?.avgCharsPerLine == newCharsParams.avgCharsPerLine &&
+            lastCharsParams?.maxLinesPerPage == newCharsParams.maxLinesPerPage) {
+            Log.d(TAG, "分页参数未变化，跳过重新分页: $newCharsParams")
             return
         }
         
-        try {
-            // 这里
-            val charsParams = this.calculatePageCharsParams()
-            
-            Log.d(TAG, "开始分页: 每页约 $charsParams.maxLinesPerPage 行，每行约 $charsParams.avgCharsPerLine 字符")
-            
-            // 使用临时可变列表
-            val tempPages = mutableListOf<TextChunk>()
-            
-            val splitter = TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage) { chunk ->
-                tempPages.add(chunk)
+        Log.d(TAG, "分页参数变化: $lastCharsParams -> $newCharsParams，开始重新分页")
+        
+        // 取消之前的分页任务
+        currentPageJob?.cancel()
+        
+        // 启动新的分页任务
+        currentPageJob = viewModelScope.launch {
+            initPages()
+        }
+    }
+
+    /**
+     * 初始化分页（保证串行执行，避免并发问题）
+     */
+    suspend fun initPages() {
+        // 使用 Mutex 保证同一时间只有一个分页任务在执行
+        pagesMutex.withLock {
+            if (viewSize.width <= 0 || viewSize.height <= 0) {
+                Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
+                return@withLock
             }
             
-            textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
-                splitter.processLine(line)
+            // 从 UI 状态中获取临时文件路径
+            val currentState = uiState.value
+            if (currentState !is BookUiState.Ready) {
+                Log.d(TAG, "文件未准备好，当前状态: $currentState")
+                return@withLock
             }
             
-            // 处理剩余内容
-            splitter.flushRemaining()
-            
-            // 赋值不可变列表给 StateFlow
-            _pages.value = tempPages.toList()
-            
-            Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
-            
-            // 根据保存的阅读进度恢复页码
-            restorePageFromProgress()
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "分页失败", e)
+            try {
+                val charsParams = this.calculatePageCharsParams()
+                
+                Log.d(TAG, "开始分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
+                
+                // 使用临时可变列表
+                val tempPages = mutableListOf<TextChunk>()
+                
+                val splitter = TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage) { chunk ->
+                    tempPages.add(chunk)
+                }
+                
+                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
+                    splitter.processLine(line)
+                }
+                
+                // 处理剩余内容
+                splitter.flushRemaining()
+                
+                // 赋值不可变列表给 StateFlow
+                _pages.value = tempPages.toList()
+                
+                // 更新缓存的分页参数
+                lastCharsParams = charsParams
+                
+                Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
+                
+                // 根据保存的阅读进度恢复页码
+                restorePageFromProgress()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "分页失败", e)
+            }
         }
     }
 
