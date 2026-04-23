@@ -17,7 +17,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -36,6 +39,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TextScreen(
     fileInfo: FileInfo,
+    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
@@ -45,6 +49,7 @@ fun TextScreen(
     val isPagesReady by viewModel.isPagesReady.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var isShowJumpToProgressDialog by remember { mutableStateOf(false) }
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -130,9 +135,17 @@ fun TextScreen(
                                     pagerState.scrollToPage(initialPage)
                                 }
                             }
+                            LaunchedEffect(Unit) {
+                                contentViewModel.setOnClickProgressInfoCallback { progressText ->
+                                    isShowJumpToProgressDialog = true
+                                }
+                            }
 
                             LaunchedEffect(pagerState.currentPage) {
                                 viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+                                contentViewModel.updateProgressText(
+                                    "${pagerState.currentPage + 1}/${viewModel.getPagesCount()}"
+                                )
                             }
 
                             DisposableEffect(Unit) {
@@ -171,6 +184,21 @@ fun TextScreen(
                                     fontSize = viewModel.currentFontSizeSp,
                                     lineHeight = viewModel.currentLineHeightSp,
                                     contentPadding = contentPadding
+                                )
+                            }
+                            if(isShowJumpToProgressDialog){
+                                JumpToPageDialog(
+                                    currentPage = pagerState.currentPage,
+                                    totalPages = viewModel.getPagesCount(),
+                                    onDismiss = {
+                                        isShowJumpToProgressDialog = false
+                                    },
+                                    onConfirm = {
+                                        scope.launch {
+                                            pagerState.scrollToPage(it)
+                                        }
+                                        isShowJumpToProgressDialog = false
+                                    }
                                 )
                             }
                         }

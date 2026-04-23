@@ -32,6 +32,7 @@ class ContentViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        _onClickProgressInfoCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
 

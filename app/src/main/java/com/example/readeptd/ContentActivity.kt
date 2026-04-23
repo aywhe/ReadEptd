@@ -159,6 +159,7 @@ fun ContentScreen(
 
             is ContentUiState.Success -> FileContentScreen(
                 fileInfo = state.fileInfo,
+                contentViewModel = viewModel,
                 ttsModel = ttsModel,
                 modifier = modifier.padding(innerPadding)
             )
@@ -190,6 +191,7 @@ fun LoadingContentScreen(modifier: Modifier = Modifier) {
 @Composable
 fun FileContentScreen(
     fileInfo: FileInfo,
+    contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -205,6 +207,7 @@ fun FileContentScreen(
         "text/plain" -> {
             TextScreen(
                 fileInfo = fileInfo,
+                contentViewModel = contentViewModel,
                 ttsModel = ttsModel,
                 modifier = modifier
             )
