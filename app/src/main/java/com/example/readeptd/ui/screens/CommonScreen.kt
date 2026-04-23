@@ -109,7 +109,7 @@ fun JumpToProgressDialog(
 ) {
     var progressValue by remember { mutableFloatStateOf(progress) }
     var sliderPosition by remember { mutableFloatStateOf(progress*100) }
-    var onValueChanged = false
+    var onValueChanged by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -118,7 +118,7 @@ fun JumpToProgressDialog(
         text = {
             Column {
                 Text(
-                    text = "当前进度 ${(progressValue*100).toInt()}%",
+                    text = "当前进度 ${(sliderPosition).toInt()}%",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))

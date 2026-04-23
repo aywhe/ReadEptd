@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +24,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
+import com.example.readeptd.ui.views.EpubLocation
 import com.example.readeptd.ui.views.EpubWebView
 import com.example.readeptd.viewmodel.BookUiState
 import com.example.readeptd.viewmodel.EpubViewModel
@@ -30,12 +34,14 @@ import kotlinx.coroutines.delay
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
+    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
+    var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
+    var location by remember { mutableStateOf(EpubLocation("", 0f, 0,0)) }
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
@@ -64,10 +70,12 @@ fun EpubScreen(
                 val savedCfi = viewModel.getCurrentState()?.cfi
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
 
+                var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 // 准备完成，显示 WebView
                 AndroidView(
                     factory = { context ->
-                        EpubWebView(state.tempFilePath, context).apply {
+                        val newWebView = EpubWebView(state.tempFilePath, context)
+                        newWebView.apply {
                             layoutParams = android.widget.FrameLayout.LayoutParams(
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT
@@ -78,6 +86,8 @@ fun EpubScreen(
 
                             // 设置页面变化监听器，自动保存阅读进度
                             setOnPageChangedListener { epubLocation ->
+                                location = epubLocation
+                                contentViewModel.updateProgressText("${(epubLocation.percentage*100).toInt()}%")
                                 Log.d("EpubScreen", "保存进度: $epubLocation")
                                 // 并保存进度
                                 viewModel.saveEpubProgress(
@@ -90,6 +100,9 @@ fun EpubScreen(
                             }
 
                             setOnLoadCompleteListener {
+                                contentViewModel.setOnClickProgressInfoCallback {
+                                    isShowJumpToProgressDialog = true
+                                }
                                 Log.d("EpubScreen", "加载完成")
                             }
 
@@ -129,6 +142,8 @@ fun EpubScreen(
                                 }
                             }
                         }
+                        webView = newWebView
+                        newWebView
                     },
                     update = { webView ->
                         // 可以在这里处理更新逻辑
@@ -140,6 +155,19 @@ fun EpubScreen(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
+                if (isShowJumpToProgressDialog) {
+                    JumpToProgressDialog(
+                        progress = location.percentage,
+                        onDismiss = {
+                            isShowJumpToProgressDialog = false
+                        },
+                        onConfirm = { progress ->
+                            Log.d("EpubScreen", "跳转到进度: $progress")
+                            webView?.goToPercentage(progress.toDouble())
+                            isShowJumpToProgressDialog = false
+                        }
+                    )
+                }
             }
             is BookUiState.Error -> {
                 // 显示错误

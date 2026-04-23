@@ -53,6 +53,7 @@ class ContentViewModel(
      * 更新进度信息
      */
     fun updateProgressText(progressText: String) {
+        Log.d("ContentViewModel", "更新进度信息: $progressText")
         _progressText.value = progressText
     }
 

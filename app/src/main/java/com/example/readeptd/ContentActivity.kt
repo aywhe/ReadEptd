@@ -201,6 +201,7 @@ fun FileContentScreen(
             EpubScreen(
                 fileInfo = fileInfo,
                 ttsModel = ttsModel,
+                contentViewModel = contentViewModel,
                 modifier = modifier
             )
         }

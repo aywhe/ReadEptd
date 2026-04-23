@@ -1,6 +1,5 @@
 package com.example.readeptd.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,7 @@ fun TextScreen(
     val isPagesReady by viewModel.isPagesReady.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var isShowJumpToProgressDialog by remember { mutableStateOf(false) }
+    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -137,7 +136,7 @@ fun TextScreen(
                             }
                             LaunchedEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
-                                    isShowJumpToProgressDialog = true
+                                    isShowJumpToPageDialog = true
                                 }
                             }
 
@@ -186,18 +185,18 @@ fun TextScreen(
                                     contentPadding = contentPadding
                                 )
                             }
-                            if(isShowJumpToProgressDialog){
+                            if(isShowJumpToPageDialog){
                                 JumpToPageDialog(
                                     currentPage = pagerState.currentPage,
                                     totalPages = viewModel.getPagesCount(),
                                     onDismiss = {
-                                        isShowJumpToProgressDialog = false
+                                        isShowJumpToPageDialog = false
                                     },
                                     onConfirm = {
                                         scope.launch {
                                             pagerState.scrollToPage(it)
                                         }
-                                        isShowJumpToProgressDialog = false
+                                        isShowJumpToPageDialog = false
                                     }
                                 )
                             }

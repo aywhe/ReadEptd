@@ -1,11 +1,6 @@
 package com.example.readeptd.ui.screens
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Matrix
-import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -132,7 +127,7 @@ fun PdfLazyViewer(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val scope = rememberCoroutineScope()
-    var isShowJumpToProgressDialog by remember { mutableStateOf(false) }
+    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
 
 
     LaunchedEffect(filePath) {
@@ -184,7 +179,7 @@ fun PdfLazyViewer(
 
         contentViewModel.setOnClickProgressInfoCallback { progressText ->
             if(pdfRenderer!= null) {
-                isShowJumpToProgressDialog = true
+                isShowJumpToPageDialog = true
             }
         }
 
@@ -274,18 +269,18 @@ fun PdfLazyViewer(
                     }
                 }
             }
-            if(isShowJumpToProgressDialog){
+            if(isShowJumpToPageDialog){
                 JumpToPageDialog(
                     currentPage = pagerState.currentPage,
                     totalPages = pageCount,
                     onDismiss = {
-                        isShowJumpToProgressDialog = false
+                        isShowJumpToPageDialog = false
                     },
                     onConfirm = {
                         scope.launch {
                             pagerState.scrollToPage(it)
                         }
-                        isShowJumpToProgressDialog = false
+                        isShowJumpToPageDialog = false
                     }
                 )
             }
