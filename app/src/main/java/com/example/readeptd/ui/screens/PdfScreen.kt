@@ -353,7 +353,7 @@ private fun renderPage(
     
     try {
         val page = renderer.openPage(pageIndex)
-        val bitmap = createBitmap(page.width * 2, page.height * 2)
+        val bitmap = createBitmap(page.width * 3, page.height * 3)
         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
         page.close()
 
