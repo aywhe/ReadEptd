@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,16 +50,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.viewmodel.PdfUiState
 import com.example.readeptd.viewmodel.PdfViewModel
+import com.example.readeptd.viewmodel.TtsViewModel
+import kotlinx.coroutines.launch
 import java.io.File
 import androidx.core.graphics.createBitmap
 
 @Composable
 fun PdfScreen(
     fileInfo: FileInfo,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
         viewModel.preparePdfFile(fileInfo.uri.toUri(), fileInfo.fileName)
@@ -84,6 +89,7 @@ fun PdfScreen(
             is PdfUiState.Ready -> {
                 PdfLazyViewer(
                     filePath = state.tempFilePath,
+                    ttsModel = ttsModel,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -109,6 +115,7 @@ fun PdfScreen(
 @Composable
 fun PdfLazyViewer(
     filePath: String,
+    ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
     var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
@@ -121,6 +128,7 @@ fun PdfLazyViewer(
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(filePath) {
         try {
@@ -166,7 +174,32 @@ fun PdfLazyViewer(
     }
 
     DisposableEffect(Unit) {
+        ttsModel.setOnRequestSpeechStartListener {
+            pdfRenderer?.let { renderer ->
+                val text = getPageText(renderer, pagerState.currentPage)
+                if (!text.isNullOrBlank()) {
+                    ttsModel.speak(text)
+                }
+            }
+        }
+        
+        ttsModel.setOnSpeechDoneListener { utteranceId ->
+            scope.launch {
+                val nextPage = pagerState.currentPage + 1
+                if (nextPage < pageCount) {
+                    pagerState.scrollToPage(nextPage)
+                    pdfRenderer?.let { renderer ->
+                        val text = getPageText(renderer, nextPage)
+                        if (!text.isNullOrBlank()) {
+                            ttsModel.speak(text)
+                        }
+                    }
+                }
+            }
+        }
+        
         onDispose {
+            ttsModel.clearCallbacks()
             pageBitmaps.values.forEach { it.recycle() }
             pageBitmaps.clear()
             pdfRenderer?.close()
@@ -271,16 +304,6 @@ private fun renderPage(
         val page = renderer.openPage(pageIndex)
         val bitmap = createBitmap(page.width * 2, page.height * 2)
         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-        // 提取所有文本
-        val textContents = page.getTextContents()
-
-// 拼接成完整文本
-        val fullText = textContents.joinToString(" ") { it.text ?: "" }
-
-// 或者遍历处理每个文本块
-        textContents.forEach { content ->
-            Log.d("PDF", "文本: ${content.text}, 位置: ${content.bounds}")
-        }
         page.close()
 
         pageBitmaps[pageIndex] = bitmap
@@ -289,5 +312,21 @@ private fun renderPage(
         Log.e("PdfLazyViewer", "渲染页面 $pageIndex 失败", e)
     } finally {
         renderingPages[pageIndex] = false
+    }
+}
+
+private fun getPageText(renderer: PdfRenderer, pageIndex: Int): String? {
+    return try {
+        if (pageIndex < 0 || pageIndex >= renderer.pageCount) {
+            return null
+        }
+        val page = renderer.openPage(pageIndex)
+        val textContents = page.getTextContents()
+        val fullText = textContents.joinToString(" ") { it.text ?: "" }
+        page.close()
+        fullText.takeIf { it.isNotBlank() }
+    } catch (e: Exception) {
+        Log.e("PdfLazyViewer", "获取页面 $pageIndex 文本失败", e)
+        null
     }
 }

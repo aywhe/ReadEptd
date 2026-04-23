@@ -201,6 +201,7 @@ fun FileContentScreen(
         "application/pdf" -> {
             PdfScreen(
                 fileInfo = fileInfo,
+                ttsModel = ttsModel,
                 modifier = modifier
             )
         }
