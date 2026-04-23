@@ -39,11 +39,34 @@ fun TextScreen(
     val uiState by viewModel.uiState.collectAsState()
     val initialPage by viewModel.initialPage.collectAsState()
     val context = LocalContext.current
-
+    
+    // 定义 padding（UI 层决定）
+    val leftPaddingDp = 16
+    val rightPaddingPx = 16
+    val topPaddingPx = 16
+    val bottomPaddingPx = 16
+    val contentPadding = PaddingValues(
+        start = leftPaddingDp.dp,
+        end = rightPaddingPx.dp,
+        top = topPaddingPx.dp,
+        bottom = bottomPaddingPx.dp
+    )
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
+    }
+    
+    // 传递 padding 给 ViewModel
+    LaunchedEffect(Unit) {
+        viewModel.onEvent(
+            TxtEvent.OnPaddingChanged(
+                leftPaddingDp,
+                rightPaddingPx,
+                topPaddingPx,
+                bottomPaddingPx
+            )
+        )
     }
 
     Column(modifier = modifier.fillMaxSize()) {

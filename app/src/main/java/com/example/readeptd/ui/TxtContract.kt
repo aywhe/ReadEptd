@@ -33,12 +33,11 @@ sealed interface TxtEvent {
 
     /**
      * Padding 设置事件
-     * @param padding 内边距值（像素）
      */
     data class OnPaddingChanged(
-        val leftPaddingPx: Int,
-        val rightPaddingPx: Int,
-        val topPaddingPx: Int,
-        val bottomPaddingPx: Int
+        val leftPaddingDp: Int,
+        val rightPaddingDp: Int,
+        val topPaddingDp: Int,
+        val bottomPaddingDp: Int
     ) : TxtEvent
 }

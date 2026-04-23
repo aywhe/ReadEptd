@@ -76,6 +76,11 @@ object Utils {
             Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
         }
     }
+
+    data class CharsParams(
+        val avgCharsPerLine: Int = 0,
+        val maxLinesPerPage: Int = 0
+    )
     /**
      * 计算页面字符参数，注意单位统一
      * @param pageWidth 页面宽度（像素）
@@ -97,7 +102,7 @@ object Utils {
         rightPadding: Int = 0,
         topPadding: Int = 0,
         bottomPadding: Int = 0
-    ): Pair<Int, Int> {
+    ): CharsParams {
 
         val charAspectRatio = 1.0f
         val charSpacingFactor = 1.05f
@@ -112,6 +117,6 @@ object Utils {
 
         // 2. 计算每页最大行数（像素相除，结果无单位）
         val maxLinesPerPage = (effectiveHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
-        return Pair(avgCharsPerLine, maxLinesPerPage)
+        return CharsParams(avgCharsPerLine, maxLinesPerPage)
     }
 }

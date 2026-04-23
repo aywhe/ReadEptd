@@ -30,10 +30,10 @@ class TxtViewModel(
     private var fontSizeSp: Int = 16
     
     // Padding 设置（由 UI 层传入，单位：像素）
-    private var leftPaddingPx: Int = 0
-    private var rightPaddingPx: Int = 0
-    private var topPaddingPx: Int = 0
-    private var bottomPaddingPx: Int = 0
+    private var leftPaddingDp: Int = 0
+    private var rightPaddingDp: Int = 0
+    private var topPaddingDp: Int = 0
+    private var bottomPaddingDp: Int = 0
     
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -61,10 +61,10 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnPaddingChanged -> handlePaddingChanged(
-                event.leftPaddingPx,
-                event.rightPaddingPx,
-                event.topPaddingPx,
-                event.bottomPaddingPx
+                event.leftPaddingDp,
+                event.rightPaddingDp,
+                event.topPaddingDp,
+                event.bottomPaddingDp
             )
         }
     }
@@ -134,22 +134,49 @@ class TxtViewModel(
      * 处理 Padding 变化
      */
     private fun handlePaddingChanged(
-        leftPaddingPx: Int,
-        rightPaddingPx: Int,
-        topPaddingPx: Int,
-        bottomPaddingPx: Int
+        leftPaddingDp: Int,
+        rightPaddingDp: Int,
+        topPaddingDp: Int,
+        bottomPaddingDp: Int
     ) {
-        this.leftPaddingPx = leftPaddingPx
-        this.rightPaddingPx = rightPaddingPx
-        this.topPaddingPx = topPaddingPx
-        this.bottomPaddingPx = bottomPaddingPx
+        this.leftPaddingDp = leftPaddingDp
+        this.rightPaddingDp = rightPaddingDp
+        this.topPaddingDp = topPaddingDp
+        this.bottomPaddingDp = bottomPaddingDp
         
-        Log.d(TAG, "Padding 变化: left=$leftPaddingPx, right=$rightPaddingPx, top=$topPaddingPx, bottom=$bottomPaddingPx")
+        Log.d(TAG, "Padding 变化: left=${this@TxtViewModel.leftPaddingDp}, right=${this@TxtViewModel.rightPaddingDp}, top=${this@TxtViewModel.topPaddingDp}, bottom=${this@TxtViewModel.bottomPaddingDp}")
         
         // Padding 变化后重新分页
         viewModelScope.launch {
             initPages()
         }
+    }
+
+    private fun calculatePageCharsParams(): Utils.CharsParams {
+        val context = getApplication<Application>()
+        val density = context.resources.displayMetrics.density
+        val scaledDensity = context.resources.displayMetrics.scaledDensity
+        
+        // 统一转换为像素单位
+        val pageWidthPx = viewSize.width
+        val pageHeightPx = viewSize.height
+        val fontSizePx = (fontSizeSp * scaledDensity).toInt()
+        val lineHeightPx = (lineHeightSp * scaledDensity).toInt()
+        val leftPaddingPx = (leftPaddingDp * density).toInt()
+        val rightPaddingPx = (rightPaddingDp * density).toInt()
+        val topPaddingPx = (topPaddingDp * density).toInt()
+        val bottomPaddingPx = (bottomPaddingDp * density).toInt()
+        
+        return Utils.calculatePageCharsParams(
+            pageWidth = pageWidthPx,
+            pageHeight = pageHeightPx,
+            fontSize = fontSizePx,
+            lineHeight = lineHeightPx,
+            leftPadding = leftPaddingPx,
+            rightPadding = rightPaddingPx,
+            topPadding = topPaddingPx,
+            bottomPadding = bottomPaddingPx
+        )
     }
 
     /**
@@ -169,28 +196,15 @@ class TxtViewModel(
         }
         
         try {
-            val density = getApplication<Application>().resources.displayMetrics.density
-            val fontSizePx = (fontSizeSp * density).toInt()
-            val lineHeightPx = (lineHeightSp * density).toInt()
-            val charsParams = Utils.calculatePageCharsParams(
-                pageWidth = viewSize.width,
-                pageHeight = viewSize.height,
-                fontSize = fontSizePx,
-                lineHeight = lineHeightPx,
-                leftPadding = leftPaddingPx,
-                rightPadding = rightPaddingPx,
-                topPadding = topPaddingPx,
-                bottomPadding = bottomPaddingPx
-            )
-            val avgCharsPerLine = charsParams.first
-            val maxLinesPerPage = charsParams.second
+            // 这里
+            val charsParams = this.calculatePageCharsParams()
             
-            Log.d(TAG, "开始分页: 每页约 $maxLinesPerPage 行，每行约 $avgCharsPerLine 字符")
+            Log.d(TAG, "开始分页: 每页约 $charsParams.maxLinesPerPage 行，每行约 $charsParams.avgCharsPerLine 字符")
             
             // 使用临时可变列表
             val tempPages = mutableListOf<TextChunk>()
             
-            val splitter = TextSplitter(avgCharsPerLine, maxLinesPerPage) { chunk ->
+            val splitter = TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage) { chunk ->
                 tempPages.add(chunk)
             }
             
