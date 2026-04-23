@@ -1,28 +1,56 @@
 package com.example.readeptd.ui.screens
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
+import android.util.Log
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.pdf.compose.PdfViewer
-import androidx.pdf.compose.PdfViewerState
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.viewmodel.PdfUiState
 import com.example.readeptd.viewmodel.PdfViewModel
+import java.io.File
+import androidx.core.graphics.createBitmap
 
 @Composable
 fun PdfScreen(
@@ -31,18 +59,14 @@ fun PdfScreen(
     viewModel: PdfViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val pdfDocument by viewModel.pdfDocument.collectAsState()
 
-    // 准备 PDF 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.preparePdfFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // 根据状态显示不同内容
         when (val state = uiState) {
             is PdfUiState.Loading -> {
-                // 加载中
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -58,34 +82,13 @@ fun PdfScreen(
             }
 
             is PdfUiState.Ready -> {
-                // ✅ 使用 Compose PdfViewer（支持双页布局）
-                pdfDocument?.let { doc ->
-                    val pdfState = remember { PdfViewerState() }
-                    
-                    PdfViewer(
-                        pdfDocument = doc,
-                        state = pdfState,  // ✅ 必需的 state 参数
-                        
-                        // 📖 布局配置 - 设置为单页垂直滚动（如需双页改为 pagesPerRow = 2）
-                        pagesPerRow = 1,
-                        horizontalPageSpacing = 8.dp,
-                        verticalPageSpacing = 8.dp,
-                        
-                        // 🔍 缩放配置
-                        minZoom = 0.5f,
-                        maxZoom = 5.0f,
-                        
-                        // ✏️ 交互功能
-                        isFormFillingEnabled = false,
-                        isImageSelectionEnabled = true,
-                        
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                PdfLazyViewer(
+                    filePath = state.tempFilePath,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             is PdfUiState.Error -> {
-                // 显示错误
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -99,5 +102,188 @@ fun PdfScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PdfLazyViewer(
+    filePath: String,
+    modifier: Modifier = Modifier
+) {
+    var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    var pageCount by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+    
+    val pageBitmaps = remember { mutableStateMapOf<Int, Bitmap>() }
+    val renderingPages = remember { mutableStateMapOf<Int, Boolean>() }
+    
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+    LaunchedEffect(filePath) {
+        try {
+            val file = File(filePath)
+            val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            val renderer = PdfRenderer(fileDescriptor)
+            
+            pdfRenderer = renderer
+            pageCount = renderer.pageCount
+            
+            Log.d("PdfLazyViewer", "PDF 加载成功，页数: $pageCount")
+            
+            renderPage(renderer, pagerState.currentPage, pageBitmaps, renderingPages)
+            
+            if (pagerState.currentPage + 1 < renderer.pageCount) {
+                renderPage(renderer, pagerState.currentPage + 1, pageBitmaps, renderingPages)
+            }
+        } catch (e: Exception) {
+            Log.e("PdfLazyViewer", "加载 PDF 失败", e)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        pdfRenderer?.let { renderer ->
+            val currentPage = pagerState.currentPage
+            
+            renderPage(renderer, currentPage, pageBitmaps, renderingPages)
+            
+            if (currentPage > 0) {
+                renderPage(renderer, currentPage - 1, pageBitmaps, renderingPages)
+            }
+            if (currentPage + 1 < pageCount) {
+                renderPage(renderer, currentPage + 1, pageBitmaps, renderingPages)
+            }
+            
+            val pagesToKeep = setOf(currentPage, currentPage - 1, currentPage + 1)
+            val pagesToRemove = pageBitmaps.keys.filter { it !in pagesToKeep }
+            pagesToRemove.forEach { pageIndex ->
+                pageBitmaps.remove(pageIndex)?.recycle()
+                Log.d("PdfLazyViewer", "释放页面 $pageIndex 的 Bitmap")
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            pageBitmaps.values.forEach { it.recycle() }
+            pageBitmaps.clear()
+            pdfRenderer?.close()
+            Log.d("PdfLazyViewer", "资源已释放")
+        }
+    }
+
+    if (pageCount > 0) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+                .onGloballyPositioned { coordinates ->
+                    containerSize = coordinates.size
+                }
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(0.5f, 5f)
+                        offset = Offset(
+                            (offset.x + pan.x).coerceIn(
+                                -containerSize.width * (scale - 1) / 2,
+                                containerSize.width * (scale - 1) / 2
+                            ),
+                            (offset.y + pan.y).coerceIn(
+                                -containerSize.height * (scale - 1) / 2,
+                                containerSize.height * (scale - 1) / 2
+                            )
+                        )
+                    }
+                }
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val bitmap = pageBitmaps[page]
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "PDF 第 ${page + 1} 页",
+                            modifier = Modifier
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y
+                                )
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Text(
+                text = "${pagerState.currentPage + 1} / $pageCount",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        MaterialTheme.shapes.medium
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    } else {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+private fun renderPage(
+    renderer: PdfRenderer,
+    pageIndex: Int,
+    pageBitmaps: MutableMap<Int, Bitmap>,
+    renderingPages: MutableMap<Int, Boolean>
+) {
+    if (pageBitmaps.containsKey(pageIndex) || renderingPages[pageIndex] == true) {
+        return
+    }
+    
+    if (pageIndex < 0 || pageIndex >= renderer.pageCount) {
+        return
+    }
+    
+    renderingPages[pageIndex] = true
+    
+    try {
+        val page = renderer.openPage(pageIndex)
+        val bitmap = createBitmap(page.width * 2, page.height * 2)
+        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+        val text = page.textContents.toString()
+        Log.d("PdfLazyViewer", "页面 $pageIndex 的文本内容: $text")
+        page.close()
+        
+        pageBitmaps[pageIndex] = bitmap
+        Log.d("PdfLazyViewer", "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
+    } catch (e: Exception) {
+        Log.e("PdfLazyViewer", "渲染页面 $pageIndex 失败", e)
+    } finally {
+        renderingPages[pageIndex] = false
     }
 }
