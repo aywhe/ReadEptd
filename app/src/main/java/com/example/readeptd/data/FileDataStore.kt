@@ -213,8 +213,6 @@ class FileDataStore(private val context: Context) {
                 }
                 is ReadingState.Txt -> {
                     put("charOffset", state.charOffset)
-                    put("lineIndex", state.lineIndex)
-                    put("scrollPosition", state.scrollPosition)
                 }
                 is ReadingState.Unknown -> {
                     // 无额外字段
@@ -254,8 +252,6 @@ class FileDataStore(private val context: Context) {
             mimeType == "text/plain" -> ReadingState.Txt(
                 uri = uri,
                 charOffset = jsonObject.optLong("charOffset", 0),
-                lineIndex = jsonObject.optInt("lineIndex", 0),
-                scrollPosition = jsonObject.optDouble("scrollPosition", 0.0).toFloat(),
                 progress = progress,
                 lastReadTime = lastReadTime
             )
