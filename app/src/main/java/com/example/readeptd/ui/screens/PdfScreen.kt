@@ -185,15 +185,11 @@ fun PdfLazyViewer(
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         scale = (scale * zoom).coerceIn(0.5f, 5f)
+                        val maxXOffset = if (scale > 1f) containerSize.width * (scale - 1) / 2 else 0f
+                        val maxYOffset = if (scale > 1f) containerSize.height * (scale - 1) / 2 else 0f
                         offset = Offset(
-                            (offset.x + pan.x).coerceIn(
-                                -containerSize.width * (scale - 1) / 2,
-                                containerSize.width * (scale - 1) / 2
-                            ),
-                            (offset.y + pan.y).coerceIn(
-                                -containerSize.height * (scale - 1) / 2,
-                                containerSize.height * (scale - 1) / 2
-                            )
+                            (offset.x + pan.x).coerceIn(-maxXOffset, maxXOffset),
+                            (offset.y + pan.y).coerceIn(-maxYOffset, maxYOffset)
                         )
                     }
                 }
