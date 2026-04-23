@@ -58,6 +58,7 @@ import androidx.core.graphics.createBitmap
 @Composable
 fun PdfScreen(
     fileInfo: FileInfo,
+    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
@@ -89,6 +90,7 @@ fun PdfScreen(
             is PdfUiState.Ready -> {
                 PdfLazyViewer(
                     filePath = state.tempFilePath,
+                    contentViewModel = contentViewModel,
                     ttsModel = ttsModel,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -115,6 +117,7 @@ fun PdfScreen(
 @Composable
 fun PdfLazyViewer(
     filePath: String,
+    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -129,6 +132,8 @@ fun PdfLazyViewer(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val scope = rememberCoroutineScope()
+    var isShowJumpToProgressDialog by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(filePath) {
         try {
@@ -152,7 +157,9 @@ fun PdfLazyViewer(
     }
 
     LaunchedEffect(pagerState.currentPage) {
+        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
         pdfRenderer?.let { renderer ->
+            contentViewModel.updateProgressText("${pagerState.currentPage + 1}/$pageCount")
             val currentPage = pagerState.currentPage
             
             renderPage(renderer, currentPage, pageBitmaps, renderingPages)
@@ -174,6 +181,13 @@ fun PdfLazyViewer(
     }
 
     DisposableEffect(Unit) {
+
+        contentViewModel.setOnClickProgressInfoCallback { progressText ->
+            if(pdfRenderer!= null) {
+                isShowJumpToProgressDialog = true
+            }
+        }
+
         ttsModel.setOnRequestSpeechStartListener {
             pdfRenderer?.let { renderer ->
                 val text = getPageText(renderer, pagerState.currentPage)
@@ -260,19 +274,21 @@ fun PdfLazyViewer(
                     }
                 }
             }
-            
-            Text(
-                text = "${pagerState.currentPage + 1} / $pageCount",
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        MaterialTheme.shapes.medium
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if(isShowJumpToProgressDialog){
+                JumpToPageDialog(
+                    currentPage = pagerState.currentPage,
+                    totalPages = pageCount,
+                    onDismiss = {
+                        isShowJumpToProgressDialog = false
+                    },
+                    onConfirm = {
+                        scope.launch {
+                            pagerState.scrollToPage(it)
+                        }
+                        isShowJumpToProgressDialog = false
+                    }
+                )
+            }
         }
     } else {
         Box(

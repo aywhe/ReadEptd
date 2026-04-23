@@ -36,7 +36,7 @@ fun JumpToPageDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    var pageNumber by remember { mutableStateOf(currentPage.toString()) }
+    var pageNumber by remember { mutableStateOf((currentPage+1).toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
