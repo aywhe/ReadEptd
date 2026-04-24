@@ -1,5 +1,6 @@
 package com.example.readeptd.books.pdf
 
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -145,7 +146,6 @@ fun PdfLazyViewer(
             viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
 
             val currentPage = pagerState.currentPage
-            viewModel.renderAroundPage(currentPage)
             viewModel.cleanupUnusedPages(currentPage)
         }
         DisposableEffect(Unit) {
@@ -204,11 +204,12 @@ fun PdfLazyViewer(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    val bitmap = viewModel.getPageBitmap(page)
+                    var bitmap: Bitmap? = null;
+                    viewModel.renderPage(currentPage) { it -> bitmap = it}
                     if (bitmap != null) {
                         Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "PDF 第 ${page + 1} 页",
+                            bitmap = bitmap!!.asImageBitmap(),
+                            contentDescription = "PDF $page ",
                             modifier = Modifier
                                 .graphicsLayer(
                                     scaleX = scale,
@@ -218,6 +219,7 @@ fun PdfLazyViewer(
                                 )
                         )
                     } else {
+                        Log.d("PdfLazyViewer", "PDF page $page bmp is null")
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center

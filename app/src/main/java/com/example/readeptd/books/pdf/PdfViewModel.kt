@@ -83,50 +83,49 @@ class PdfViewModel(
     /**
      * 渲染指定页面及其周围页面
      */
-    fun renderAroundPage(currentPage: Int, keepNeighbourNumber: Int = 1, bitMapWhScale: Int = 3) {
-        val renderer = pdfRenderer ?: return
-        if (currentPage < 0 || currentPage >= renderer.pageCount) {
-            return
-        }
+    fun renderPage(currentPage: Int, keepNeighbourNumber: Int = 1, bitMapWhScale: Int = 3, callback: (Bitmap?) -> Unit = {}) {
+        val renderer = pdfRenderer
+        if (renderer != null && currentPage >= 0 && currentPage < renderer.pageCount) {
+            // 检查是否已渲染，避免重复渲染
+            if (!pageBitmaps.containsKey(currentPage)) {
+                // 优先渲染当前页
+                renderOnePage(renderer, currentPage, bitMapWhScale)
+            }
+            // 异步渲染周围的页面
+            viewModelScope.launch {
+                pageCacheMutex.withLock {
+                    try {
+                        for (offset in 1..keepNeighbourNumber) {
+                            val prevPage = currentPage - offset
+                            val nextPage = currentPage + offset
 
-        viewModelScope.launch {
-            pageCacheMutex.withLock {
-                // 检查是否已渲染，避免重复渲染
-                if (pageBitmaps.containsKey(currentPage)) {
-                    Log.d(TAG, "页面 $currentPage 已渲染，跳过")
-                    return@withLock
-                }
+                            // 渲染前一页（如果在范围内）
+                            if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
+                                renderOnePage(renderer, prevPage, bitMapWhScale)
+                            }
 
-                try {
-                    // 优先渲染当前页
-                    renderPage(renderer, currentPage, bitMapWhScale)
-
-                    // 然后渲染周围的页面
-                    for (offset in 1..keepNeighbourNumber) {
-                        val prevPage = currentPage - offset
-                        val nextPage = currentPage + offset
-
-                        // 渲染前一页（如果在范围内）
-                        if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
-                            renderPage(renderer, prevPage, bitMapWhScale)
+                            // 渲染后一页（如果在范围内）
+                            if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
+                                renderOnePage(renderer, nextPage, bitMapWhScale)
+                            }
                         }
-
-                        // 渲染后一页（如果在范围内）
-                        if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
-                            renderPage(renderer, nextPage, bitMapWhScale)
-                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "渲染页面 $currentPage 失败", e)
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "渲染页面 $currentPage 失败", e)
                 }
             }
+        }
+        if(pageBitmaps.containsKey(currentPage)){
+            callback(pageBitmaps[currentPage])
+        } else {
+            callback(null)
         }
     }
 
     /**
      * 渲染单个页面（内部辅助函数，需在锁内调用）
      */
-    private fun renderPage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int) {
+    private fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int) {
         // 检查是否已渲染，防止重复渲染
         if (pageBitmaps.containsKey(pageIndex)) {
             return
