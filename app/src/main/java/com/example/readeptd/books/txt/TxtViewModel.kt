@@ -30,7 +30,7 @@ class TxtViewModel(
 
     private val textExtractor = TxtExtractor(application)
     private var viewSize: IntSize = IntSize(0, 0)
-    private var lineHeightSp: Int = 36
+    private var lineHeightSp: Int = 24
     private var fontSizeSp: Int = 16
 
     // Padding 设置（由 UI 层传入，单位：像素）
