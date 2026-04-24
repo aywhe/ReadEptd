@@ -61,7 +61,7 @@ class PdfViewModel(
             val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             pdfRenderer = PdfRenderer(fileDescriptor)
             _totalPages.value = pdfRenderer?.pageCount ?: 0
-            Log.d(TAG, "PDF 渲染器初始化成功，页数: ${_totalPages.value}")
+            Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "PDF 渲染器初始化失败", e)
@@ -173,9 +173,9 @@ class PdfViewModel(
             }
             val page = renderer.openPage(pageIndex)
             val textContents = page.getTextContents()
-            Log.d(TAG, "获取页面 $pageIndex 文本 contents 数量为 ${textContents.size}")
+            Log.d(TAG, "获取页面 $pageIndex 文本, contents 数量为 ${textContents.size}")
             val fullText = textContents.joinToString(" ") { it.text ?: "" }
-            Log.d(TAG, "获取页面 $pageIndex 的文本 ${fullText.take(50)}")
+            Log.d(TAG, "页面 $pageIndex 文本预览: ${fullText.take(50)}")
             page.close()
             fullText.takeIf { it.isNotBlank() }
         } catch (e: Exception) {
@@ -205,12 +205,12 @@ class PdfViewModel(
      */
     fun getInitialPage(): Int {
         val savedState = currentReadingState
-        return if (savedState != null && savedState.page > 0) {
-            val page = (savedState.page).coerceIn(0, _totalPages.value - 1)
-            Log.d(TAG, "恢复上次阅读进度: 第 ${page + 1} 页")
+        return if (savedState != null && savedState.page >= 0) {
+            val page = savedState.page.coerceIn(0, _totalPages.value - 1)
+            Log.d(TAG, "恢复上次阅读进度: $page")
             page
         } else {
-            Log.d(TAG, "没有保存的阅读状态，从第一页开始")
+            Log.d(TAG, "没有保存的阅读状态，从页码 0 开始")
             0
         }
     }
