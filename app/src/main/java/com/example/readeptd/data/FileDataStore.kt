@@ -208,8 +208,6 @@ class FileDataStore(private val context: Context) {
                 is ReadingState.Pdf -> {
                     put("page", state.page)
                     put("totalPages", state.totalPages)
-                    put("zoom", state.zoom)
-                    put("scrollOffset", state.scrollOffset)
                 }
                 is ReadingState.Txt -> {
                     put("charOffset", state.charOffset)
@@ -244,8 +242,6 @@ class FileDataStore(private val context: Context) {
                 uri = uri,
                 page = jsonObject.optInt("page", 1),
                 totalPages = jsonObject.optInt("totalPages", 1),
-                zoom = jsonObject.optDouble("zoom", 1.0).toFloat(),
-                scrollOffset = jsonObject.optDouble("scrollOffset", 0.0).toFloat(),
                 progress = progress,
                 lastReadTime = lastReadTime
             )

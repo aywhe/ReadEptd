@@ -300,7 +300,7 @@ private fun cleanupUnusedPages(
     currentPage: Int,
     pageBitmaps: MutableMap<Int, Bitmap>,
     renderingPages: MutableMap<Int, Boolean>,
-    keepNeighbourNumber: Int = 2,
+    keepNeighbourNumber: Int = 1,
 ) {
     val pagesToRemove = pageBitmaps.keys.filter { it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber) }
     pagesToRemove.forEach { pageIndex ->
@@ -315,7 +315,7 @@ private fun renderAroundPage(
     currentPage: Int,
     pageBitmaps: MutableMap<Int, Bitmap>,
     renderingPages: MutableMap<Int, Boolean>,
-    keepNeighbourNumber: Int = 2,
+    keepNeighbourNumber: Int = 1,
     bitMapWhScale: Int = 3
 ) {
     if (currentPage < 0 || currentPage >= renderer.pageCount) {
