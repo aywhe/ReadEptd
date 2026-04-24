@@ -1,5 +1,6 @@
 package com.example.readeptd.books.txt
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -151,6 +152,7 @@ fun TxtScreen(
                                 // 设置自动朗读回调
                                 // 当 TTS 开始朗读时,获取当前页文本并开始朗读
                                 ttsModel.setOnRequestSpeechStartListener {
+                                    Log.d("TxtScreen", "开始朗读")
                                     val text = viewModel.getPageContent(pagerState.currentPage)
                                     if (text.isNotBlank()) {
                                         ttsModel.speak(text, "txt_${pagerState.currentPage}")
@@ -158,12 +160,14 @@ fun TxtScreen(
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
-                                    val text = viewModel.getPageContent(pagerState.currentPage)
-                                    if (text.isNotBlank()) {
-                                        ttsModel.speak(text,"txt_${pagerState.currentPage}")
-                                    }
+                                    Log.d("TxtScreen", "结束朗读")
                                     scope.launch {
+                                        Log.d("TxtScreen", "自动翻页")
                                         pagerState.scrollToPage(pagerState.currentPage + 1)
+                                        val text = viewModel.getPageContent(pagerState.currentPage)
+                                        if (text.isNotBlank()) {
+                                            ttsModel.speak(text,"txt_${pagerState.currentPage}")
+                                        }
                                     }
                                 }
                                 onDispose {
@@ -177,6 +181,7 @@ fun TxtScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 beyondViewportPageCount = 10
                             ) { page ->
+                                Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
                                 PageContent(
                                     pageContent = pageContent,

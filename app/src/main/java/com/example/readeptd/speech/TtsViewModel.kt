@@ -78,9 +78,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 朗读文本
      */
     fun speak(text: String, utteranceId: String? = null) {
-        Log.d(TAG, "TtsViewModel.speak() 被调用, 文本长度: ${text.length}, isInitialized: ${_isInitialized.value}")
         if (_isInitialized.value) {
-            Log.d(TAG, "调用 ttsService?.speak()")
             ttsService?.speak(text, utteranceId)
         } else {
             Log.e(TAG, "TTS 未初始化,无法朗读")
