@@ -1,4 +1,4 @@
-package com.example.readeptd.ui.screens
+package com.example.readeptd.books.txt
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,16 +29,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.ui.TxtEvent
-import com.example.readeptd.viewmodel.BookUiState
-import com.example.readeptd.viewmodel.TxtViewModel
-import com.example.readeptd.viewmodel.TtsViewModel
+import com.example.readeptd.books.BookUiState
+import com.example.readeptd.speech.TtsViewModel
+import com.example.readeptd.utils.JumpToPageDialog
+import com.example.readeptd.viewmodel.ContentViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun TxtScreen(
     fileInfo: FileInfo,
-    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
+    contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()

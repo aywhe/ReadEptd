@@ -1,4 +1,4 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.books
 
 import android.app.Application
 import android.net.Uri

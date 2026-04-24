@@ -1,4 +1,4 @@
-package com.example.readeptd.ui.screens
+package com.example.readeptd.utils
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

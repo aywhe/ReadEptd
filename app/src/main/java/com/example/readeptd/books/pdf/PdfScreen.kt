@@ -1,6 +1,5 @@
-package com.example.readeptd.ui.screens
+package com.example.readeptd.books.pdf
 
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -23,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,12 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.viewmodel.PdfViewModel
-import com.example.readeptd.viewmodel.TtsViewModel
+import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
-import java.io.File
-import com.example.readeptd.ui.PdfEvent
-import com.example.readeptd.viewmodel.BookUiState
+import com.example.readeptd.books.BookUiState
+import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.viewmodel.ContentViewModel
 
 @Composable

@@ -1,6 +1,7 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.books.epub
 
 import android.app.Application
+import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
 
 /**

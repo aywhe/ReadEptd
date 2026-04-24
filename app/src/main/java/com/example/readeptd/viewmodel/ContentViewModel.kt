@@ -5,8 +5,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.example.readeptd.ui.ContentUiEvent
-import com.example.readeptd.ui.ContentUiState
+import com.example.readeptd.contract.ContentUiEvent
+import com.example.readeptd.contract.ContentUiState
 import com.example.readeptd.data.FileInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

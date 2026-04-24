@@ -1,12 +1,13 @@
-package com.example.readeptd.ui.views
+package com.example.readeptd.books.epub
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
+import android.os.Build
 import android.util.Log
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +16,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.File
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -63,14 +65,14 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         isHorizontalScrollBarEnabled = false
         
         // 允许从 file URL 加载内容（关键配置）
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             settings.allowUniversalAccessFromFileURLs = true
             settings.allowFileAccessFromFileURLs = true
         }
         
         // 混合内容模式（如果需要）
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
         
         // 添加 JavaScript 接口
@@ -102,10 +104,10 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         }
         
         // 设置 WebChromeClient（某些情况下需要）
-        webChromeClient = android.webkit.WebChromeClient()
+        webChromeClient = WebChromeClient()
         
         // 启用调试模式（开发时使用）
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             setWebContentsDebuggingEnabled(true)
         }
         
@@ -131,7 +133,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
         Log.d(TAG, "起始位置 CFI: ${startCfi ?: "(无，将显示首页)"}")
-        Log.d(TAG, "文件是否存在: ${java.io.File(epubFilePath).exists()}")
+        Log.d(TAG, "文件是否存在: ${File(epubFilePath).exists()}")
 
         Log.d(TAG, "执行 JavaScript 初始化...")
         

@@ -31,17 +31,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.readeptd.ui.ContentUiEvent
-import com.example.readeptd.ui.ContentUiState
+import com.example.readeptd.contract.ContentUiEvent
+import com.example.readeptd.contract.ContentUiState
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.ui.screens.EpubScreen
+import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import com.example.readeptd.viewmodel.ContentViewModel
-import com.example.readeptd.ui.screens.PdfScreen
-import com.example.readeptd.ui.TtsEvent
-import com.example.readeptd.ui.screens.TxtScreen
-import com.example.readeptd.viewmodel.TtsViewModel
+import com.example.readeptd.books.pdf.PdfScreen
+import com.example.readeptd.speech.TtsEvent
+import com.example.readeptd.books.txt.TxtScreen
+import com.example.readeptd.speech.TtsViewModel
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,15 +1,14 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.books.pdf
 
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
-import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.ui.PdfEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,16 +28,16 @@ class PdfViewModel(
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
     private val pageBitmaps = mutableMapOf<Int, Bitmap>()
-    
+
     // 用于保护页面缓存的互斥锁，避免并发访问导致的问题
     private val pageCacheMutex = Mutex()
-    
+
     // 当前页码（用于 UI 显示和进度保存）
     private val _currentPage = MutableStateFlow(0)
     private val _totalPages = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
     val totalPages: StateFlow<Int> = _totalPages.asStateFlow()
-    
+
     /**
      * 获取指定页面的位图（供 UI 调用）
      */
@@ -69,7 +68,7 @@ class PdfViewModel(
             false
         }
     }
-    
+
     /**
      * 清理渲染器资源
      */
@@ -89,7 +88,7 @@ class PdfViewModel(
         if (currentPage < 0 || currentPage >= renderer.pageCount) {
             return
         }
-        
+
         viewModelScope.launch {
             pageCacheMutex.withLock {
                 // 检查是否已渲染，避免重复渲染
@@ -97,21 +96,21 @@ class PdfViewModel(
                     Log.d(TAG, "页面 $currentPage 已渲染，跳过")
                     return@withLock
                 }
-                
+
                 try {
                     // 优先渲染当前页
                     renderPage(renderer, currentPage, bitMapWhScale)
-                    
+
                     // 然后渲染周围的页面
                     for (offset in 1..keepNeighbourNumber) {
                         val prevPage = currentPage - offset
                         val nextPage = currentPage + offset
-                        
+
                         // 渲染前一页（如果在范围内）
                         if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
                             renderPage(renderer, prevPage, bitMapWhScale)
                         }
-                        
+
                         // 渲染后一页（如果在范围内）
                         if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
                             renderPage(renderer, nextPage, bitMapWhScale)
@@ -123,7 +122,7 @@ class PdfViewModel(
             }
         }
     }
-    
+
     /**
      * 渲染单个页面（内部辅助函数，需在锁内调用）
      */
@@ -132,28 +131,28 @@ class PdfViewModel(
         if (pageBitmaps.containsKey(pageIndex)) {
             return
         }
-        
+
         try {
             val page = renderer.openPage(pageIndex)
             val bitmap = createBitmap(page.width * bitMapWhScale, page.height * bitMapWhScale)
             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             page.close()
-            
+
             pageBitmaps[pageIndex] = bitmap
             Log.d(TAG, "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
         } catch (e: Exception) {
             Log.e(TAG, "渲染页面 $pageIndex 失败", e)
         }
     }
-    
+
     /**
      * 清理不需要的页面缓存
      */
     fun cleanupUnusedPages(currentPage: Int, keepNeighbourNumber: Int = 1) {
         viewModelScope.launch {
             pageCacheMutex.withLock {
-                val pagesToRemove = pageBitmaps.keys.filter { 
-                    it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber) 
+                val pagesToRemove = pageBitmaps.keys.filter {
+                    it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber)
                 }
                 pagesToRemove.forEach { pageIndex ->
                     pageBitmaps.remove(pageIndex)?.recycle()
@@ -162,7 +161,7 @@ class PdfViewModel(
             }
         }
     }
-    
+
     /**
      * 获取指定页面的文本内容（用于 TTS）
      */
@@ -190,10 +189,10 @@ class PdfViewModel(
      */
     fun handlePageChanged(page: Int) {
         if (page < 0 || page >= _totalPages.value) return
-        
+
         Log.d(TAG, "翻页到: $page")
         _currentPage.value = page
-        
+
         // 保存阅读进度
         savePdfProgress(
             uri = currentFileUri ?: return,

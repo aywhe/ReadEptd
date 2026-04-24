@@ -1,4 +1,4 @@
-package com.example.readeptd.service
+package com.example.readeptd.speech
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
@@ -14,7 +14,7 @@ class TtsService(
     private val context: Context,
     private val listener: TtsListener? = null
 ) {
-    
+
     interface TtsListener {
         fun onInitSuccess()
         fun onInitFailure(errorCode: Int)
@@ -43,21 +43,22 @@ class TtsService(
             if (status == TextToSpeech.SUCCESS) {
                 // 设置语言为中文
                 val result = textToSpeech?.setLanguage(Locale.CHINESE)
-                
-                if (result == TextToSpeech.LANG_MISSING_DATA || 
-                    result == TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                if (result == TextToSpeech.LANG_MISSING_DATA ||
+                    result == TextToSpeech.LANG_NOT_SUPPORTED
+                ) {
                     Log.e(TAG, "不支持的语言")
                     listener?.onInitFailure(result ?: -1)
                 } else {
                     isInitialized = true
-                    
+
                     // 设置语速和音调（可选）
                     textToSpeech?.setSpeechRate(1.0f)  // 正常语速
                     textToSpeech?.setPitch(1.0f)       // 正常音调
-                    
+
                     // 设置进度监听器
                     setupUtteranceProgressListener()
-                    
+
                     Log.d(TAG, "TTS 初始化成功")
                     listener?.onInitSuccess()
                 }
@@ -108,7 +109,7 @@ class TtsService(
         }
 
         currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
-        
+
         Log.d(TAG, "准备调用 textToSpeech?.speak(), utteranceId: $currentUtteranceId")
         // 使用 QUEUE_FLUSH 模式：清除队列中的其他语音，立即播放当前文本
         textToSpeech?.speak(
@@ -117,7 +118,7 @@ class TtsService(
             null,
             currentUtteranceId
         )
-        
+
         Log.d(TAG, "开始朗读文本: ${text.take(50)}...")
     }
 
@@ -162,7 +163,7 @@ class TtsService(
      */
     fun setLanguage(locale: Locale): Int {
         val result = textToSpeech?.setLanguage(locale) ?: TextToSpeech.ERROR
-        if (result == TextToSpeech.LANG_MISSING_DATA || 
+        if (result == TextToSpeech.LANG_MISSING_DATA ||
             result == TextToSpeech.LANG_NOT_SUPPORTED) {
             Log.e(TAG, "不支持的语言: $locale")
         } else {

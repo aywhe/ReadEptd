@@ -1,4 +1,4 @@
-package com.example.readeptd.ui
+package com.example.readeptd.speech
 
 /**
  * TTS UI 事件密封类

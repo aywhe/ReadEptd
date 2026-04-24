@@ -1,4 +1,4 @@
-package com.example.readeptd.ui
+package com.example.readeptd.books.txt
 
 import androidx.compose.ui.unit.IntSize
 

@@ -1,6 +1,4 @@
-package com.example.readeptd.ui
-
-import androidx.compose.ui.unit.IntSize
+package com.example.readeptd.books.pdf
 
 /**
  * TXT 阅读器 UI 事件

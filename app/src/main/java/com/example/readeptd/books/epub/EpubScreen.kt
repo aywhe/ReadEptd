@@ -1,8 +1,8 @@
-package com.example.readeptd.ui.screens
+package com.example.readeptd.books.epub
 
 import android.util.Log
+import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,18 +23,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.data.ReadingState
-import com.example.readeptd.ui.views.EpubLocation
-import com.example.readeptd.ui.views.EpubWebView
-import com.example.readeptd.viewmodel.BookUiState
-import com.example.readeptd.viewmodel.EpubViewModel
-import com.example.readeptd.viewmodel.TtsViewModel
-import kotlinx.coroutines.delay
+import com.example.readeptd.books.BookUiState
+import com.example.readeptd.books.epub.EpubViewModel
+import com.example.readeptd.speech.TtsViewModel
+import com.example.readeptd.utils.JumpToProgressDialog
+import com.example.readeptd.viewmodel.ContentViewModel
 
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
-    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
+    contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
@@ -76,9 +74,9 @@ fun EpubScreen(
                     factory = { context ->
                         val newWebView = EpubWebView(state.tempFilePath, context)
                         newWebView.apply {
-                            layoutParams = android.widget.FrameLayout.LayoutParams(
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                            layoutParams = FrameLayout.LayoutParams(
+                                FrameLayout.LayoutParams.MATCH_PARENT,
+                                FrameLayout.LayoutParams.MATCH_PARENT
                             )
 
                             // 设置起始位置 CFI

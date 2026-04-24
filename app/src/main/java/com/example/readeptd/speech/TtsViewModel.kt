@@ -1,10 +1,9 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.speech
 
 import android.app.Application
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import com.example.readeptd.service.TtsService
-import com.example.readeptd.ui.TtsEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +28,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     val pitch: StateFlow<Float> = _pitch.asStateFlow()
 
     private var ttsService: TtsService? = null
-    
+
     // 自动朗读回调(当 TTS 开始/完成时触发,用于获取下一页文本)
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
@@ -117,8 +116,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun setLanguage(locale: Locale): Boolean {
         val result = ttsService?.setLanguage(locale)
-        return result != null && result != android.speech.tts.TextToSpeech.LANG_MISSING_DATA &&
-                result != android.speech.tts.TextToSpeech.LANG_NOT_SUPPORTED
+        return result != null && result != TextToSpeech.LANG_MISSING_DATA &&
+                result != TextToSpeech.LANG_NOT_SUPPORTED
     }
 
     /**
@@ -141,14 +140,14 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun isReady(): Boolean {
         return ttsService?.isReady() ?: false
     }
-    
+
     /**
      * 设置自动朗读开始回调(TTS 开始朗读时触发,用于获取当前页文本)
      */
     fun setOnSpeechStartListener(callback: () -> Unit) {
         onSpeechStartCallback = callback
     }
-    
+
     /**
      * 设置自动朗读完成回调(TTS 朗读完成时触发,用于翻页并获取下一页文本)
      */
@@ -162,7 +161,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun setOnRequestSpeechStartListener(callback: () -> Unit) {
         onRequestSpeechStartCallback = callback
     }
-    
+
     /**
      * 清除回调
      */
@@ -188,7 +187,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
             }
         }
     }
-    
+
     /**
      * 清理资源
      */
