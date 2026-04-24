@@ -204,11 +204,11 @@ fun PdfLazyViewer(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    var bitmap: Bitmap? = null;
-                    viewModel.renderPage(currentPage) { it -> bitmap = it}
+                    viewModel.renderPage(currentPage, 1)
+                    val bitmap = viewModel.getPageBitmap( page)
                     if (bitmap != null) {
                         Image(
-                            bitmap = bitmap!!.asImageBitmap(),
+                            bitmap = bitmap.asImageBitmap(),
                             contentDescription = "PDF $page ",
                             modifier = Modifier
                                 .graphicsLayer(

@@ -58,7 +58,8 @@ class PdfViewModel(
         return try {
             cleanupRenderer()
             val file = File(filePath)
-            val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            val fileDescriptor =
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             pdfRenderer = PdfRenderer(fileDescriptor)
             _totalPages.value = pdfRenderer?.pageCount ?: 0
             Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}")
@@ -83,7 +84,12 @@ class PdfViewModel(
     /**
      * 渲染指定页面及其周围页面
      */
-    fun renderPage(currentPage: Int, keepNeighbourNumber: Int = 1, bitMapWhScale: Int = 3, callback: (Bitmap?) -> Unit = {}) {
+    fun renderPage(
+        currentPage: Int,
+        keepNeighbourNumber: Int = 1,
+        bitMapWhScale: Int = 3,
+        callback: (Bitmap?) -> Unit = {}
+    ) {
         val renderer = pdfRenderer
         if (renderer != null && currentPage >= 0 && currentPage < renderer.pageCount) {
             // 检查是否已渲染，避免重复渲染
@@ -91,31 +97,26 @@ class PdfViewModel(
                 // 优先渲染当前页
                 renderOnePage(renderer, currentPage, bitMapWhScale)
             }
-            // 异步渲染周围的页面
-            viewModelScope.launch {
-                pageCacheMutex.withLock {
-                    try {
-                        for (offset in 1..keepNeighbourNumber) {
-                            val prevPage = currentPage - offset
-                            val nextPage = currentPage + offset
+            try {
+                for (offset in 1..keepNeighbourNumber) {
+                    val prevPage = currentPage - offset
+                    val nextPage = currentPage + offset
 
-                            // 渲染前一页（如果在范围内）
-                            if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
-                                renderOnePage(renderer, prevPage, bitMapWhScale)
-                            }
+                    // 渲染前一页（如果在范围内）
+                    if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
+                        renderOnePage(renderer, prevPage, bitMapWhScale)
+                    }
 
-                            // 渲染后一页（如果在范围内）
-                            if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
-                                renderOnePage(renderer, nextPage, bitMapWhScale)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "渲染页面 $currentPage 失败", e)
+                    // 渲染后一页（如果在范围内）
+                    if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
+                        renderOnePage(renderer, nextPage, bitMapWhScale)
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "渲染页面 $currentPage 失败", e)
             }
         }
-        if(pageBitmaps.containsKey(currentPage)){
+        if (pageBitmaps.containsKey(currentPage)) {
             callback(pageBitmaps[currentPage])
         } else {
             callback(null)
@@ -148,16 +149,12 @@ class PdfViewModel(
      * 清理不需要的页面缓存
      */
     fun cleanupUnusedPages(currentPage: Int, keepNeighbourNumber: Int = 1) {
-        viewModelScope.launch {
-            pageCacheMutex.withLock {
-                val pagesToRemove = pageBitmaps.keys.filter {
-                    it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber)
-                }
-                pagesToRemove.forEach { pageIndex ->
-                    pageBitmaps.remove(pageIndex)?.recycle()
-                    Log.d(TAG, "释放页面 $pageIndex 的 Bitmap")
-                }
-            }
+        val pagesToRemove = pageBitmaps.keys.filter {
+            it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber)
+        }
+        pagesToRemove.forEach { pageIndex ->
+            pageBitmaps.remove(pageIndex)?.recycle()
+            Log.d(TAG, "释放页面 $pageIndex 的 Bitmap")
         }
     }
 
