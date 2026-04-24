@@ -43,17 +43,19 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.viewmodel.PdfUiState
 import com.example.readeptd.viewmodel.PdfViewModel
 import com.example.readeptd.viewmodel.TtsViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 import androidx.core.graphics.createBitmap
+import com.example.readeptd.ui.PdfEvent
+import com.example.readeptd.viewmodel.BookUiState
+import com.example.readeptd.viewmodel.ContentViewModel
 
 @Composable
 fun PdfScreen(
     fileInfo: FileInfo,
-    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
+    contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
@@ -62,12 +64,12 @@ fun PdfScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
-        viewModel.preparePdfFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "pdf")
     }
 
     Column(modifier = modifier.fillMaxSize()) {
         when (val state = uiState) {
-            is PdfUiState.Loading -> {
+            is BookUiState.Loading -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -82,16 +84,17 @@ fun PdfScreen(
                 }
             }
 
-            is PdfUiState.Ready -> {
+            is BookUiState.Ready -> {
                 PdfLazyViewer(
                     filePath = state.tempFilePath,
                     contentViewModel = contentViewModel,
+                    viewModel = viewModel,
                     ttsModel = ttsModel,
                     modifier = Modifier.fillMaxSize()
                 )
             }
 
-            is PdfUiState.Error -> {
+            is BookUiState.Error -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -112,111 +115,103 @@ fun PdfScreen(
 @Composable
 fun PdfLazyViewer(
     filePath: String,
-    contentViewModel: com.example.readeptd.viewmodel.ContentViewModel,
+    contentViewModel: ContentViewModel,
+    viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
     var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
-    var pageCount by remember { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState(pageCount = { pageCount })
-    
     val pageBitmaps = remember { mutableStateMapOf<Int, Bitmap>() }
     val renderingPages = remember { mutableStateMapOf<Int, Boolean>() }
-    
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
 
 
-    LaunchedEffect(filePath) {
+    DisposableEffect(filePath) {
         try {
             val file = File(filePath)
             val fileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             val renderer = PdfRenderer(fileDescriptor)
-            
             pdfRenderer = renderer
-            pageCount = renderer.pageCount
-            
-            Log.d("PdfLazyViewer", "PDF 加载成功，页数: $pageCount")
-            
-            renderPage(renderer, pagerState.currentPage, pageBitmaps, renderingPages)
-            
-            if (pagerState.currentPage + 1 < renderer.pageCount) {
-                renderPage(renderer, pagerState.currentPage + 1, pageBitmaps, renderingPages)
-            }
         } catch (e: Exception) {
             Log.e("PdfLazyViewer", "加载 PDF 失败", e)
         }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
-        pdfRenderer?.let { renderer ->
-            contentViewModel.updateProgressText("${pagerState.currentPage + 1}/$pageCount")
-            val currentPage = pagerState.currentPage
-            
-            renderPage(renderer, currentPage, pageBitmaps, renderingPages)
-            
-            if (currentPage > 0) {
-                renderPage(renderer, currentPage - 1, pageBitmaps, renderingPages)
-            }
-            if (currentPage + 1 < pageCount) {
-                renderPage(renderer, currentPage + 1, pageBitmaps, renderingPages)
-            }
-            
-            val pagesToKeep = setOf(currentPage, currentPage - 1, currentPage + 1)
-            val pagesToRemove = pageBitmaps.keys.filter { it !in pagesToKeep }
-            pagesToRemove.forEach { pageIndex ->
-                pageBitmaps.remove(pageIndex)?.recycle()
-                Log.d("PdfLazyViewer", "释放页面 $pageIndex 的 Bitmap")
-            }
+        onDispose {
+            pageBitmaps.values.forEach { it.recycle() }
+            pageBitmaps.clear()
+            pdfRenderer?.close()
+            pdfRenderer = null
+            Log.d("PdfLazyViewer", "资源已释放")
         }
     }
 
-    DisposableEffect(Unit) {
-
-        contentViewModel.setOnClickProgressInfoCallback { progressText ->
-            if(pdfRenderer!= null) {
-                isShowJumpToPageDialog = true
-            }
+    var pageCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(pdfRenderer){
+        if(pdfRenderer != null) {
+            pageCount = pdfRenderer!!.pageCount
+            viewModel.setTotalPages(pageCount)
         }
+    }
 
-        ttsModel.setOnRequestSpeechStartListener {
+
+
+    if(pdfRenderer != null && pdfRenderer!!.pageCount > 0){
+        val pageCount = pdfRenderer!!.pageCount
+        viewModel.setTotalPages(pageCount)
+        var scale by remember { mutableFloatStateOf(1f) }
+        var offset by remember { mutableStateOf(Offset.Zero) }
+        var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+        val initialPage = viewModel.getInitialPage()
+        val pagerState = rememberPagerState(
+            initialPage = initialPage,
+            pageCount = { pageCount }
+        )
+        Log.d("PdfLazyViewer", "PDF 加载成功，页数: $pageCount, 初始页: $initialPage")
+        LaunchedEffect(pagerState.currentPage) {
+            Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
             pdfRenderer?.let { renderer ->
-                val text = getPageText(renderer, pagerState.currentPage)
-                if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text,"pdf_${pagerState.currentPage}")
+                contentViewModel.updateProgressText("${pagerState.currentPage + 1}/$pageCount")
+                viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
+
+                val currentPage = pagerState.currentPage
+                renderAroundPage(renderer, currentPage, pageBitmaps, renderingPages)
+                cleanupUnusedPages(currentPage, pageBitmaps, renderingPages)
+            }
+        }
+        DisposableEffect(Unit) {
+            contentViewModel.setOnClickProgressInfoCallback { progressText ->
+                if(pdfRenderer != null) {
+                    isShowJumpToPageDialog = true
                 }
             }
-        }
-        
-        ttsModel.setOnSpeechDoneListener { utteranceId ->
-            scope.launch {
+
+            ttsModel.setOnRequestSpeechStartListener {
+                pdfRenderer?.let { renderer ->
+                    val text = getPageText(renderer, pagerState.currentPage)
+                    if (!text.isNullOrBlank()) {
+                        ttsModel.speak(text,"pdf_${pagerState.currentPage}")
+                    }
+                }
+            }
+
+            ttsModel.setOnSpeechDoneListener { utteranceId ->
                 val nextPage = pagerState.currentPage + 1
                 if (nextPage < pageCount) {
-                    pagerState.scrollToPage(nextPage)
                     pdfRenderer?.let { renderer ->
                         val text = getPageText(renderer, nextPage)
                         if (!text.isNullOrBlank()) {
                             ttsModel.speak(text, "pdf_${pagerState.currentPage}")
                         }
                     }
+                    scope.launch {
+                        pagerState.scrollToPage(nextPage)
+                    }
                 }
             }
+            onDispose {
+            }
         }
-        
-        onDispose {
-            ttsModel.clearCallbacks()
-            pageBitmaps.values.forEach { it.recycle() }
-            pageBitmaps.clear()
-            pdfRenderer?.close()
-            Log.d("PdfLazyViewer", "资源已释放")
-        }
-    }
-
-    if (pageCount > 0) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -286,43 +281,68 @@ fun PdfLazyViewer(
             }
         }
     } else {
-        Box(
+        Column(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator()
+            Text(
+                text = "正在渲染...",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 16.dp)
+            )
         }
     }
 }
 
-private fun renderPage(
-    renderer: PdfRenderer,
-    pageIndex: Int,
+private fun cleanupUnusedPages(
+    currentPage: Int,
     pageBitmaps: MutableMap<Int, Bitmap>,
-    renderingPages: MutableMap<Int, Boolean>
+    renderingPages: MutableMap<Int, Boolean>,
+    keepNeighbourNumber: Int = 2,
 ) {
-    if (pageBitmaps.containsKey(pageIndex) || renderingPages[pageIndex] == true) {
-        return
+    val pagesToRemove = pageBitmaps.keys.filter { it !in (currentPage - keepNeighbourNumber..currentPage + keepNeighbourNumber) }
+    pagesToRemove.forEach { pageIndex ->
+        pageBitmaps.remove(pageIndex)?.recycle()
+        renderingPages[pageIndex] =  false
+        Log.d("PdfLazyViewer", "释放页面 $pageIndex 的 Bitmap")
     }
-    
-    if (pageIndex < 0 || pageIndex >= renderer.pageCount) {
-        return
-    }
-    
-    renderingPages[pageIndex] = true
-    
-    try {
-        val page = renderer.openPage(pageIndex)
-        val bitmap = createBitmap(page.width * 3, page.height * 3)
-        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-        page.close()
+}
 
-        pageBitmaps[pageIndex] = bitmap
-        Log.d("PdfLazyViewer", "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
-    } catch (e: Exception) {
-        Log.e("PdfLazyViewer", "渲染页面 $pageIndex 失败", e)
-    } finally {
-        renderingPages[pageIndex] = false
+private fun renderAroundPage(
+    renderer: PdfRenderer,
+    currentPage: Int,
+    pageBitmaps: MutableMap<Int, Bitmap>,
+    renderingPages: MutableMap<Int, Boolean>,
+    keepNeighbourNumber: Int = 2,
+    bitMapWhScale: Int = 3
+) {
+    if (currentPage < 0 || currentPage >= renderer.pageCount) {
+        return
+    }
+    if (pageBitmaps.containsKey(currentPage) || renderingPages[currentPage] == true) {
+        Log.d("PdfLazyViewer", "页面 $currentPage 已渲染，不需要渲染")
+    } else {
+        try {
+            for(index in (currentPage - keepNeighbourNumber).coerceIn(0, renderer.pageCount-1)
+                    ..(currentPage + keepNeighbourNumber).coerceIn(0, renderer.pageCount-1)) {
+                val page = renderer.openPage(index)
+                val bitmap = createBitmap(page.width * bitMapWhScale, page.height * bitMapWhScale)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                page.close()
+                pageBitmaps[index] = bitmap
+                renderingPages[index] = true
+                Log.d(
+                    "PdfLazyViewer",
+                    "渲染页面 $index 完成 (${bitmap.width}x${bitmap.height})"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("PdfLazyViewer", "渲染页面 $currentPage 失败", e)
+        } finally {
+            renderingPages[currentPage] = false
+        }
     }
 }
 

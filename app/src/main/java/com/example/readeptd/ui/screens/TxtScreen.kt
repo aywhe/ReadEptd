@@ -158,12 +158,12 @@ fun TxtScreen(
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
+                                    val text = viewModel.getPageContent(pagerState.currentPage)
+                                    if (text.isNotBlank()) {
+                                        ttsModel.speak(text,"txt_${pagerState.currentPage}")
+                                    }
                                     scope.launch {
                                         pagerState.scrollToPage(pagerState.currentPage + 1)
-                                        val text = viewModel.getPageContent(pagerState.currentPage)
-                                        if (text.isNotBlank()) {
-                                            ttsModel.speak(text,"txt_${pagerState.currentPage}")
-                                        }
                                     }
                                 }
                                 onDispose {

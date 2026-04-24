@@ -32,8 +32,6 @@ sealed interface ReadingState {
         override val uri: String,
         val page: Int = 1,                 // 当前页码
         val totalPages: Int = 1,           // 总页数
-        val zoom: Float = 1.0f,            // 缩放比例
-        val scrollOffset: Float = 0f,      // 滚动偏移量
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf"
