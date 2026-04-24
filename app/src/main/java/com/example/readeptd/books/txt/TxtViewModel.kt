@@ -125,7 +125,7 @@ class TxtViewModel(
 
         Log.d(TAG, "翻页到: $pageIndex")
         _currentPage.value = pageIndex
-
+        _initialPage.value = pageIndex // 防止屏幕旋转时进度回到原来初始位置
         // 保存阅读进度
         saveTxtProgress(
             uri = currentFileUri ?: return,
@@ -294,12 +294,12 @@ class TxtViewModel(
         }
 
         val charOffset = savedState.charOffset
-        Log.d(TAG, "尝试恢复到字符偏移量: $charOffset")
+        Log.d(TAG, "读取到保存的字符偏移量: $charOffset")
 
         // 查找包含该字符偏移量的页面
         val targetPageIndex = findPageByCharOffset(charOffset)
 
-        Log.d(TAG, "恢复到页码: $targetPageIndex")
+        Log.d(TAG, "字符偏移量对应的页码: $targetPageIndex")
         _initialPage.value = targetPageIndex
         _currentPage.value = targetPageIndex
     }
@@ -352,6 +352,7 @@ class TxtViewModel(
     ) {
         val progress = if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
         val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
+        Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
         val state = ReadingState.Txt(
             uri = uri,
             charOffset = charOffset,
