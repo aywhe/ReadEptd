@@ -190,6 +190,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 stop()
             }
             is TtsEvent.StartCountDownTimer -> {
+                countDownTimer?.cancel()
+                countDownTimer = null
                 _remainingMillisTime.value = event.millisInFuture
                 countDownTimer = TtsCountDownTimer(
                     millisInFuture = event.millisInFuture,
@@ -198,17 +200,21 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                     },
                     onFinishCallback = {
                         stop()
-                        Toast.makeText(getApplication< Application>(), "时间到,自动停止朗读", Toast.LENGTH_SHORT).show()
+                        _remainingMillisTime.value = 0L
                     }
                 )
                 countDownTimer?.start()
             }
             is TtsEvent.RemoveCountDownTimer -> {
-                countDownTimer?.cancel()
-                countDownTimer = null
-                _remainingMillisTime.value = 0L
+                removeCountDownTimer()
             }
         }
+    }
+
+    private fun removeCountDownTimer() {
+        countDownTimer?.cancel()
+        countDownTimer = null
+        _remainingMillisTime.value = 0L
     }
 
     /**
@@ -216,6 +222,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     override fun onCleared() {
         super.onCleared()
+        removeCountDownTimer()
         // 清除回调，避免内存泄漏
         clearCallbacks()
         ttsService?.shutdown()

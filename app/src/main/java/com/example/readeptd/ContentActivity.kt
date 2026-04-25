@@ -1,7 +1,9 @@
 package com.example.readeptd
 
+import android.app.Application
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -172,6 +174,7 @@ fun ContentScreen(
                                 onStopTimer = {
                                     ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
                                     isShowTimerDialog = false
+                                    Toast.makeText(context,"已停止计时", Toast.LENGTH_SHORT).show()
                                 },
                             )
                         }
