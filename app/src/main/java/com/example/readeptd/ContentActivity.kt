@@ -174,7 +174,6 @@ fun ContentScreen(
                                 onStopTimer = {
                                     ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
                                     isShowTimerDialog = false
-                                    Toast.makeText(context,"已停止计时", Toast.LENGTH_SHORT).show()
                                 },
                             )
                         }
