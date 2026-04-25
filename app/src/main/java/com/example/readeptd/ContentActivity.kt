@@ -49,6 +49,9 @@ class ContentActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // 请求通知权限（Android 13+）
+        com.example.readeptd.utils.Utils.checkAndRequestNotificationPermission(this)
+
         val fileInfo = intent.getBundleExtra("file_info")?.let {
             FileInfo.fromBundle(it)
         }
