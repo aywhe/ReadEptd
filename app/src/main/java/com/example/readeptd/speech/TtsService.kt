@@ -214,6 +214,8 @@ class TtsService : Service() {
      * 构建通知
      */
     private fun buildNotification(isPlaying: Boolean): android.app.Notification {
+        Log.d(TAG, "构建通知，isPlaying=$isPlaying")
+        
         // 点击通知打开应用
         val contentIntent = PendingIntent.getActivity(
             this,
@@ -244,7 +246,7 @@ class TtsService : Service() {
             createPendingIntent(ACTION_STOP)
         ).build()
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("TTS朗读")
             .setContentText(if (isPlaying) "正在朗读..." else "已暂停")
             .setSmallIcon(android.R.drawable.ic_media_play)
@@ -254,7 +256,14 @@ class TtsService : Service() {
             .setShowWhen(false)
             .addAction(playPauseAction)
             .addAction(stopAction)
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setShowActionsInCompactView(0, 1)  // 在紧凑视图中显示所有按钮
+            )
             .build()
+        
+        Log.d(TAG, "通知构建完成，包含播放/暂停和停止按钮")
+        return notification
     }
 
     /**
