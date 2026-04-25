@@ -37,6 +37,7 @@ fun JumpToPageDialog(
     onConfirm: (Int) -> Unit
 ) {
     var pageNumber by remember { mutableStateOf((currentPage+1).toString()) }
+    var sliderPosition by remember { mutableFloatStateOf(1.0f*currentPage/totalPages*100f) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -56,6 +57,7 @@ fun JumpToPageDialog(
                         if (input.all { it.isDigit() }) {
                             pageNumber = input
                         }
+                        sliderPosition = input.toIntOrNull()?.let { it.toFloat()/totalPages*100f } ?: 0f
                     },
                     label = { Text("页码") },
                     placeholder = { Text("请输入页码") },
@@ -63,6 +65,17 @@ fun JumpToPageDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     isError = pageNumber.toIntOrNull()?.let { it < 1 || it > totalPages } ?: false
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Slider(
+                    value = sliderPosition,
+                    onValueChange = {
+                        sliderPosition = it
+                        pageNumber = (sliderPosition/100f*totalPages+1).toInt().coerceIn(1, totalPages).toString()
+                    },
+                    valueRange = 0f..100f,
+                    steps = 99,  // 100 个值需要 99 个间隔
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (pageNumber.toIntOrNull()?.let { it < 1 || it > totalPages } == true) {
                     Text(
