@@ -3,6 +3,7 @@ package com.example.readeptd.speech
 import android.app.Application
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +34,11 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
+
+    private var countDownTimer: TtsCountDownTimer? = null
+    private val _remainingTimeMinutes = MutableStateFlow(0f)
+    val remainingTimeMinutes: StateFlow<Float> = _remainingTimeMinutes.asStateFlow()
+
 
     init {
         initializeTts()
@@ -182,6 +188,24 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
             }
             is TtsEvent.StopSpeaking -> {
                 stop()
+            }
+            is TtsEvent.StartCountDownTimer -> {
+                countDownTimer = TtsCountDownTimer(
+                    millisInFuture = event.millisInFuture,
+                    onTickCallback = { millisRemainingTime ->
+                        _remainingTimeMinutes.value = millisRemainingTime / 1000 / 60.0f
+                    },
+                    onFinishCallback = {
+                        stop()
+                        Toast.makeText(getApplication< Application>(), "时间到,自动停止朗读", Toast.LENGTH_SHORT).show()
+                    }
+                )
+                countDownTimer?.start()
+            }
+            is TtsEvent.RemoveCountDownTimer -> {
+                countDownTimer?.cancel()
+                countDownTimer = null
+                _remainingTimeMinutes.value = 0f
             }
         }
     }

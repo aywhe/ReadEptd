@@ -13,4 +13,14 @@ sealed interface TtsEvent {
      * 停止朗读
      */
     object StopSpeaking : TtsEvent
+
+    /**
+     * 开始计时器
+     */
+    data class StartCountDownTimer(val millisInFuture: Long): TtsEvent
+
+    /**
+     * 停止计时器
+     */
+    object RemoveCountDownTimer: TtsEvent
 }

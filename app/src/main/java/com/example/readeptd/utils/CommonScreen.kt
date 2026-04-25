@@ -1,13 +1,18 @@
 package com.example.readeptd.utils
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -160,6 +165,99 @@ fun JumpToProgressDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("取消")
+            }
+        }
+    )
+}
+
+@Composable
+fun TimerDialog(
+    currentRemainingMinutes: Float,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+    onStopTimer: () -> Unit,
+    maxMinutes: Int = 120
+) {
+    // 使用当前剩余时间或 0 作为初始值
+    var sliderPosition by remember {
+        mutableStateOf(currentRemainingMinutes)
+    }
+
+    val minMinutes = 0
+
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("定时关闭朗读") },
+        text = {
+            Column {
+                Text(
+                    text = if ((sliderPosition).toInt() > 0) {
+                        "剩余时间：${(sliderPosition).toInt()}分钟"
+                    } else {
+                        "设置时间：0 分钟"
+                    },
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Slider(
+                    value = sliderPosition,
+                    onValueChange = {
+                        sliderPosition = it
+                    },
+                    valueRange = minMinutes.toFloat()..maxMinutes.toFloat(),
+                    steps = (maxMinutes - minMinutes),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "${minMinutes}分钟",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${maxMinutes}分钟",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm((sliderPosition).toInt())
+                }
+            ) {
+                Text("确定")
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDismiss) {
+                    Text("取消")
+                }
+
+                // 只有当有正在运行的定时器时才显示停止按钮
+                if (currentRemainingMinutes > 0) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = onStopTimer,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("停止")
+                    }
+                }
             }
         }
     )
