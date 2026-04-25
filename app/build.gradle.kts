@@ -62,5 +62,6 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
 
     implementation("com.github.albfernandez:juniversalchardet:2.5.0")
+    implementation("androidx.media:media:1.7.0")
 
 }
