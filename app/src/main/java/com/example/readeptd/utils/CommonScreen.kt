@@ -183,11 +183,11 @@ fun TimerDialog(
     var sliderPosition by remember {
         mutableFloatStateOf(initialMinutes)
     }
-    
-    LaunchedEffect(currentRemainingMillis) {
-        val newMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
-        sliderPosition = newMinutes
-    }
+    // 防止自动刷新影响操作，不要更新
+//    LaunchedEffect(currentRemainingMillis) {
+//        val newMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
+//        sliderPosition = newMinutes
+//    }
 
     val minMinutes = 0
 
