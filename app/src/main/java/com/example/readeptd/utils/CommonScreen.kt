@@ -18,6 +18,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -178,9 +179,14 @@ fun TimerDialog(
     onStopTimer: () -> Unit,
     maxMinutes: Int = 120
 ) {
-    // 使用当前剩余时间或 0 作为初始值
+    val initialMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
     var sliderPosition by remember {
-        mutableFloatStateOf(currentRemainingMillis / 1000f / 60f)
+        mutableFloatStateOf(initialMinutes)
+    }
+    
+    LaunchedEffect(currentRemainingMillis) {
+        val newMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
+        sliderPosition = newMinutes
     }
 
     val minMinutes = 0
@@ -234,7 +240,8 @@ fun TimerDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm((sliderPosition * 60 * 1000).toLong())
+                    val selectedMillis = (sliderPosition * 60 * 1000).toLong()
+                    onConfirm(selectedMillis.coerceIn(0L, maxMinutes.toLong() * 60 * 1000))
                 }
             ) {
                 Text("确定")
@@ -255,7 +262,7 @@ fun TimerDialog(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("停止")
+                        Text("关闭")
                     }
                 }
             }
