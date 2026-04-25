@@ -36,8 +36,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
 
     private var countDownTimer: TtsCountDownTimer? = null
-    private val _remainingTimeMinutes = MutableStateFlow(0f)
-    val remainingTimeMinutes: StateFlow<Float> = _remainingTimeMinutes.asStateFlow()
+    private val _remainingMillisTime = MutableStateFlow(0L)
+    val remainingMillisTime: StateFlow<Long> = _remainingMillisTime.asStateFlow()
 
 
     init {
@@ -190,10 +190,11 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 stop()
             }
             is TtsEvent.StartCountDownTimer -> {
+                _remainingMillisTime.value = event.millisInFuture
                 countDownTimer = TtsCountDownTimer(
                     millisInFuture = event.millisInFuture,
                     onTickCallback = { millisRemainingTime ->
-                        _remainingTimeMinutes.value = millisRemainingTime / 1000 / 60.0f
+                        _remainingMillisTime.value = millisRemainingTime
                     },
                     onFinishCallback = {
                         stop()
@@ -205,7 +206,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
             is TtsEvent.RemoveCountDownTimer -> {
                 countDownTimer?.cancel()
                 countDownTimer = null
-                _remainingTimeMinutes.value = 0f
+                _remainingMillisTime.value = 0L
             }
         }
     }

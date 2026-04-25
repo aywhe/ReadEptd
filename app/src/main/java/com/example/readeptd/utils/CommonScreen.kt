@@ -172,15 +172,15 @@ fun JumpToProgressDialog(
 
 @Composable
 fun TimerDialog(
-    currentRemainingMinutes: Float,
+    currentRemainingMillis: Long,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit,
+    onConfirm: (Long) -> Unit,
     onStopTimer: () -> Unit,
     maxMinutes: Int = 120
 ) {
     // 使用当前剩余时间或 0 作为初始值
     var sliderPosition by remember {
-        mutableStateOf(currentRemainingMinutes)
+        mutableFloatStateOf(currentRemainingMillis / 1000f / 60f)
     }
 
     val minMinutes = 0
@@ -234,7 +234,7 @@ fun TimerDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm((sliderPosition).toInt())
+                    onConfirm((sliderPosition * 60 * 1000).toLong())
                 }
             ) {
                 Text("确定")
@@ -247,7 +247,7 @@ fun TimerDialog(
                 }
 
                 // 只有当有正在运行的定时器时才显示停止按钮
-                if (currentRemainingMinutes > 0) {
+                if (currentRemainingMillis > 0) {
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = onStopTimer,

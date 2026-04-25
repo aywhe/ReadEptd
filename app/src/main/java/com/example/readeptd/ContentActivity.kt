@@ -2,7 +2,6 @@ package com.example.readeptd
 
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headset
@@ -161,14 +159,14 @@ fun ContentScreen(
                             )
                         }
                         if(isShowTimerDialog){
-                            val remainingTimeMinutes by ttsModel.remainingTimeMinutes.collectAsState()
+                            val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
                             TimerDialog(
-                                currentRemainingMinutes = remainingTimeMinutes,
+                                currentRemainingMillis = remainingTimeMillis,
                                 onDismiss = {
                                     isShowTimerDialog = false
                                 },
-                                onConfirm = { minutes ->
-                                    ttsModel.onEvent(TtsEvent.StartCountDownTimer(minutes * 60 * 1000L))
+                                onConfirm = { millis ->
+                                    ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
                                     isShowTimerDialog = false
                                 },
                                 onStopTimer = {
