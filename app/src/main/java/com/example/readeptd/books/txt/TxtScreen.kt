@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -235,10 +236,12 @@ fun PageContent(
     lineHeight: Int,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    Text(
-        text = pageContent,
-        fontSize = fontSize.sp,
-        lineHeight = lineHeight.sp,
-        modifier = Modifier.padding(contentPadding)
-    )
+    SelectionContainer() {
+        Text(
+            text = pageContent,
+            fontSize = fontSize.sp,
+            lineHeight = lineHeight.sp,
+            modifier = Modifier.padding(contentPadding)
+        )
+    }
 }
