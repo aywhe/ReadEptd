@@ -208,6 +208,7 @@ fun MainScreen(
 
     var showMenu by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showSettingDialog by remember { mutableStateOf(false) }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -228,6 +229,13 @@ fun MainScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("设置") },
+                                onClick = {
+                                    showMenu = false
+                                    showSettingDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("关于") },
                                 onClick = {
@@ -263,6 +271,12 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             )
         }
+    }
+
+    if (showSettingDialog){
+        SettingsDialog(
+            onDismiss = { showSettingDialog = false }
+        )
     }
 
     if (showAboutDialog) {
@@ -678,4 +692,50 @@ fun MainScreenPreview() {
             viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
         )
     }
+}
+
+@Composable
+fun SettingsDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = {onDismiss()},
+        title = { Text("设置") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // TTS 设置按钮
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent("com.android.settings.TTS_SETTINGS")
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            context.startActivity(intent)
+                            Log.d("MainActivity", "已打开 TTS 设置页面")
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
+                        } },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("设置 TTS")
+                }
+
+                Text(
+                    text = "点击“设置 TTS”可跳转到系统文字转语音设置页面，选择您喜欢的 TTS 引擎（如讯飞、百度等）。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {onDismiss()},
+            ) {
+                Text("关闭")
+            }
+        }
+    )
 }
