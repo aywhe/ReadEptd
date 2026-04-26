@@ -198,6 +198,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 stop()
             }
             is TtsEvent.StartCountDownTimer -> {
+                Log.d(TAG,"开始定时器,剩余时间:${event.millisInFuture/1000f/60f}分钟")
                 countDownTimerFinishedDelayFlag = false
                 countDownTimer?.cancel()
                 countDownTimer = null
@@ -208,6 +209,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                         _remainingMillisTime.value = millisRemainingTime
                     },
                     onFinishCallback = {
+                        Log.d(TAG,"定时器触发了")
                         stop()
                         _remainingMillisTime.value = 0L
                         countDownTimerFinishedDelayFlag = true

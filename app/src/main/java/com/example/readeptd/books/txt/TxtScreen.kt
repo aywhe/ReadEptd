@@ -161,16 +161,35 @@ fun TxtScreen(
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
-                                    Log.d("TxtScreen", "结束朗读")
-                                    scope.launch {
-                                        Log.d("TxtScreen", "自动翻页")
-                                        pagerState.scrollToPage(pagerState.currentPage + 1)
-                                        val text = viewModel.getPageContent(pagerState.currentPage)
-                                        if (text.isNotBlank()) {
-                                            ttsModel.speak(text,"txt_${pagerState.currentPage}")
+                                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
+                                    val currentPage = pagerState.currentPage
+                                    
+                                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
+                                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+                                        // 用户手动翻页，从当前页继续
+                                        currentPage
+                                    } else {
+                                        // 正常顺序播放，朗读下一页
+                                        currentPage + 1
+                                    }
+                                    
+                                    val totalPages = viewModel.getPagesCount()
+                                    if (targetPage in 0 until totalPages) {
+                                        scope.launch {
+                                            // 如果需要翻页（目标页不是当前页），先滚动
+                                            if (targetPage != currentPage) {
+                                                pagerState.scrollToPage(targetPage)
+                                            }
+                                            
+                                            // 朗读目标页
+                                            val text = viewModel.getPageContent(targetPage)
+                                            if (text.isNotBlank()) {
+                                                ttsModel.speak(text, "txt_$targetPage")
+                                            }
                                         }
                                     }
                                 }
+
                                 onDispose {
                                     ttsModel.clearCallbacks()
                                 }
