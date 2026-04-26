@@ -5,9 +5,12 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
@@ -36,6 +39,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
 
     private var countDownTimer: TtsCountDownTimer? = null
+    private var countDownTimerFinishedDelayFlag = false
     private val _remainingMillisTime = MutableStateFlow(0L)
     val remainingMillisTime: StateFlow<Long> = _remainingMillisTime.asStateFlow()
 
@@ -84,6 +88,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 朗读文本
      */
     fun speak(text: String, utteranceId: String? = null) {
+        if(countDownTimerFinishedDelayFlag){
+            Log.d(TAG,"定时器触发了停止标记还在")
+            return
+        }
         if (_isInitialized.value) {
             ttsService?.speak(text, utteranceId)
         } else {
@@ -190,6 +198,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 stop()
             }
             is TtsEvent.StartCountDownTimer -> {
+                countDownTimerFinishedDelayFlag = false
                 countDownTimer?.cancel()
                 countDownTimer = null
                 _remainingMillisTime.value = event.millisInFuture
@@ -201,6 +210,14 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                     onFinishCallback = {
                         stop()
                         _remainingMillisTime.value = 0L
+                        countDownTimerFinishedDelayFlag = true
+                        viewModelScope.launch {
+                            // 延迟5秒后重置标记
+                            delay(5000)
+                            if (countDownTimerFinishedDelayFlag) {
+                                countDownTimerFinishedDelayFlag = false
+                            }
+                        }
                     }
                 )
                 countDownTimer?.start()
