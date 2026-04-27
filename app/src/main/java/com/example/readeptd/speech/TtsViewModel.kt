@@ -18,7 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-class TtsViewModel(application: Application) : AndroidViewModel(application), TtsService.TtsListener {
+class TtsViewModel(application: Application) : AndroidViewModel(application),
+    TtsService.TtsListener {
 
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
@@ -110,12 +111,15 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun speak(text: String, utteranceId: String? = null) {
         if (serviceBound && ttsService != null) {
-        if(countDownTimerFinishedDelayFlag){
-            Log.d(TAG,"定时器触发了停止标记还在")
-            return
-        }
-        if (_isInitialized.value) {
-            ttsService?.speak(text, utteranceId)
+            if (countDownTimerFinishedDelayFlag) {
+                Log.d(TAG, "定时器触发了停止标记还在")
+                return
+            }
+            if (_isInitialized.value) {
+                ttsService?.speak(text, utteranceId)
+            } else {
+                Log.e(TAG, "TTS 服务未绑定,无法朗读")
+            }
         } else {
             Log.e(TAG, "TTS 服务未绑定,无法朗读")
         }
@@ -218,16 +222,18 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun onEvent(event: TtsEvent) {
         when (event) {
             is TtsEvent.RequestAutoSpeak -> {
-                if(!_isSpeaking.value) {
+                if (!_isSpeaking.value) {
                     // 请求开始自动朗读,触发回调获取文本并开始朗读
                     onRequestSpeechStartCallback?.invoke()
                 }
             }
+
             is TtsEvent.StopSpeaking -> {
                 stop()
             }
+
             is TtsEvent.StartCountDownTimer -> {
-                Log.d(TAG,"开始定时器,剩余时间:${event.millisInFuture/1000f/60f}分钟")
+                Log.d(TAG, "开始定时器,剩余时间:${event.millisInFuture / 1000f / 60f}分钟")
                 countDownTimerFinishedDelayFlag = false
                 countDownTimer?.cancel()
                 countDownTimer = null
@@ -238,7 +244,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                         _remainingMillisTime.value = millisRemainingTime
                     },
                     onFinishCallback = {
-                        Log.d(TAG,"定时器触发了")
+                        Log.d(TAG, "定时器触发了")
                         stop()
                         _remainingMillisTime.value = 0L
                         countDownTimerFinishedDelayFlag = true
@@ -253,6 +259,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 )
                 countDownTimer?.start()
             }
+
             is TtsEvent.RemoveCountDownTimer -> {
                 removeCountDownTimer()
             }
