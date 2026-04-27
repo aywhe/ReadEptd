@@ -278,7 +278,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             try {
                 val epubLocation = parseLocationInfo(locationJson)
                 if(epubLocation.start.percentage > 0) {
-                    onPageChangedListener?.invoke(epubLocation)
+                    runOnMain { onPageChangedListener?.invoke(epubLocation) }
                 } else {
                     Log.w(TAG, "无效的页面位置信息，跳过回调: $locationJson")
                 }
@@ -292,40 +292,43 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             Log.d(TAG, "获取到位置信息: $locationJson")
             try {
                 val epubLocation = parseLocationInfo(locationJson)
-                if(epubLocation.start.percentage > 0) {
-                    locationRetrievedCallback?.invoke(epubLocation)
-                } else {
-                    Log.w(TAG, "无效的位置信息")
-                    locationRetrievedCallback?.invoke(EpubLocation.default())
+                runOnMain {
+                    if(epubLocation.start.percentage > 0) {
+                        locationRetrievedCallback?.invoke(epubLocation)
+                    } else {
+                        Log.w(TAG, "无效的位置信息")
+                        locationRetrievedCallback?.invoke(EpubLocation.default())
+                    }
+                    locationRetrievedCallback = null
                 }
-                locationRetrievedCallback = null
             } catch (e: Exception) {
                 Log.e(TAG, "解析位置信息失败", e)
-                locationRetrievedCallback?.invoke(EpubLocation.default())
-                locationRetrievedCallback = null
+                runOnMain {
+                    locationRetrievedCallback?.invoke(EpubLocation.default())
+                    locationRetrievedCallback = null
+                }
             }
         }
         
         @JavascriptInterface
         fun onLoadComplete() {
             Log.d(TAG, "加载完成")
-            onLoadCompleteListener?.invoke()
+            runOnMain { onLoadCompleteListener?.invoke() }
         }
 
         @JavascriptInterface
         fun onError(message: String) {
             Log.e(TAG, "错误: $message")
-            onErrorListener?.invoke(message)
+            runOnMain { onErrorListener?.invoke(message) }
         }
 
         @JavascriptInterface
         fun onPageActionComplete(action: String) {
             Log.d(TAG, "页面操作完成: $action")
-            
-            // ✅ 触发待处理的回调
-            pageActionPendingCallback?.invoke()
-            pageActionPendingCallback = null
-            
+            runOnMain {
+                pageActionPendingCallback?.invoke()
+                pageActionPendingCallback = null
+            }
         }
 
         @JavascriptInterface
@@ -337,14 +340,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onDoubleClick(){
             Log.d(TAG, "检测到双击事件")
-            onDoubleClickListener?.invoke()
+            runOnMain { onDoubleClickListener?.invoke() }
         }
 
         @JavascriptInterface
         fun onPageTextRetrieved(text: String) {
             Log.d(TAG, "获取到页面文本，长度: ${text.length}")
-            currentPageTextCallback?.invoke(text)
-            currentPageTextCallback = null
+            runOnMain {
+                currentPageTextCallback?.invoke(text)
+                currentPageTextCallback = null
+            }
+        }
+        
+        /**
+         * ✅ 在主线程执行代码块
+         */
+        private fun runOnMain(block: () -> Unit) {
+            scope.launch(Dispatchers.Main) {
+                block()
+            }
         }
     }
     
