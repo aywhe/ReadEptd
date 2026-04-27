@@ -150,6 +150,9 @@
             },
             onLocationRetrieved: function(jsonLocation) {
                 console.log('Location retrieved:', jsonLocation);
+            },
+            onPageTextRetrieved: function(text){
+                console.log('Page text retrieved:', text);
             }
         };
 
@@ -466,7 +469,11 @@
             } catch (error) {
                 console.error('Error in getCurrentPageText:', error);
             }
-            return result;
+
+            // ✅ 通过 Android 接口返回文本，而不是使用返回值
+            if (Android && Android.onPageTextRetrieved) {
+                Android.onPageTextRetrieved(result);
+            }
         }
 
         // 获取当前位置并通知 Android

@@ -32,6 +32,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
     private var locationRetrievedCallback: ((EpubLocation) -> Unit)? = null
+    private var currentPageTextCallback: ((String) -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
@@ -210,14 +211,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      */
     fun getCurrentPageText(callback: (String) -> Unit) {
         Log.d(TAG, "执行 JavaScript 获取当前页文本...")
-        executeJs("window.EpubReader.getCurrentPageText()") { result ->
-            var text = result ?: ""
-            if(text.startsWith("\"") && text.endsWith("\"")){
-                text = text.substring(1, text.length - 1)
-            }
-            Log.d(TAG, "获取到文本长度: ${text.length}")
-            callback(text)
-        }
+        currentPageTextCallback = callback
+        executeJs("window.EpubReader.getCurrentPageText()")
     }
 
     /**
@@ -343,6 +338,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onDoubleClick(){
             Log.d(TAG, "检测到双击事件")
             onDoubleClickListener?.invoke()
+        }
+
+        @JavascriptInterface
+        fun onPageTextRetrieved(text: String) {
+            Log.d(TAG, "获取到页面文本，长度: ${text.length}")
+            currentPageTextCallback?.invoke(text)
+            currentPageTextCallback = null
         }
     }
     
