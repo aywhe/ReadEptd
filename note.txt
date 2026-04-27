@@ -27,3 +27,6 @@ hook 时需要 rendition 准备好，我是在第一次display().then()中进行
 - 问题： epub.js rendition.next()返回的是Promise，所以要等他执行完成才能提取文本
 方法： rendition.next().then(()=>{Android.onPageActionComplete})
 EpubWebView在调用next的时候绑定一个listener，在onPageActionComplete中执行这个listener
+
+- 问题： 想要实现功能，双击中间区域，可以切换全屏，但是txtScreen中使用了selectContainer会被上层的监测逻辑影响
+方法： 没有找到方法，先不做这个全屏功能
