@@ -82,7 +82,6 @@ fun TxtScreen(
     // 监听屏幕旋转，恢复重新分页功能
     LaunchedEffect(configuration.orientation) {
         Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
-        contentViewModel.setFullScreen(false)
         viewModel.setAllowRePagination(true)
     }
     Column(

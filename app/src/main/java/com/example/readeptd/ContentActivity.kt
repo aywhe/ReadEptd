@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,11 +90,17 @@ fun ContentScreen(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
+    val configuration = LocalConfiguration.current
 
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri) {
         viewModel.onEvent(ContentUiEvent.Initialize(fileInfo))
+    }
+    // 监听屏幕旋转，恢复重新分页功能
+    LaunchedEffect(configuration.orientation) {
+        Log.d("ContentActivity", "屏幕方向变化: ${configuration.orientation}")
+        viewModel.setFullScreen(false)
     }
 
     val uiState by viewModel.uiState.collectAsState()
