@@ -147,6 +147,9 @@
             },
             onDoubleClick: function(){
                 console.log('Double click detected');
+            },
+            onLocationRetrieved: function(jsonLocation) {
+                console.log('Location retrieved:', jsonLocation);
             }
         };
 
@@ -466,16 +469,21 @@
             return result;
         }
 
-        // 获取当前位置
+        // 获取当前位置并通知 Android
         function getCurrentLocation() {
             var location = rendition.currentLocation();
             if (location) {
                 currentLocation = location;
                 console.log('Getting current location:', location);
-                return JSON.stringify(location);
+                // 直接调用 Android 接口，避免返回值序列化问题
+                if (Android && Android.onLocationRetrieved) {
+                    Android.onLocationRetrieved(JSON.stringify(location));
+                }
             } else {
                 console.warn('No current location available');
-                return null;
+                if (Android && Android.onLocationRetrieved) {
+                    Android.onLocationRetrieved('{}');
+                }
             }
         }
 

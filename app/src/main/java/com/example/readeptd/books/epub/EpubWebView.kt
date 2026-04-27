@@ -31,6 +31,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
+    private var locationRetrievedCallback: ((EpubLocation) -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
@@ -210,29 +211,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     fun getCurrentPageText(callback: (String) -> Unit) {
         Log.d(TAG, "执行 JavaScript 获取当前页文本...")
         executeJs("window.EpubReader.getCurrentPageText()") { result ->
-            val text = result ?: ""
+            var text = result ?: ""
+            if(text.startsWith("\"") && text.endsWith("\"")){
+                text = text.substring(1, text.length - 1)
+            }
             Log.d(TAG, "获取到文本长度: ${text.length}")
             callback(text)
         }
     }
 
+    /**
+     * 获取当前位置（异步回调方式）
+     * @param callback 回调函数，接收位置信息
+     */
     fun getCurrentLocation(callback: (EpubLocation) -> Unit) {
         Log.d(TAG, "执行 JavaScript 获取当前位置...")
-        executeJs("window.EpubReader.getCurrentLocation()") { result ->
-            val location = result?.let {
-                try {
-                    val epubLocation = parseLocationInfo(result)
-                    if(epubLocation.start.percentage > 0) {
-                        callback.invoke(epubLocation)
-                    } else {
-                        Log.w(TAG, "无效的页面位置信息，跳过回调: $result")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "解析页面位置信息失败", e)
-                }
-            }
-        }
+        locationRetrievedCallback = callback
+        executeJs("window.EpubReader.getCurrentLocation()")
     }
+
     /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
@@ -292,6 +289,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "解析页面位置信息失败", e)
+            }
+        }
+        
+        @JavascriptInterface
+        fun onLocationRetrieved(locationJson: String) {
+            Log.d(TAG, "获取到位置信息: $locationJson")
+            try {
+                val epubLocation = parseLocationInfo(locationJson)
+                if(epubLocation.start.percentage > 0) {
+                    locationRetrievedCallback?.invoke(epubLocation)
+                } else {
+                    Log.w(TAG, "无效的位置信息")
+                    locationRetrievedCallback?.invoke(EpubLocation.default())
+                }
+                locationRetrievedCallback = null
+            } catch (e: Exception) {
+                Log.e(TAG, "解析位置信息失败", e)
+                locationRetrievedCallback?.invoke(EpubLocation.default())
+                locationRetrievedCallback = null
             }
         }
         
