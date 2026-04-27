@@ -107,7 +107,7 @@
     </div>
 
     <!-- 打开目录按钮 -->
-    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none;">☰</button>
+    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none; transition: all 0.3s ease;">☰</button>
 
     <script>
         let book = null;
@@ -125,6 +125,7 @@
         let initialY = 0;
         let currentX = 20;
         let currentY = 20;
+        let isCollapsed = false; // 是否处于收缩状态
 
         window.onload = function() {
             // 通知 Android js 已经准备好
@@ -696,6 +697,21 @@
             const btn = document.getElementById('toc-btn');
             if (!btn || btn.style.display === 'none') return;
 
+            // 如果处于收缩状态，先展开
+            if (isCollapsed) {
+                expandButton(btn);
+                // 等待展开动画完成后再开始拖动
+                setTimeout(() => {
+                    startDragLogic(e, btn);
+                }, 300);
+                return;
+            }
+
+            startDragLogic(e, btn);
+        }
+
+        // 开始拖动的具体逻辑
+        function startDragLogic(e, btn) {
             isDragging = true;
             hasMoved = false;
 
@@ -713,6 +729,9 @@
             const rect = btn.getBoundingClientRect();
             initialX = rect.left;
             initialY = rect.top;
+
+            // 拖动时移除transition，保证流畅性
+            btn.style.transition = 'none';
         }
 
         // 拖动中
@@ -768,17 +787,153 @@
 
         // 结束拖动
         function handleDragEnd(e) {
+            if (!isDragging) return;
+
+            const btn = document.getElementById('toc-btn');
+            if (!btn) {
+                isDragging = false;
+                return;
+            }
+
             isDragging = false;
+
+            // 如果发生了移动，检查是否需要吸附到边缘
+            if (hasMoved) {
+                checkAndSnapToEdge(btn);
+            }
+        }
+
+        // 检查并吸附到边缘
+        function checkAndSnapToEdge(btn) {
+            const screenWidth = window.innerWidth;
+            const btnWidth = btn.offsetWidth;
+            const rect = btn.getBoundingClientRect();
+            const currentLeft = rect.left;
+            const currentRight = screenWidth - rect.right;
+
+            // 吸附阈值：距离边缘小于30px时触发吸附
+            const snapThreshold = 30;
+
+            if (currentLeft <= snapThreshold) {
+                // 吸附到左边缘
+                collapseToLeftEdge(btn);
+            } else if (currentRight <= snapThreshold) {
+                // 吸附到右边缘
+                collapseToRightEdge(btn);
+            }
+        }
+
+        // 收缩到左边缘（变成半圆）
+        function collapseToLeftEdge(btn) {
+            isCollapsed = true;
+            const btnHeight = btn.offsetHeight;
+
+            // 计算垂直位置，确保不超出屏幕
+            let targetY = parseFloat(btn.style.top) || 20;
+            const maxY = window.innerHeight - btnHeight / 4 - 10;
+            targetY = Math.max(10, Math.min(targetY, maxY));
+
+            // 应用收缩样式：1/4圆形贴在左边
+            btn.style.transition = 'all 0.3s ease';
+            btn.style.left = '0px';
+            btn.style.top = targetY + 'px';
+            btn.style.width = '12.5px'; // 宽度变为1/4 (50/4)
+            btn.style.height = btnHeight + 'px';
+            btn.style.borderRadius = '0 12.5px 12.5px 0'; // 右半圆
+            btn.style.paddingLeft = '2px'; // 调整图标位置
+            btn.style.fontSize = '16px'; // 缩小字体
+
+            // 更新坐标
+            currentX = 0;
+            currentY = targetY;
+
+            // 动画结束后移除transition
+            setTimeout(() => {
+                btn.style.transition = '';
+            }, 300);
+        }
+
+        // 收缩到右边缘（变成半圆）
+        function collapseToRightEdge(btn) {
+            isCollapsed = true;
+            const screenWidth = window.innerWidth;
+            const btnHeight = btn.offsetHeight;
+
+            // 计算垂直位置，确保不超出屏幕
+            let targetY = parseFloat(btn.style.top) || 20;
+            const maxY = window.innerHeight - btnHeight / 4 - 10;
+            targetY = Math.max(10, Math.min(targetY, maxY));
+
+            // 应用收缩样式：1/4圆形贴在右边
+            btn.style.transition = 'all 0.3s ease';
+            btn.style.left = (screenWidth - 12.5) + 'px';
+            btn.style.top = targetY + 'px';
+            btn.style.width = '12.5px'; // 宽度变为1/4 (50/4)
+            btn.style.height = btnHeight + 'px';
+            btn.style.borderRadius = '12.5px 0 0 12.5px'; // 左半圆
+            btn.style.paddingRight = '2px'; // 调整图标位置
+            btn.style.fontSize = '16px'; // 缩小字体
+
+            // 更新坐标
+            currentX = screenWidth - 12.5;
+            currentY = targetY;
+
+            // 动画结束后移除transition
+            setTimeout(() => {
+                btn.style.transition = '';
+            }, 300);
+        }
+
+        // 展开按钮（恢复正常状态）
+        function expandButton(btn) {
+            if (!isCollapsed) return;
+
+            isCollapsed = false;
+
+            btn.style.transition = 'all 0.3s ease';
+            btn.style.width = '50px';
+            btn.style.height = '50px';
+            btn.style.borderRadius = '50%';
+            btn.style.paddingLeft = '0';
+            btn.style.paddingRight = '0';
+
+            // 根据当前位置调整left值
+            const screenWidth = window.innerWidth;
+            const rect = btn.getBoundingClientRect();
+            const centerX = rect.left + 25; // 当前中心点
+
+            if (centerX < screenWidth / 2) {
+                // 在左半边，保持在左边但留出边距
+                btn.style.left = '10px';
+            } else {
+                // 在右半边，保持在右边但留出边距
+                btn.style.left = (screenWidth - 60) + 'px';
+            }
+
+            // 动画结束后移除transition
+            setTimeout(() => {
+                btn.style.transition = '';
+            }, 300);
         }
 
         // 处理按钮点击
         function handleTocBtnClick() {
+            const btn = document.getElementById('toc-btn');
+            if (!btn) return;
+
+            // 如果处于收缩状态，只展开，不打开目录
+            if (isCollapsed) {
+                expandButton(btn);
+                return;
+            }
+
             // 如果发生了拖动，不执行点击操作
             if (hasMoved) {
                 hasMoved = false;
                 return;
             }
-            // 否则正常打开导航面板
+
+            // 正常状态下点击才打开目录面板
             openNavPanel();
         }
 
