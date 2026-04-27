@@ -154,18 +154,20 @@ fun EpubScreen(
                     },
                     onRelease = { webView ->
                         Log.d("EpubScreen", "AndroidView 销毁")
-                        // 最后一次保存进度
-                        webView.getCurrentLocation { epubLocation ->
-                            viewModel.saveEpubProgress(
-                                uri = fileInfo.uri,
-                                cfi = epubLocation.start.cfi,
-                                page = epubLocation.start.displayed.page,
-                                totalPages = epubLocation.start.displayed.total,
-                                progress = epubLocation.start.percentage
-                            )
-                            // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
-                            webView.destroy()
-                        }
+                        // 最后一次保存进度，但是没有效果
+//                        webView.getCurrentLocation { epubLocation ->
+//                            viewModel.saveEpubProgress(
+//                                uri = fileInfo.uri,
+//                                cfi = epubLocation.start.cfi,
+//                                page = epubLocation.start.displayed.page,
+//                                totalPages = epubLocation.start.displayed.total,
+//                                progress = epubLocation.start.percentage
+//                            )
+//                            // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+//                            webView.destroy()
+//                        }
+                        // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+                        webView.destroy()
                     },
                     modifier = Modifier.fillMaxSize()
                 )

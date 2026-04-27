@@ -243,6 +243,16 @@
                 rendition.on("removed", (section, view) => {
                     console.log('Section removed');
                 });
+                // 监听视图滚动事件
+                // 2. 监听 attached 事件（manager 初始化完成后触发）
+                rendition.on("attached", () => {
+                    rendition.manager.on("scrolled", (position) => {
+                        console.log('View scrolled');
+                    });
+                });
+                rendition.on("displayed", (section) => {
+                    console.log('Section displayed:', section.href);
+                });
 
                 // 监听加载完成
                 book.ready.then(() => {
