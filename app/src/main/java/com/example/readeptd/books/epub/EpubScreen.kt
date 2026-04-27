@@ -40,7 +40,7 @@ fun EpubScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
-    var location by remember { mutableStateOf(EpubLocation("", 0f, 0,0)) }
+    var location by remember { mutableStateOf(EpubLocation.default()) }
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
@@ -86,15 +86,15 @@ fun EpubScreen(
                             // 设置页面变化监听器，自动保存阅读进度
                             setOnPageChangedListener { epubLocation ->
                                 location = epubLocation
-                                contentViewModel.updateProgressText("${(epubLocation.percentage*100).toInt()}%")
+                                contentViewModel.updateProgressText("${(epubLocation.start.percentage*100).toInt()}%")
                                 Log.d("EpubScreen", "保存进度: $epubLocation")
                                 // 并保存进度
                                 viewModel.saveEpubProgress(
                                     uri = fileInfo.uri,
-                                    cfi = epubLocation.cfi,
-                                    page = epubLocation.currentPage,
-                                    totalPages = epubLocation.totalPages,
-                                    progress = epubLocation.percentage
+                                    cfi = epubLocation.start.cfi,
+                                    page = epubLocation.start.displayed.page,
+                                    totalPages = epubLocation.start.displayed.total,
+                                    progress = epubLocation.start.percentage
                                 )
                             }
 
@@ -154,14 +154,24 @@ fun EpubScreen(
                     },
                     onRelease = { webView ->
                         Log.d("EpubScreen", "AndroidView 销毁")
-                        // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
-                        webView.destroy()
+                        // 最后一次保存进度
+                        webView.getCurrentLocation { epubLocation ->
+                            viewModel.saveEpubProgress(
+                                uri = fileInfo.uri,
+                                cfi = epubLocation.start.cfi,
+                                page = epubLocation.start.displayed.page,
+                                totalPages = epubLocation.start.displayed.total,
+                                progress = epubLocation.start.percentage
+                            )
+                            // 必需手动销毁 WebView 以释放资源，奇怪的生命周期
+                            webView.destroy()
+                        }
                     },
                     modifier = Modifier.fillMaxSize()
                 )
                 if (isShowJumpToProgressDialog) {
                     JumpToProgressDialog(
-                        progress = location.percentage,
+                        progress = location.start.percentage,
                         onDismiss = {
                             isShowJumpToProgressDialog = false
                         },

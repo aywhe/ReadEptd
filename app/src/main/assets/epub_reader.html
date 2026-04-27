@@ -200,20 +200,10 @@
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
-                    const totalPages = location.start.displayed.total || 1;
-                    const currentPage = location.start.displayed.page || 1;
-
-                    const pageInfo = {
-                        cfi: location.start.cfi,
-                        percentage: location.start.percentage || 0,
-                        currentPage: currentPage,
-                        totalPages: totalPages
-                    };
-
-                    console.log('Page relocated:', pageInfo);
-
+                    console.log('Page relocated:', location);
                     if (Android && Android.onPageChanged) {
-                        Android.onPageChanged(JSON.stringify(pageInfo));
+                        // 直接传递完整的 location 对象
+                        Android.onPageChanged(JSON.stringify(location));
                     }
                 });
 
@@ -476,6 +466,19 @@
             return result;
         }
 
+        // 获取当前位置
+        function getCurrentLocation() {
+            var location = rendition.currentLocation();
+            if (location) {
+                currentLocation = location;
+                console.log('Getting current location:', location);
+                return JSON.stringify(location);
+            } else {
+                console.warn('No current location available');
+                return null;
+            }
+        }
+
         // 暴露给 Android 的方法
         window.EpubReader = {
             init: initReader,
@@ -484,7 +487,8 @@
             nextPage: nextPage,
             goToPercentage: goToPercentage,
             cleanUp: cleanUp,
-            getCurrentPageText: getCurrentPageText
+            getCurrentPageText: getCurrentPageText,
+            getCurrentLocation: getCurrentLocation
         };
     </script>
 </body>
