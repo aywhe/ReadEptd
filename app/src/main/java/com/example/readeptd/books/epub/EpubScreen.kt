@@ -113,7 +113,7 @@ fun EpubScreen(
                             ttsModel.setOnRequestSpeechStartListener {
                                 Log.d("EpubScreen", "自动朗读开始,获取当前页文本")
                                 getCurrentPageText { text ->
-                                    Log.d("EpubScreen", "获取到文本: ${text.take(50)}, 是否为空: ${text.isBlank()}")
+                                    Log.d("EpubScreen", "获取到文本: ${text.take(50)} ..., 是否为空: ${text.isBlank()}")
                                     if (text.isNotBlank()) {
                                         Log.d("EpubScreen", "调用 ttsModel.speak() 开始朗读")
                                         val cleanedText = text.replace("\\n", " ").trim()

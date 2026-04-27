@@ -171,7 +171,7 @@ class PdfViewModel(
             val textContents = page.getTextContents()
             Log.d(TAG, "获取页面 $pageIndex 文本, contents 数量为 ${textContents.size}")
             val fullText = textContents.joinToString(" ") { it.text ?: "" }
-            Log.d(TAG, "页面 $pageIndex 文本预览: ${fullText.take(50)}")
+            Log.d(TAG, "页面 $pageIndex 文本预览: ${fullText.take(50)} ...")
             page.close()
             fullText.takeIf { it.isNotBlank() }
         } catch (e: Exception) {

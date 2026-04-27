@@ -331,7 +331,7 @@ class TxtViewModel(
      */
     fun getPageContent(pageIndex: Int): String {
         return if (pageIndex in _pages.value.indices) {
-            Log.d(TAG, "获取页码 $pageIndex 的内容: ${_pages.value[pageIndex].content.take(50)}")
+            Log.d(TAG, "获取页码 $pageIndex 的内容: ${_pages.value[pageIndex].content.take(50)} ...")
             _pages.value[pageIndex].content
         } else ""
     }
