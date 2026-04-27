@@ -32,6 +32,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
 
+    private var onDoubleClickListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
     
@@ -248,6 +249,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     fun setOnErrorListener(listener: (String) -> Unit) {
         onErrorListener = listener
     }
+
+    /**
+     * 设置双击监听器
+     */
+    fun setOnDoubleClickListener(listener: () -> Unit) {
+        onDoubleClickListener = listener
+    }
     
     /**
      * JavaScript 桥接类
@@ -296,6 +304,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
             loadEpub(epubFilePath)
         }
+
+        @JavascriptInterface
+        fun onDoubleClick(){
+            Log.d(TAG, "检测到双击事件")
+            onDoubleClickListener?.invoke()
+        }
     }
     
     /**
@@ -325,4 +339,9 @@ data class EpubLocation(
     val percentage: Float,    // 起始位置百分比 (0.0 - 1.0)
     val currentPage: Int,           // 当前页码
     val totalPages: Int             // 总页数
+)
+data class EpubClickInfo(
+    val x: Float,
+    val y: Float,
+    val href: String
 )
