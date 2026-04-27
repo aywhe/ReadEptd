@@ -42,6 +42,7 @@ import com.example.readeptd.contract.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.viewmodel.ContentViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -55,6 +56,7 @@ fun TxtScreen(
     val uiState by viewModel.uiState.collectAsState()
     val initialPage by viewModel.initialPage.collectAsState()
     val isPagesReady by viewModel.isPagesReady.collectAsState()
+    val isFullScreen by contentViewModel.isFullScreen.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
@@ -97,6 +99,7 @@ fun TxtScreen(
             }
 
             is BookUiState.Ready -> {
+                var lastClickTime by remember { mutableStateOf(0L)}
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -115,20 +118,19 @@ fun TxtScreen(
                             awaitEachGesture {
                                 val down = awaitFirstDown()
                                 val up = waitForUpOrCancellation()
-
                                 if (up != null) {
-                                    val firstClickTime = SystemClock.uptimeMillis()
-                                    val secondDown = awaitFirstDown(requireUnconsumed = false)
-                                    val secondClickTime = SystemClock.uptimeMillis()
-                                    
-                                    val timeDiff = secondClickTime - firstClickTime
+                                    val clickTime = SystemClock.uptimeMillis()
+                                    val timeDiff = clickTime - lastClickTime
+                                    lastClickTime = clickTime
                                     val isDoubleClick = timeDiff <= 300
-                                    
                                     if (isDoubleClick) {
-                                        val secondUp = waitForUpOrCancellation()
-                                        if (secondUp != null) {
-                                            Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
-                                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                        Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
+
+                                        viewModel.setAllowRePagination(false)
+                                        contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                        scope.launch {
+                                            delay(500)
+                                            viewModel.setAllowRePagination(true)
                                         }
                                     }
                                 }
@@ -210,7 +212,7 @@ fun TxtScreen(
                                             if (targetPage != currentPage) {
                                                 pagerState.scrollToPage(targetPage)
                                             }
-                                            
+
                                             // 朗读目标页
                                             val text = viewModel.getPageContent(targetPage)
                                             if (text.isNotBlank()) {

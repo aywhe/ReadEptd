@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,7 @@ import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
 import com.example.readeptd.books.BookUiState
+import com.example.readeptd.contract.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.viewmodel.ContentViewModel
 
@@ -200,6 +202,14 @@ fun PdfLazyViewer(
                 .background(MaterialTheme.colorScheme.surface)
                 .onGloballyPositioned { coordinates ->
                     containerSize = coordinates.size
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { tapOffset ->
+                            Log.d("PdfScreen", "双击屏幕，切换全屏")
+                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                        }
+                    )
                 }
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->

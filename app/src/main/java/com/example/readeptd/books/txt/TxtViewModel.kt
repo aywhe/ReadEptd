@@ -48,6 +48,9 @@ class TxtViewModel(
     // 缓存上一次的分页参数，用于判断是否需要重新分页
     private var lastCharsParams: Utils.CharsParams? = null
 
+    // 控制是否允许重新分页（全屏切换时暂时禁用）
+    private var allowRePagination: Boolean = true
+
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
     val pages: StateFlow<List<TextChunk>> = _pages.asStateFlow()
@@ -112,9 +115,21 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "全屏切换中，跳过重新分页")
         }
+    }
+
+    /**
+     * 设置是否允许重新分页
+     */
+    fun setAllowRePagination(allow: Boolean) {
+        allowRePagination = allow
+        Log.d(TAG, "设置允许重新分页: $allow")
     }
 
     /**
