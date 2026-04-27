@@ -462,7 +462,7 @@
                                         pageRange.setEnd(endRange.endContainer, endRange.endOffset);
                                         console.log("当前页范围偏移量:", pageRange.startOffset, pageRange.endOffset);
                                         var text = pageRange.toString();
-                                        console.log("当前页文本:", text.slice(0, 50));
+                                        console.log("当前页文本:", text.slice(0, 50), "...");
                                         result += text;
                                     }
                                 } catch (e) {
