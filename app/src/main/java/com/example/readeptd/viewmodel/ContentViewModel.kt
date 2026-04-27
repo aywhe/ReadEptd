@@ -84,4 +84,8 @@ class ContentViewModel(
             }
         }
     }
+
+    fun setFullScreen(bool: Boolean) {
+        _isFullScreen.value = bool
+    }
 }

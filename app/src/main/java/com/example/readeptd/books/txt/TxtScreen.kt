@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +58,7 @@ fun TxtScreen(
     val initialPage by viewModel.initialPage.collectAsState()
     val isPagesReady by viewModel.isPagesReady.collectAsState()
     val isFullScreen by contentViewModel.isFullScreen.collectAsState()
+    val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
@@ -77,7 +79,12 @@ fun TxtScreen(
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
     }
-
+    // 监听屏幕旋转，恢复重新分页功能
+    LaunchedEffect(configuration.orientation) {
+        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
+        contentViewModel.setFullScreen(false)
+        viewModel.setAllowRePagination(true)
+    }
     Column(
         modifier = modifier.fillMaxSize()
     ) {
@@ -99,20 +106,23 @@ fun TxtScreen(
             }
 
             is BookUiState.Ready -> {
+
                 var lastClickTime by remember { mutableStateOf(0L)}
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .onSizeChanged { size ->
-                            viewModel.onEvent(
-                                TxtEvent.OnViewMetricsChanged(
-                                    size = size,
-                                    leftPaddingDp = leftPaddingDp,
-                                    rightPaddingDp = rightPaddingDp,
-                                    topPaddingDp = topPaddingDp,
-                                    bottomPaddingDp = bottomPaddingDp
+                            if(!isFullScreen){
+                                viewModel.onEvent(
+                                    TxtEvent.OnViewMetricsChanged(
+                                        size = size,
+                                        leftPaddingDp = leftPaddingDp,
+                                        rightPaddingDp = rightPaddingDp,
+                                        topPaddingDp = topPaddingDp,
+                                        bottomPaddingDp = bottomPaddingDp
+                                    )
                                 )
-                            )
+                            }
                         }
                         .pointerInput(Unit) {
                             awaitEachGesture {
@@ -129,7 +139,7 @@ fun TxtScreen(
                                         viewModel.setAllowRePagination(false)
                                         contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
                                         scope.launch {
-                                            delay(500)
+                                            delay(5000)
                                             viewModel.setAllowRePagination(true)
                                         }
                                     }

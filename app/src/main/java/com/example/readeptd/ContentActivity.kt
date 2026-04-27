@@ -1,8 +1,11 @@
 package com.example.readeptd
 
 import android.app.Application
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,8 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.contract.ContentUiEvent
 import com.example.readeptd.contract.ContentUiState
@@ -81,6 +88,7 @@ fun ContentScreen(
     ttsModel: TtsViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
 
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
@@ -92,12 +100,27 @@ fun ContentScreen(
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsState()
+    val isFullScreen by viewModel.isFullScreen.collectAsState()
+
+    // 控制状态栏显示/隐藏
+    LaunchedEffect(isFullScreen) {
+        val window = (context as? ComponentActivity)?.window
+        if (window != null) {
+            if (isFullScreen) {
+                // 隐藏状态栏
+                WindowInsetsControllerCompat(window, view).hide(WindowInsetsCompat.Type.statusBars())
+            } else {
+                // 显示状态栏
+                WindowInsetsControllerCompat(window, view).show(WindowInsetsCompat.Type.statusBars())
+            }
+        }
+    }
+
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
     Scaffold(
         topBar = {
-            val isFullScreen by viewModel.isFullScreen.collectAsState()
             if(!isFullScreen) {
                 TopAppBar(
                     title = {
