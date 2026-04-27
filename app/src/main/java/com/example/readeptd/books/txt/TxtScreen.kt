@@ -1,7 +1,11 @@
 package com.example.readeptd.books.txt
 
+import android.os.SystemClock
 import android.util.Log
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,12 +112,27 @@ fun TxtScreen(
                             )
                         }
                         .pointerInput(Unit) {
-                            detectTapGestures(
-                                onDoubleTap = {
-                                    Log.d("TxtScreen", "双击屏幕，切换全屏")
-                                    contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val up = waitForUpOrCancellation()
+
+                                if (up != null) {
+                                    val firstClickTime = SystemClock.uptimeMillis()
+                                    val secondDown = awaitFirstDown(requireUnconsumed = false)
+                                    val secondClickTime = SystemClock.uptimeMillis()
+                                    
+                                    val timeDiff = secondClickTime - firstClickTime
+                                    val isDoubleClick = timeDiff <= 300
+                                    
+                                    if (isDoubleClick) {
+                                        val secondUp = waitForUpOrCancellation()
+                                        if (secondUp != null) {
+                                            Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
+                                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
                 ) {
                     if (!isPagesReady) {
@@ -271,7 +290,9 @@ fun PageContent(
             text = pageContent,
             fontSize = fontSize.sp,
             lineHeight = lineHeight.sp,
-            modifier = Modifier.padding(contentPadding)
+            modifier = Modifier
+                .padding(contentPadding)
+
         )
     }
 }
