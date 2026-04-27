@@ -95,7 +95,7 @@
 
     <!-- 导航面板（目录） -->
     <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000;">
-        <div style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #fff; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
+        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #fff; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
             <div style="padding: 20px; border-bottom: 1px solid #eee;">
                 <h2 style="margin: 0; font-size: 20px; color: #333;">目录</h2>
                 <button onclick="closeNavPanel()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
@@ -593,6 +593,27 @@
 
         // 打开导航面板
         function openNavPanel() {
+            const btn = document.getElementById('toc-btn');
+            const navContent = document.getElementById('nav-content');
+
+            // 获取按钮位置
+            const btnRect = btn.getBoundingClientRect();
+            const screenWidth = window.innerWidth;
+            const btnCenterX = btnRect.left + btnRect.width / 2;
+
+            // 判断按钮在屏幕的哪一侧
+            if (btnCenterX < screenWidth / 2) {
+                // 按钮在左边，目录面板从左边滑出
+                navContent.style.left = '0';
+                navContent.style.right = 'auto';
+                navContent.style.boxShadow = '2px 0 10px rgba(0,0,0,0.3)';
+            } else {
+                // 按钮在右边，目录面板从右边滑出
+                navContent.style.right = '0';
+                navContent.style.left = 'auto';
+                navContent.style.boxShadow = '-2px 0 10px rgba(0,0,0,0.3)';
+            }
+
             document.getElementById('nav-panel').style.display = 'block';
             document.body.style.overflow = 'hidden'; // 禁止背景滚动
         }
