@@ -107,7 +107,7 @@
     </div>
 
     <!-- 打开目录按钮 -->
-    <button id="toc-btn" onclick="openNavPanel()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;">☰</button>
+    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none;">☰</button>
 
     <script>
         let book = null;
@@ -116,11 +116,24 @@
         let isLoaded = false;
         let tableOfContents = []; // 存储目录数据
 
+        // 按钮拖动相关变量
+        let isDragging = false;
+        let hasMoved = false;
+        let startX = 0;
+        let startY = 0;
+        let initialX = 0;
+        let initialY = 0;
+        let currentX = 20;
+        let currentY = 20;
+
         window.onload = function() {
             // 通知 Android js 已经准备好
             if (Android && Android.onHtmlReady){
                 Android.onHtmlReady();
             }
+
+            // 初始化按钮拖动功能
+            initDraggableButton();
         };
 
         function clearRendition(){
@@ -640,6 +653,113 @@
                 });
             }
         });
+
+        // 初始化可拖动按钮
+        function initDraggableButton() {
+            const btn = document.getElementById('toc-btn');
+            if (!btn) return;
+
+            // 触摸事件
+            btn.addEventListener('touchstart', handleDragStart, { passive: false });
+            btn.addEventListener('touchmove', handleDragMove, { passive: false });
+            btn.addEventListener('touchend', handleDragEnd);
+
+            // 鼠标事件
+            btn.addEventListener('mousedown', handleDragStart);
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('mouseup', handleDragEnd);
+        }
+
+        // 开始拖动
+        function handleDragStart(e) {
+            const btn = document.getElementById('toc-btn');
+            if (!btn || btn.style.display === 'none') return;
+
+            isDragging = true;
+            hasMoved = false;
+
+            // 获取起始位置
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+                e.preventDefault(); // 防止文本选择
+            }
+
+            // 获取按钮当前位置
+            const rect = btn.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+        }
+
+        // 拖动中
+        function handleDragMove(e) {
+            if (!isDragging) return;
+
+            const btn = document.getElementById('toc-btn');
+            if (!btn) return;
+
+            let clientX, clientY;
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // 计算移动距离
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            // 如果移动距离超过5像素，认为是拖动而不是点击
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                hasMoved = true;
+            }
+
+            // 计算新位置
+            let newX = initialX + deltaX;
+            let newY = initialY + deltaY;
+
+            // 限制在屏幕范围内
+            const maxX = window.innerWidth - btn.offsetWidth;
+            const maxY = window.innerHeight - btn.offsetHeight;
+
+            newX = Math.max(0, Math.min(newX, maxX));
+            newY = Math.max(0, Math.min(newY, maxY));
+
+            // 应用新位置
+            btn.style.left = newX + 'px';
+            btn.style.top = newY + 'px';
+            btn.style.right = 'auto'; // 清除right属性
+
+            // 更新当前坐标
+            currentX = newX;
+            currentY = newY;
+
+            // 阻止默认行为（如滚动）
+            if (e.type === 'touchmove') {
+                e.preventDefault();
+            }
+        }
+
+        // 结束拖动
+        function handleDragEnd(e) {
+            isDragging = false;
+        }
+
+        // 处理按钮点击
+        function handleTocBtnClick() {
+            // 如果发生了拖动，不执行点击操作
+            if (hasMoved) {
+                hasMoved = false;
+                return;
+            }
+            // 否则正常打开导航面板
+            openNavPanel();
+        }
 
         // 暴露给 Android 的方法
         window.EpubReader = {
