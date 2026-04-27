@@ -23,6 +23,8 @@ class ContentViewModel(
     private val _progressText = MutableStateFlow("")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
+    private val _isFullScreen = MutableStateFlow(false)
+    val isFullScreen: StateFlow<Boolean> = _isFullScreen.asStateFlow()
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -41,6 +43,9 @@ class ContentViewModel(
             is ContentUiEvent.Initialize -> handleInitialize(event.fileInfo)
             is ContentUiEvent.OnClickProgressInfo -> {
                 _onClickProgressInfoCallback?.invoke(event.progressText)
+            }
+            is ContentUiEvent.OnDoubleClickScreen -> {
+                _isFullScreen.value = !_isFullScreen.value
             }
         }
     }

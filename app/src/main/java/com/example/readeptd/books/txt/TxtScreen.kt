@@ -1,6 +1,7 @@
 package com.example.readeptd.books.txt
 
 import android.util.Log
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -32,6 +34,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
+import com.example.readeptd.contract.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.viewmodel.ContentViewModel
@@ -102,6 +105,14 @@ fun TxtScreen(
                                     topPaddingDp = topPaddingDp,
                                     bottomPaddingDp = bottomPaddingDp
                                 )
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    Log.d("TxtScreen", "双击屏幕，切换全屏")
+                                    contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                }
                             )
                         }
                 ) {
@@ -255,7 +266,7 @@ fun PageContent(
     lineHeight: Int,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    SelectionContainer() {
+    SelectionContainer {
         Text(
             text = pageContent,
             fontSize = fontSize.sp,
