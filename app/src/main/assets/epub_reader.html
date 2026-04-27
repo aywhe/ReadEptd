@@ -93,11 +93,28 @@
     
     <div id="viewer"></div>
 
+    <!-- 导航面板（目录） -->
+    <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000;">
+        <div style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #fff; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
+            <div style="padding: 20px; border-bottom: 1px solid #eee;">
+                <h2 style="margin: 0; font-size: 20px; color: #333;">目录</h2>
+                <button onclick="closeNavPanel()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+            </div>
+            <div id="toc-container" style="padding: 10px 20px;">
+                <!-- 目录将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 打开目录按钮 -->
+    <button id="toc-btn" onclick="openNavPanel()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;">☰</button>
+
     <script>
         let book = null;
         let rendition = null;
         let currentLocation = null;
         let isLoaded = false;
+        let tableOfContents = []; // 存储目录数据
 
         window.onload = function() {
             // 通知 Android js 已经准备好
@@ -203,6 +220,21 @@
                 });
                 console.log('Renderer created');
 
+                // 加载并生成目录
+                book.loaded.navigation.then(function(toc) {
+                    console.log('Navigation loaded');
+                    tableOfContents = toc.toc || [];
+                    console.log('Table of Contents:', tableOfContents);
+
+                    // 生成目录HTML
+                    generateTOC(tableOfContents);
+
+                    // 显示目录按钮
+                    document.getElementById('toc-btn').style.display = 'block';
+                }).catch((err) => {
+                    console.error('Failed to load navigation:', err);
+                });
+
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
@@ -211,6 +243,9 @@
                         // 直接传递完整的 location 对象
                         Android.onPageChanged(JSON.stringify(location));
                     }
+
+                    // 高亮当前章节
+                    highlightCurrentChapter(location.start.href);
                 });
 
                 // 监听渲染器调整大小
@@ -504,6 +539,108 @@
             }
         }
 
+        // 生成目录 HTML
+        function generateTOC(toc, level = 0) {
+            const container = document.getElementById('toc-container');
+            if (!container || !toc || toc.length === 0) {
+                container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无目录</p>';
+                return;
+            }
+
+            let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+
+            toc.forEach(function(chapter) {
+                const indent = level * 20; // 每层缩进 20px
+                const fontSize = Math.max(14, 16 - level * 2); // 层级越深字体越小
+
+                html += `
+                    <li style="margin: 5px 0;">
+                        <a href="#"
+                           data-href="${chapter.href}"
+                           onclick="jumpToChapter('${chapter.href}'); return false;"
+                           style="display: block; padding: 12px 15px; padding-left: ${15 + indent}px;
+                                  text-decoration: none; color: #333; font-size: ${fontSize}px;
+                                  border-radius: 5px; transition: background 0.2s;"
+                           onmouseover="this.style.background='#f5f5f5'"
+                           onmouseout="this.style.background='transparent'">
+                            ${chapter.label || '未命名章节'}
+                        </a>
+                    </li>
+                `;
+
+                // 递归处理子目录
+                if (chapter.subitems && chapter.subitems.length > 0) {
+                    html += generateTOC(chapter.subitems, level + 1);
+                }
+            });
+
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
+        // 打开导航面板
+        function openNavPanel() {
+            document.getElementById('nav-panel').style.display = 'block';
+            document.body.style.overflow = 'hidden'; // 禁止背景滚动
+        }
+
+        // 关闭导航面板
+        function closeNavPanel() {
+            document.getElementById('nav-panel').style.display = 'none';
+            document.body.style.overflow = ''; // 恢复滚动
+        }
+
+        // 跳转到指定章节
+        function jumpToChapter(href) {
+            console.log('Jumping to chapter:', href);
+
+            if (rendition) {
+                // 关闭导航面板
+                closeNavPanel();
+
+                // 跳转到章节
+                rendition.display(href).then(() => {
+                    console.log('Chapter displayed:', href);
+                }).catch((error) => {
+                    console.error('Failed to jump to chapter:', error);
+                });
+            }
+        }
+
+        // 高亮当前阅读的章节
+        function highlightCurrentChapter(currentHref) {
+            const links = document.querySelectorAll('#toc-container a');
+            links.forEach(link => {
+                link.classList.remove('active');
+                // 检查链接是否对应当前章节
+                if (link.getAttribute('data-href') === currentHref) {
+                    link.classList.add('active');
+                    link.style.background = '#3498db';
+                    link.style.color = '#fff';
+                    link.style.fontWeight = 'bold';
+                    // 滚动到可见区域
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    link.style.background = '';
+                    link.style.color = '';
+                    link.style.fontWeight = '';
+                }
+            });
+        }
+
+        // 点击背景关闭导航
+        document.addEventListener('DOMContentLoaded', function() {
+            const navPanel = document.getElementById('nav-panel');
+            if (navPanel) {
+                navPanel.addEventListener('click', function(e) {
+                    // 点击背景区域（而不是内容区域）时关闭
+                    if (e.target === navPanel) {
+                        closeNavPanel();
+                    }
+                });
+            }
+        });
+
         // 暴露给 Android 的方法
         window.EpubReader = {
             init: initReader,
@@ -513,8 +650,11 @@
             goToPercentage: goToPercentage,
             cleanUp: cleanUp,
             getCurrentPageText: getCurrentPageText,
-            getCurrentLocation: getCurrentLocation
+            getCurrentLocation: getCurrentLocation,
+            openNavPanel: openNavPanel,
+            closeNavPanel: closeNavPanel
         };
     </script>
+
 </body>
 </html>
