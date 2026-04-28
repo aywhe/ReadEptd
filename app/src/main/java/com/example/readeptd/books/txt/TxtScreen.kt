@@ -43,6 +43,7 @@ import com.example.readeptd.contract.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.viewmodel.ContentViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -107,6 +108,7 @@ fun TxtScreen(
             is BookUiState.Ready -> {
 
                 var lastClickTime by remember { mutableStateOf(0L)}
+                var jobSetAllowRePagination: Job? by remember { mutableStateOf(null) }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -134,10 +136,10 @@ fun TxtScreen(
                                     val isDoubleClick = timeDiff <= 300
                                     if (isDoubleClick) {
                                         Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
-
+                                        jobSetAllowRePagination?.cancel()
                                         viewModel.setAllowRePagination(false)
                                         contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                                        scope.launch {
+                                        jobSetAllowRePagination = scope.launch {
                                             delay(5000)
                                             viewModel.setAllowRePagination(true)
                                         }
