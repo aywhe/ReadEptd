@@ -659,15 +659,26 @@
 
         // 高亮当前阅读的章节
         function highlightCurrentChapter(currentHref) {
+            console.log('Highlighting current chapter:', currentHref);
             const links = document.querySelectorAll('#toc-container a');
             links.forEach(link => {
                 link.classList.remove('active');
-                // 检查链接是否对应当前章节
-                if (link.getAttribute('data-href') === currentHref) {
+
+                // 获取目录链接的 href
+                const linkHref = link.getAttribute('data-href');
+
+                // 使用包含匹配：检查 currentHref 是否以 linkHref 开头
+                // 或者 linkHref 是否以 currentHref 开头（处理带锚点的情况）
+                const isMatch = linkHref === currentHref ||
+                               linkHref.startsWith(currentHref) ||
+                               currentHref.startsWith(linkHref.split('#')[0]);
+
+                if (isMatch) {
                     link.classList.add('active');
                     link.style.background = '#3498db';
                     link.style.color = '#fff';
                     link.style.fontWeight = 'bold';
+                    console.log('Highlighted link:', linkHref);
                     // 滚动到可见区域
                     link.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
