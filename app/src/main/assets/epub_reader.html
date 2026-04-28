@@ -276,7 +276,7 @@
                 // 监听章节渲染完成
                 rendition.on("rendered", (section, view) => {
                     console.log('Section rendered:', section.href);
-                    // highlightCurrentChapter(section.href);
+                    highlightCurrentChapter(section.href);
                     // 获取当前视图的 contents 对象
                     const contents = view.contents;
                     if (contents && contents.window) {
