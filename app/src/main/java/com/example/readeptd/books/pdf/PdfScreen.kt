@@ -1,9 +1,11 @@
 package com.example.readeptd.books.pdf
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -13,8 +15,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,7 +39,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -120,6 +127,7 @@ fun PdfLazyViewer(
     
     val totalPages by viewModel.totalPages.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
+    val configuration = LocalConfiguration.current
 
     DisposableEffect(filePath) {
         // 初始化 PDF 渲染器
@@ -227,9 +235,22 @@ fun PdfLazyViewer(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                Box(
-                    contentAlignment = Alignment.Center,
+                val scrollState = rememberScrollState()
+                var contentAlignment = Alignment.Center
+                var modifier: Modifier? = null
+                var translationY: Float = offset.y
+                if(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE){
+                    modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
+                    contentAlignment = Alignment.TopCenter
+                    translationY = 0f
+                } else {
                     modifier = Modifier.fillMaxSize()
+                    contentAlignment = Alignment.Center
+                    translationY = offset.y
+                }
+                Box(
+                    modifier = modifier,
+                    contentAlignment = contentAlignment,
                 ) {
                     viewModel.renderPage(currentPage, 1)
                     val bitmap = viewModel.getPageBitmap( page)
@@ -237,12 +258,13 @@ fun PdfLazyViewer(
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "PDF $page ",
+                            contentScale = ContentScale.FillWidth,
                             modifier = Modifier
                                 .graphicsLayer(
                                     scaleX = scale,
                                     scaleY = scale,
                                     translationX = offset.x,
-                                    translationY = offset.y
+                                    translationY = -offset.y,
                                 )
                         )
                     } else {
