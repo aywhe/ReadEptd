@@ -108,7 +108,7 @@
     </div>
 
     <!-- 打开目录按钮 -->
-    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none; transition: all 0.3s ease;">☰</button>
+    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(0, 163, 204,0.7); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 2px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none; transition: all 0.3s ease;">☰</button>
 
     <script>
         let book = null;
@@ -711,20 +711,22 @@
             if (!btn || btn.style.display === 'none') return;
 
             // 如果处于收缩状态，先展开
-            // if (isCollapsed) {
-            //    expandButton(btn);
-            //    // 等待展开动画完成后再开始拖动
-            //    setTimeout(() => {
-            //        startDragLogic(e, btn);
-            //    }, 300);
-            //    return;
-            //}
-            //startDragLogic(e, btn);
-            if (isCollapsed) {
+             if (isCollapsed) {
                 expandButton(btn);
-            } else {
-                startDragLogic(e, btn);
+                // 等待展开动画完成后再开始拖动
+                setTimeout(() => {
+                    startDragLogic(e, btn);
+                }, 300);
+                return;
             }
+            startDragLogic(e, btn);
+
+            // 避免收缩状态时直接开始拖动
+            //if (isCollapsed) {
+            //    expandButton(btn);
+            //} else {
+            //    startDragLogic(e, btn);
+            //}
         }
 
         // 开始拖动的具体逻辑
@@ -833,45 +835,15 @@
 
             if (currentLeft <= snapThreshold) {
                 // 吸附到左边缘
-                collapseToLeftEdge(btn);
+                collapseToEdge(btn, 'left');
             } else if (currentRight <= snapThreshold) {
                 // 吸附到右边缘
-                collapseToRightEdge(btn);
+                collapseToEdge(btn, 'right');
             }
         }
 
-        // 收缩到左边缘（变成半圆）
-        function collapseToLeftEdge(btn) {
-            isCollapsed = true;
-            const btnHeight = btn.offsetHeight;
-
-            // 计算垂直位置，确保不超出屏幕
-            let targetY = parseFloat(btn.style.top) || 20;
-            const maxY = window.innerHeight - btnHeight / 4 - 10;
-            targetY = Math.max(10, Math.min(targetY, maxY));
-
-            // 应用收缩样式：1/4圆形贴在左边
-            btn.style.transition = 'all 0.3s ease';
-            btn.style.left = '0px';
-            btn.style.top = targetY + 'px';
-            btn.style.width = '12.5px'; // 宽度变为1/4 (50/4)
-            btn.style.height = btnHeight + 'px';
-            btn.style.borderRadius = '0 12.5px 12.5px 0'; // 右半圆
-            btn.style.paddingLeft = '2px'; // 调整图标位置
-            btn.style.fontSize = '16px'; // 缩小字体
-
-            // 更新坐标
-            currentX = 0;
-            currentY = targetY;
-
-            // 动画结束后移除transition
-            setTimeout(() => {
-                btn.style.transition = '';
-            }, 300);
-        }
-
-        // 收缩到右边缘（变成半圆）
-        function collapseToRightEdge(btn) {
+        // 收缩到边缘（变成半圆）- 通用函数
+        function collapseToEdge(btn, side) {
             isCollapsed = true;
             const screenWidth = window.innerWidth;
             const btnHeight = btn.offsetHeight;
@@ -881,18 +853,22 @@
             const maxY = window.innerHeight - btnHeight / 4 - 10;
             targetY = Math.max(10, Math.min(targetY, maxY));
 
-            // 应用收缩样式：1/4圆形贴在右边
+            // 根据方向设置样式
+            const isLeft = side === 'left';
+
+            // 应用收缩样式：1/4圆形贴在边缘
             btn.style.transition = 'all 0.3s ease';
-            btn.style.left = (screenWidth - 12.5) + 'px';
+            btn.style.left = isLeft ? '0px' : (screenWidth - 12.5) + 'px';
             btn.style.top = targetY + 'px';
-            btn.style.width = '12.5px'; // 宽度变为1/4 (50/4)
+            btn.style.width = '16px'; // 宽度变为1/4 (50/4)
             btn.style.height = btnHeight + 'px';
-            btn.style.borderRadius = '12.5px 0 0 12.5px'; // 左半圆
-            btn.style.paddingRight = '2px'; // 调整图标位置
+            btn.style.borderRadius = isLeft ? '0 12.5px 12.5px 0' : '12.5px 0 0 12.5px'; // 右半圆或左半圆
+            btn.style.paddingLeft = isLeft ? '2px' : '0';
+            btn.style.paddingRight = isLeft ? '0' : '2px';
             btn.style.fontSize = '16px'; // 缩小字体
 
             // 更新坐标
-            currentX = screenWidth - 12.5;
+            currentX = isLeft ? 0 : screenWidth - 12.5;
             currentY = targetY;
 
             // 动画结束后移除transition
