@@ -221,13 +221,8 @@ fun PdfLazyViewer(
                 }
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.5f, 5f)
-                        val maxXOffset = if (scale > 1f) containerSize.width * (scale - 1) / 2 else 0f
-                        val maxYOffset = if (scale > 1f) containerSize.height * (scale - 1) / 2 else 0f
-                        offset = Offset(
-                            (offset.x + pan.x).coerceIn(-maxXOffset, maxXOffset),
-                            (offset.y + pan.y).coerceIn(-maxYOffset, maxYOffset)
-                        )
+                        scale *= zoom
+                        offset += pan
                     }
                 }
         ) {
@@ -238,18 +233,14 @@ fun PdfLazyViewer(
                 val scrollState = rememberScrollState()
                 var contentAlignment = Alignment.Center
                 var modifier: Modifier? = null
-                var translationY: Float = offset.y
                 if(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE){
                     modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
                     contentAlignment = Alignment.TopCenter
-                    translationY = 0f
                 } else {
                     modifier = Modifier.fillMaxSize()
                     contentAlignment = Alignment.Center
-                    translationY = offset.y
                 }
                 Box(
-                    modifier = modifier,
                     contentAlignment = contentAlignment,
                 ) {
                     viewModel.renderPage(currentPage, 1)
@@ -259,12 +250,12 @@ fun PdfLazyViewer(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "PDF $page ",
                             contentScale = ContentScale.FillWidth,
-                            modifier = Modifier
+                            modifier = modifier
                                 .graphicsLayer(
                                     scaleX = scale,
                                     scaleY = scale,
                                     translationX = offset.x,
-                                    translationY = -offset.y,
+                                    translationY = offset.y,
                                 )
                         )
                     } else {
