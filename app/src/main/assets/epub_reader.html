@@ -95,11 +95,12 @@
 
     <!-- 导航面板（目录） -->
     <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000;">
-        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #fff; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
+        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #f5f5f5; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
             <div style="padding: 20px; border-bottom: 1px solid #eee;">
                 <h2 style="margin: 0; font-size: 20px; color: #333;">目录</h2>
                 <button onclick="closeNavPanel()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
             </div>
+            <hr>
             <div id="toc-container" style="padding: 10px 20px;">
                 <!-- 目录将在这里动态生成 -->
             </div>
@@ -277,7 +278,9 @@
                         contents.window.addEventListener('dblclick', (e) => {
                             console.log('Double click detected!', e);
                             console.log('Click position:', { x: e.clientX, y: e.clientY });
-
+                            // 导航时禁止
+                            const navPanel = document.getElementById('nav-panel');
+                            if (navPanel.style.display === 'block') { return; }
                             // 通知 Android（不需要传递参数）
                             if (Android && Android.onDoubleClick) {
                                 Android.onDoubleClick();
@@ -565,17 +568,17 @@
 
             toc.forEach(function(chapter) {
                 const indent = level * 20; // 每层缩进 20px
-                const fontSize = Math.max(14, 16 - level * 2); // 层级越深字体越小
+                const fontSize = Math.max(12, 16 - level * 2); // 层级越深字体越小
 
                 html += `
                     <li style="margin: 5px 0;">
                         <a href="#"
                            data-href="${chapter.href}"
                            onclick="jumpToChapter('${chapter.href}'); return false;"
-                           style="display: block; padding: 12px 15px; padding-left: ${15 + indent}px;
+                           style="display: block; padding: 12px 18px; padding-left: ${12 + indent}px;
                                   text-decoration: none; color: #333; font-size: ${fontSize}px;
                                   border-radius: 5px; transition: background 0.2s;"
-                           onmouseover="this.style.background='#f5f5f5'"
+                           onmouseover="this.style.background='#f0f0f0'"
                            onmouseout="this.style.background='transparent'">
                             ${chapter.label || '未命名章节'}
                         </a>
@@ -708,16 +711,20 @@
             if (!btn || btn.style.display === 'none') return;
 
             // 如果处于收缩状态，先展开
+            // if (isCollapsed) {
+            //    expandButton(btn);
+            //    // 等待展开动画完成后再开始拖动
+            //    setTimeout(() => {
+            //        startDragLogic(e, btn);
+            //    }, 300);
+            //    return;
+            //}
+            //startDragLogic(e, btn);
             if (isCollapsed) {
                 expandButton(btn);
-                // 等待展开动画完成后再开始拖动
-                setTimeout(() => {
-                    startDragLogic(e, btn);
-                }, 300);
-                return;
+            } else {
+                startDragLogic(e, btn);
             }
-
-            startDragLogic(e, btn);
         }
 
         // 开始拖动的具体逻辑
