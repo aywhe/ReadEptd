@@ -46,7 +46,7 @@ class ContentViewModel(
                 _isFullScreen.value = !_isFullScreen.value
             }
             is ContentUiEvent.OnScreenOrientationChanged ->{
-                _isFullScreen.value = true
+                _isFullScreen.value = false
             }
         }
     }
