@@ -100,7 +100,7 @@ fun EpubScreen(
 
                             setOnLoadCompleteListener {
                                 contentViewModel.setOnClickProgressInfoCallback {
-                                    isShowJumpToProgressDialog = true
+                                    toggleNavPanel();
                                 }
                                 Log.d("EpubScreen", "加载完成")
                             }

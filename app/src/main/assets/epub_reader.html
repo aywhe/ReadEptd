@@ -625,6 +625,16 @@
             document.body.style.overflow = ''; // 恢复滚动
         }
 
+        // 切换导航面板状态
+        function toggleNavPanel() {
+            const navPanel = document.getElementById('nav-panel');
+            if (navPanel.style.display === 'block') {
+                closeNavPanel();
+            } else {
+                openNavPanel();
+            }
+        }
+
         // 跳转到指定章节
         function jumpToChapter(href) {
             console.log('Jumping to chapter:', href);
@@ -948,7 +958,8 @@
             getCurrentPageText: getCurrentPageText,
             getCurrentLocation: getCurrentLocation,
             openNavPanel: openNavPanel,
-            closeNavPanel: closeNavPanel
+            closeNavPanel: closeNavPanel,
+            toggleNavPanel: toggleNavPanel
         };
     </script>
 

@@ -225,6 +225,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.getCurrentLocation()")
     }
 
+    fun toggleNavPanel(){
+        Log.d(TAG, "执行 JavaScript 切换导航面板...")
+        executeJs("window.EpubReader.toggleNavPanel()")
+    }
+
     /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
