@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -114,11 +115,25 @@ fun ContentScreen(
         val window = (context as? ComponentActivity)?.window
         if (window != null) {
             if (isFullScreen) {
-                // 隐藏状态栏
-                WindowInsetsControllerCompat(window, view).hide(WindowInsetsCompat.Type.statusBars())
+                // 隐藏状态栏（无动画）
+                WindowInsetsControllerCompat(window, view).apply {
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    hide(WindowInsetsCompat.Type.statusBars())
+                }
+                // 强制立即应用，禁用动画
+                window.decorView.post {
+                    window.setFlags(
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN
+                    )
+                }
             } else {
-                // 显示状态栏
+                // 显示状态栏（无动画）
                 WindowInsetsControllerCompat(window, view).show(WindowInsetsCompat.Type.statusBars())
+                // 强制立即应用，禁用动画
+                window.decorView.post {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                }
             }
         }
     }
