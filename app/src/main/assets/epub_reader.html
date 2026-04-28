@@ -257,13 +257,15 @@
                 rendition.on("relocated", (location) => {
                     currentLocation = location;
                     console.log('Page relocated:', location);
-                    if (Android && Android.onPageChanged) {
-                        // 直接传递完整的 location 对象
-                        Android.onPageChanged(JSON.stringify(location));
-                    }
+
+                    // relocated不会每页触发，所以改到scroll中，scroll是每次翻页触发
+                    //if (Android && Android.onPageChanged) {
+                    //    // 直接传递完整的 location 对象
+                    //    Android.onPageChanged(JSON.stringify(location));
+                    //}
 
                     // 高亮当前章节
-                    highlightCurrentChapter(location.start.href);
+                    //highlightCurrentChapter(location.start.href);
                 });
 
                 // 监听渲染器调整大小
@@ -303,6 +305,19 @@
                 rendition.on("attached", () => {
                     rendition.manager.on("scrolled", (position) => {
                         console.log('View scrolled');
+                    });
+                    rendition.manager.on("scroll", (position) => {
+                        console.log('View scroll');
+                        const location = rendition.currentLocation();
+                        if(location) {
+                            console.log('Current location:', location);
+                            currentLocation = location;
+                            if (Android && Android.onPageChanged) {
+                                Android.onPageChanged(JSON.stringify(location));
+                            }
+                            // 高亮当前章节
+                            highlightCurrentChapter(location.start.href);
+                        }
                     });
                 });
                 rendition.on("displayed", (section) => {
