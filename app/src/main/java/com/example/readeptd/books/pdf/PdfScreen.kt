@@ -160,7 +160,7 @@ fun PdfLazyViewer(
             ttsModel.setOnRequestSpeechStartListener {
                 val text = viewModel.getPageText(pagerState.currentPage)
                 if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text, "pdf-${pagerState.currentPage}")
+                    ttsModel.speak(text, "pdf_${pagerState.currentPage}")
                 }
             }
 
