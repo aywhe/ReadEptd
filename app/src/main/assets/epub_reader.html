@@ -264,8 +264,8 @@
                     //    Android.onPageChanged(JSON.stringify(location));
                     //}
 
-                    // 高亮当前章节
-                    highlightCurrentChapter(location.start.href);
+                    // 注意：不在这里高亮，因为 relocated 的 href 可能有延迟
+                    // highlightCurrentChapter(location.start.href);
                 });
 
                 // 监听渲染器调整大小
@@ -315,13 +315,17 @@
                             if (Android && Android.onPageChanged) {
                                 Android.onPageChanged(JSON.stringify(location));
                             }
-                            // 高亮当前章节
+                            // 高亮当前章节（scroll 事件中的 location 是准确的）
                             highlightCurrentChapter(location.start.href);
                         }
                     });
                 });
+
+                // ✅ 在 displayed 事件中高亮当前章节（最准确的时机）
                 rendition.on("displayed", (section) => {
                     console.log('Section displayed:', section.href);
+                    // 使用 section.href 而不是 location，因为这是最准确的
+                    highlightCurrentChapter(section.href);
                 });
 
                 // 监听加载完成
@@ -686,15 +690,18 @@
             console.log('Jumping to chapter:', href);
 
             if (rendition) {
-                // 关闭导航面板
+                // 先关闭导航面板（带动画）
                 closeNavPanel();
 
-                // 跳转到章节
-                rendition.display(href).then(() => {
-                    console.log('Chapter displayed:', href);
-                }).catch((error) => {
-                    console.error('Failed to jump to chapter:', error);
-                });
+                // 等待一小段时间让动画开始，然后再跳转章节
+                // 这样避免动画和页面跳转同时进行导致的冲突
+                setTimeout(() => {
+                    rendition.display(href).then(() => {
+                        console.log('Chapter displayed:', href);
+                    }).catch((error) => {
+                        console.error('Failed to jump to chapter:', error);
+                    });
+                }, 150);
             }
         }
 
