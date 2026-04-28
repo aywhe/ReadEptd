@@ -259,10 +259,10 @@
                     console.log('Page relocated:', location);
 
                     // relocated不会每页触发，所以改到scroll中，scroll是每次翻页触发
-                    if (Android && Android.onPageChanged) {
-                        // 直接传递完整的 location 对象
-                        Android.onPageChanged(JSON.stringify(location));
-                    }
+                    //if (Android && Android.onPageChanged) {
+                    //    // 直接传递完整的 location 对象
+                    //    Android.onPageChanged(JSON.stringify(location));
+                    //}
 
                     // 高亮当前章节
                     highlightCurrentChapter(location.start.href);
