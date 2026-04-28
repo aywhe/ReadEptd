@@ -3,6 +3,7 @@ package com.example.readeptd
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,13 +72,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.activity.MainUiEvent
+import com.example.readeptd.activity.MainUiState
+import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.FileInfo.Companion.toBundle
-import com.example.readeptd.contract.MainUiEvent
-import com.example.readeptd.contract.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
-import com.example.readeptd.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -140,8 +142,8 @@ fun MainScreen(
                     context.contentResolver.query(
                         uri,
                         arrayOf(
-                            android.provider.OpenableColumns.DISPLAY_NAME,
-                            android.provider.OpenableColumns.SIZE
+                            OpenableColumns.DISPLAY_NAME,
+                            OpenableColumns.SIZE
                         ),
                         null,
                         null,
@@ -149,13 +151,13 @@ fun MainScreen(
                     )?.use { cursor ->
                         if (cursor.moveToFirst()) {
                             val nameIndex =
-                                cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                             if (nameIndex != -1) {
                                 fileName = cursor.getString(nameIndex)
                             }
 
                             val sizeIndex =
-                                cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                                cursor.getColumnIndex(OpenableColumns.SIZE)
                             if (sizeIndex != -1) {
                                 fileSize = cursor.getLong(sizeIndex)
                             }
@@ -541,7 +543,7 @@ fun FileItemCard(
         if (isDragging) {
             showDeleteButton = true
         } else {
-            kotlinx.coroutines.delay(5000)
+            delay(5000)
             showDeleteButton = false
         }
     }
@@ -685,7 +687,7 @@ fun FileItemCard(
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
-            viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            viewModel = viewModel()
         )
     }
 }

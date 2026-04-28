@@ -1,13 +1,8 @@
 package com.example.readeptd
 
-import android.app.Application
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.View
-import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -45,17 +40,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.readeptd.contract.ContentUiEvent
-import com.example.readeptd.contract.ContentUiState
+import com.example.readeptd.activity.ContentUiEvent
+import com.example.readeptd.activity.ContentUiState
+import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
-import com.example.readeptd.viewmodel.ContentViewModel
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
@@ -101,7 +95,7 @@ fun ContentScreen(
     // 监听屏幕旋转，恢复重新分页功能
     LaunchedEffect(configuration.orientation) {
         Log.d("ContentActivity", "屏幕方向变化: ${configuration.orientation}")
-        viewModel.setFullScreen(false)
+        viewModel.onEvent(ContentUiEvent.OnScreenOrientationChanged(configuration.orientation))
     }
 
     val uiState by viewModel.uiState.collectAsState()

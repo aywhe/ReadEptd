@@ -13,6 +13,7 @@ import com.example.readeptd.parser.TextSplitter
 import com.example.readeptd.parser.TxtExtractor
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +51,7 @@ class TxtViewModel(
 
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
+    private var jobSetAllowRePagination: Job? = null
 
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -86,6 +88,17 @@ class TxtViewModel(
             is TxtEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
+            is TxtEvent.OnDoubleClickScreen ->{
+                allowRePagination = false
+                jobSetAllowRePagination?.cancel()
+                jobSetAllowRePagination = viewModelScope.launch {
+                    delay(5000)
+                    allowRePagination = true
+                }
+            }
+            is TxtEvent.OnScreenOrientationChanged ->{
+                allowRePagination = true
+            }
         }
     }
 
@@ -123,15 +136,6 @@ class TxtViewModel(
             Log.d(TAG, "全屏切换中，跳过重新分页")
         }
     }
-
-    /**
-     * 设置是否允许重新分页
-     */
-    fun setAllowRePagination(allow: Boolean) {
-        allowRePagination = allow
-        Log.d(TAG, "设置允许重新分页: $allow")
-    }
-
     /**
      * 处理翻页事件
      */

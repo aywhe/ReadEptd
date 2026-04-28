@@ -4,7 +4,6 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,12 +38,10 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
-import com.example.readeptd.contract.ContentUiEvent
+import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
-import com.example.readeptd.viewmodel.ContentViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import com.example.readeptd.activity.ContentViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -83,7 +80,7 @@ fun TxtScreen(
     // 监听屏幕旋转，恢复重新分页功能
     LaunchedEffect(configuration.orientation) {
         Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
-        viewModel.setAllowRePagination(true)
+        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
     }
     Column(
         modifier = modifier.fillMaxSize()
@@ -106,9 +103,7 @@ fun TxtScreen(
             }
 
             is BookUiState.Ready -> {
-
                 var lastClickTime by remember { mutableStateOf(0L)}
-                var jobSetAllowRePagination: Job? by remember { mutableStateOf(null) }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -136,13 +131,8 @@ fun TxtScreen(
                                     val isDoubleClick = timeDiff <= 300
                                     if (isDoubleClick) {
                                         Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
-                                        jobSetAllowRePagination?.cancel()
-                                        viewModel.setAllowRePagination(false)
                                         contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                                        jobSetAllowRePagination = scope.launch {
-                                            delay(5000)
-                                            viewModel.setAllowRePagination(true)
-                                        }
+                                        viewModel.onEvent(TxtEvent.OnDoubleClickScreen)
                                     }
                                 }
                             }

@@ -1,11 +1,9 @@
 package com.example.readeptd.books.pdf
 
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -50,9 +47,9 @@ import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
 import com.example.readeptd.books.BookUiState
-import com.example.readeptd.contract.ContentUiEvent
+import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
-import com.example.readeptd.viewmodel.ContentViewModel
+import com.example.readeptd.activity.ContentViewModel
 
 @Composable
 fun PdfScreen(

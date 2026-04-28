@@ -1,4 +1,4 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.activity
 
 import android.app.Application
 import android.util.Log
@@ -7,8 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.contract.MainUiEvent
-import com.example.readeptd.contract.MainUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

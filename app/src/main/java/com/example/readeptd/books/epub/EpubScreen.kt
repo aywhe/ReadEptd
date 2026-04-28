@@ -24,11 +24,10 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
-import com.example.readeptd.books.epub.EpubViewModel
-import com.example.readeptd.contract.ContentUiEvent
+import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
-import com.example.readeptd.viewmodel.ContentViewModel
+import com.example.readeptd.activity.ContentViewModel
 
 @Composable
 fun EpubScreen(

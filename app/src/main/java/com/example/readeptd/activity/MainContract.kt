@@ -1,4 +1,4 @@
-package com.example.readeptd.contract
+package com.example.readeptd.activity
 
 import com.example.readeptd.data.FileInfo
 
