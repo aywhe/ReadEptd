@@ -94,8 +94,8 @@
     <div id="viewer"></div>
 
     <!-- 导航面板（目录） -->
-    <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000;">
-        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #f5f5f5; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3);">
+    <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s ease;">
+        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #f5f5f5; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);">
             <div style="padding: 20px; border-bottom: 1px solid #eee;">
                 <h2 style="margin: 0; font-size: 20px; color: #333;">目录</h2>
                 <button id="toc-toggle-btn" onclick="toggleTocButton()" style="position: absolute; right: 60px; top: 20px; background: none; border: none; font-size: 14px; cursor: pointer; color: #1976d2; padding: 8px 12px; border-radius: 4px; transition: background 0.2s;">隐藏悬浮按钮</button>
@@ -265,7 +265,7 @@
                     //}
 
                     // 高亮当前章节
-                    //highlightCurrentChapter(location.start.href);
+                    highlightCurrentChapter(location.start.href);
                 });
 
                 // 监听渲染器调整大小
@@ -614,8 +614,9 @@
 
         // 打开导航面板
         function openNavPanel() {
-            const btn = document.getElementById('toc-btn');
+            const navPanel = document.getElementById('nav-panel');
             const navContent = document.getElementById('nav-content');
+            const btn = document.getElementById('toc-btn');
 
             // 获取按钮位置
             const btnRect = btn.getBoundingClientRect();
@@ -628,21 +629,46 @@
                 navContent.style.left = '0';
                 navContent.style.right = 'auto';
                 navContent.style.boxShadow = '2px 0 10px rgba(0,0,0,0.3)';
+                navContent.style.transform = 'translateX(-100%)';
             } else {
                 // 按钮在右边，目录面板从右边滑出
                 navContent.style.right = '0';
                 navContent.style.left = 'auto';
                 navContent.style.boxShadow = '-2px 0 10px rgba(0,0,0,0.3)';
+                navContent.style.transform = 'translateX(100%)';
             }
 
-            document.getElementById('nav-panel').style.display = 'block';
+            // 先显示面板
+            navPanel.style.display = 'block';
             document.body.style.overflow = 'hidden'; // 禁止背景滚动
+
+            // 延迟一帧后触发动画
+            requestAnimationFrame(() => {
+                navPanel.style.opacity = '1';
+                navContent.style.transform = 'translateX(0)';
+            });
         }
 
         // 关闭导航面板
         function closeNavPanel() {
-            document.getElementById('nav-panel').style.display = 'none';
-            document.body.style.overflow = ''; // 恢复滚动
+            const navPanel = document.getElementById('nav-panel');
+            const navContent = document.getElementById('nav-content');
+
+            // 触发关闭动画
+            navPanel.style.opacity = '0';
+
+            // 根据当前位置决定滑出方向
+            if (navContent.style.left === '0px') {
+                navContent.style.transform = 'translateX(-100%)';
+            } else {
+                navContent.style.transform = 'translateX(100%)';
+            }
+
+            // 等待动画完成后隐藏面板
+            setTimeout(() => {
+                navPanel.style.display = 'none';
+                document.body.style.overflow = ''; // 恢复滚动
+            }, 300);
         }
 
         // 切换导航面板状态
