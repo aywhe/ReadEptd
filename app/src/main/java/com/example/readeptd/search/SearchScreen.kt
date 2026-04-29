@@ -2,7 +2,7 @@ package com.example.readeptd.search
 
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,6 +76,16 @@ fun SlideInSearchPanel(
     
     // ✅ 面板位置状态：true=右侧，false=左侧
     var isOnRight by remember { mutableStateOf(true) }
+    
+    // ✅ 拖动相关状态
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }  // 添加Y轴偏移记录
+    val density = LocalDensity.current
+    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val panelWidthPx = with(density) { 
+        val panelWidthDp = (LocalConfiguration.current.screenWidthDp / 3).coerceAtLeast(160).coerceAtMost(400)
+        panelWidthDp.dp.toPx() 
+    }
 
     // ✅ 获取屏幕配置
     val configuration = LocalConfiguration.current
@@ -84,8 +94,8 @@ fun SlideInSearchPanel(
     // ✅ 计算面板宽度为屏幕宽度的 1/3（更激进：最小80dp）
     val panelWidthDp = (screenWidthDp / 3).coerceAtLeast(160).coerceAtMost(400)
     
-    // ✅ 根据位置计算目标偏移量
-    val targetOffset = if (visible) {
+    // ✅ 根据位置和拖动偏移计算最终偏移量
+    val baseOffset = if (visible) {
         if (isOnRight) {
             // 右侧显示
             IntOffset(screenWidthDp - panelWidthDp, 0)
@@ -98,8 +108,14 @@ fun SlideInSearchPanel(
         IntOffset(screenWidthDp, 0)
     }
     
+    // ✅ 应用拖动偏移（仅使用X轴偏移进行位置计算）
+    val finalOffset = IntOffset(
+        x = baseOffset.x + offsetX.roundToInt(),
+        y = baseOffset.y
+    )
+    
     val animatedOffset by animateIntOffsetAsState(
-        targetValue = targetOffset,
+        targetValue = if (offsetX == 0f && offsetY == 0f) baseOffset else finalOffset,  // 拖动时不使用动画
         label = "search_panel_animation"
     )
 
@@ -112,6 +128,58 @@ fun SlideInSearchPanel(
             .offset(animatedOffset.x.dp, animatedOffset.y.dp)
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        // 拖动开始时重置偏移量
+                        offsetX = 0f
+                        offsetY = 0f
+                    },
+                    onDragEnd = {
+                        // 拖动结束时决定是否需要切换位置（只考虑X轴偏移）
+                        val threshold = panelWidthPx * 0.3f  // 30% 宽度作为阈值
+                        
+                        if (offsetX > threshold && !isOnRight) {
+                            // 向右拖动超过阈值且当前在左侧 -> 切换到右侧
+                            isOnRight = true
+                        } else if (offsetX < -threshold && isOnRight) {
+                            // 向左拖动超过阈值且当前在右侧 -> 切换到左侧
+                            isOnRight = false
+                        }
+                        
+                        // 重置偏移量
+                        offsetX = 0f
+                        offsetY = 0f
+                    },
+                    onDragCancel = {
+                        // 拖动取消时重置偏移量
+                        offsetX = 0f
+                        offsetY = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        // 更新水平和垂直偏移量
+                        offsetX += dragAmount.x
+                        offsetY += dragAmount.y
+                        
+                        // 限制拖动范围（只限制X轴用于位置判断）
+                        when {
+                            isOnRight -> {
+                                // 如果在右侧，主要限制向左拖动（负值）
+                                offsetX = offsetX.coerceIn(-panelWidthPx, panelWidthPx * 0.5f)
+                            }
+                            else -> {
+                                // 如果在左侧，主要限制向右拖动（正值）
+                                offsetX = offsetX.coerceIn(-panelWidthPx * 0.5f, panelWidthPx)
+                            }
+                        }
+                        
+                        // Y轴偏移也做适当限制，避免过度偏离
+                        offsetY = offsetY.coerceIn(-panelWidthPx * 0.5f, panelWidthPx * 0.5f)
+                        
+                        change.consume()
+                    }
+                )
+            }
     ) {
         Column(
             modifier = Modifier
