@@ -32,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -44,6 +45,7 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.launch
 
 @Composable
@@ -242,8 +244,9 @@ fun TxtScreen(
                             ) { page ->
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
+                                val pageAnnotatedContent = Utils.highLightText(pageContent, viewModel.currentKeyword)
                                 PageContent(
-                                    pageContent = pageContent,
+                                    pageAnnotatedContent = pageAnnotatedContent,
                                     fontSize = viewModel.currentFontSizeSp,
                                     lineHeight = viewModel.currentLineHeightSp,
                                     contentPadding = contentPadding
@@ -304,14 +307,14 @@ fun TxtScreen(
 
 @Composable
 fun PageContent(
-    pageContent: String,
+    pageAnnotatedContent: AnnotatedString,
     fontSize: Int,
     lineHeight: Int,
     contentPadding: PaddingValues = PaddingValues()
 ) {
     SelectionContainer {
         Text(
-            text = pageContent,
+            text = pageAnnotatedContent,
             fontSize = fontSize.sp,
             lineHeight = lineHeight.sp,
             modifier = Modifier

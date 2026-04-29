@@ -435,7 +435,7 @@ class TxtViewModel(
                 }
 
                 var startIndex = 0
-                val previewCharsLR = 16
+                val previewCharsLR = 25
                 
                 // ✅ 在当前页中查找所有匹配
                 while (true) {

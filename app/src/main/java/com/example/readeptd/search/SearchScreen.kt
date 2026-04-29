@@ -82,7 +82,7 @@ fun SlideInSearchPanel(
     val screenWidthDp = configuration.screenWidthDp
     
     // ✅ 计算面板宽度为屏幕宽度的 1/3（更激进：最小80dp）
-    val panelWidthDp = (screenWidthDp / 3).coerceAtLeast(80).coerceAtMost(400)
+    val panelWidthDp = (screenWidthDp / 3).coerceAtLeast(160).coerceAtMost(400)
     
     // ✅ 根据位置计算目标偏移量
     val targetOffset = if (visible) {
@@ -261,7 +261,7 @@ fun SearchResultCard(
                     pop()
                 },
                 style = MaterialTheme.typography.bodySmall,
-                maxLines = 2,
+                maxLines = 6,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.2  // ✅ 减小行高
             )
