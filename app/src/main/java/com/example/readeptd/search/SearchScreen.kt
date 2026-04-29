@@ -1,5 +1,6 @@
 package com.example.readeptd.search
 
+import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,11 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.roundToInt
 
 /**
@@ -60,21 +64,27 @@ import kotlin.math.roundToInt
 fun SlideInSearchPanel(
     visible: Boolean,
     onDismiss: () -> Unit,
-    keyword: String,
-    onKeywordChange: (String) -> Unit,
-    onSearch: (String) -> Unit,
-    results: List<SearchData.SearchResult>,
+    onSearch: (String) -> Unit,  // ✅ 只需要这个回调
+    resultsState: StateFlow<List<SearchData.SearchResult>>,
     onResultClick: (SearchData.SearchResult) -> Unit
 ) {
+    var keyword by remember { mutableStateOf("") }  // ✅ 完全内部管理
 
-    val panelWidthPx = with(LocalDensity.current) { 200.dp.toPx() }
-    var offsetX by remember { mutableFloatStateOf(0f) }
+    // ✅ 获取屏幕配置
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+    
+    // ✅ 计算面板宽度为屏幕宽度的 1/3
+    val panelWidthDp = (screenWidthDp / 3).coerceAtLeast(200).coerceAtMost(400)
+    
+    val targetOffset = if (visible) IntOffset(screenWidthDp - panelWidthDp, 0) else IntOffset(screenWidthDp, 0)
+    val animatedOffset by animateIntOffsetAsState(
+        targetValue = targetOffset,
+        label = "search_panel_animation"
+    )
 
-    LaunchedEffect(visible) {
+    val results by resultsState.collectAsState()
 
-    }
-
-    // 背景遮罩
     if (visible) {
         Box(
             modifier = Modifier
@@ -86,29 +96,13 @@ fun SlideInSearchPanel(
         )
     }
 
-    // 侧滑面板
-    val panelWidth = 200.dp
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .width(panelWidth)
-            .offset(offsetX.roundToInt().dp, 0.dp)
+            .width(panelWidthDp.dp)
+            .offset(animatedOffset.x.dp, animatedOffset.y.dp)
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { _, dragAmount ->
-                        offsetX = (offsetX + dragAmount).coerceIn(0f, panelWidthPx)
-                    },
-                    onDragEnd = {
-                        if (offsetX > panelWidthPx / 2f) {
-                            onDismiss()
-                        } else {
-                            offsetX = 0f
-                        }
-                    }
-                )
-            }
     ) {
         Column(
             modifier = Modifier
@@ -138,7 +132,7 @@ fun SlideInSearchPanel(
             // 搜索输入框
             OutlinedTextField(
                 value = keyword,
-                onValueChange = onKeywordChange,
+                onValueChange = { newValue -> keyword = newValue },
                 label = { Text("关键词") },
                 placeholder = { Text("请输入搜索内容") },
                 singleLine = true,

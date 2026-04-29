@@ -47,5 +47,4 @@ class SearchData {
         override val displayName: String = "第 ${pageIndex + 1} 页",
         override val sortKey: Int = pageIndex
     ) : SearchResult
-
 }

@@ -187,6 +187,7 @@ fun ContentScreen(
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onTap = {
+                                                viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
                                             }
                                         )
                                     }

@@ -42,6 +42,8 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.search.SearchData
+import com.example.readeptd.search.SlideInSearchPanel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -60,6 +62,7 @@ fun TxtScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowSearchDialog by remember { mutableStateOf(false) }
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -173,6 +176,9 @@ fun TxtScreen(
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
                                 }
+                                contentViewModel.setOnClickSearchButtonCallback {
+                                    isShowSearchDialog = !isShowSearchDialog
+                                }
                             }
 
                             LaunchedEffect(pagerState.currentPage) {
@@ -258,6 +264,21 @@ fun TxtScreen(
                                     }
                                 )
                             }
+                            SlideInSearchPanel(
+                                visible = isShowSearchDialog,
+                                onDismiss = {
+                                    isShowSearchDialog = false
+                                },
+                                onSearch = {
+                                    viewModel.search(it)
+                                },
+                                resultsState = viewModel.searchResults,
+                                onResultClick = {
+                                    scope.launch {
+                                        pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
+                                    }
+                                }
+                            )
                         }
                     }
                 }
