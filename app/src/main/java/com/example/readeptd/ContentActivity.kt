@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -180,16 +181,32 @@ fun ContentScreen(
                             }
                         }
                         if (ttsInitialized) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onTap = {
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "搜索",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                             var isShowTimerDialog by remember { mutableStateOf(false) }
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier.padding(start = 4.dp,end = 16.dp)
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onTap = {
                                                 if (isSpeaking) {
                                                     Log.d("ContentActivity", "停止朗读按钮被点击")
-                                                    ttsModel.onEvent(TtsEvent.StopSpeaking)
+                                                    ttsModel.stop()
                                                 } else {
                                                     Log.d("ContentActivity", "请求开始自动朗读")
                                                     ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
@@ -208,6 +225,7 @@ fun ContentScreen(
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
+
                             if (isShowTimerDialog) {
                                 val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
                                 TimerDialog(

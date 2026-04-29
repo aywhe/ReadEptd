@@ -19,4 +19,5 @@ sealed interface ContentUiEvent {
     data class OnClickProgressInfo(val progressText: String): ContentUiEvent
     object OnDoubleClickScreen : ContentUiEvent
     data  class OnScreenOrientationChanged(val orientation: Int): ContentUiEvent
+    object OnClickSearchButton : ContentUiEvent
 }

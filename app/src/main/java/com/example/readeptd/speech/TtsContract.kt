@@ -8,11 +8,6 @@ sealed interface TtsEvent {
      * 请求开始自动朗读(获取文本并朗读)
      */
     object RequestAutoSpeak : TtsEvent
-    
-    /**
-     * 停止朗读
-     */
-    object StopSpeaking : TtsEvent
 
     /**
      * 开始计时器

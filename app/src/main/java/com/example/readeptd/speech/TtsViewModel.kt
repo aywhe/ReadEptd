@@ -194,9 +194,6 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                     onRequestSpeechStartCallback?.invoke()
                 }
             }
-            is TtsEvent.StopSpeaking -> {
-                stop()
-            }
             is TtsEvent.StartCountDownTimer -> {
                 Log.d(TAG,"开始定时器,剩余时间:${event.millisInFuture/1000f/60f}分钟")
                 countDownTimerFinishedDelayFlag = false
