@@ -435,6 +435,7 @@ class TxtViewModel(
                 }
 
                 var startIndex = 0
+                val previewCharsLR = 16
                 
                 // ✅ 在当前页中查找所有匹配
                 while (true) {
@@ -442,8 +443,8 @@ class TxtViewModel(
                     if (matchIndex == -1) break
                     
                     // ✅ 提取上下文预览（前后 50 字符）
-                    val contextStart = (matchIndex - 50).coerceAtLeast(0)
-                    val contextEnd = (matchIndex + keyword.length + 50).coerceAtMost(pageContent.length)
+                    val contextStart = (matchIndex - previewCharsLR).coerceAtLeast(0)
+                    val contextEnd = (matchIndex + keyword.length + previewCharsLR).coerceAtMost(pageContent.length)
                     val previewContent = pageContent.substring(contextStart, contextEnd)
                     
                     // ✅ 计算字符偏移量
