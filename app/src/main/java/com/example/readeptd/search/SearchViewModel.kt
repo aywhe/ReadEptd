@@ -113,24 +113,76 @@ class SearchViewModel(
 
     /**
      * 导航到上一项
+     * @param bySortKey 是否按 sortKey 分组跳转（跳转到上一个不同的 sortKey）
      */
-    fun navigateToPrevious() {
+    fun navigateToPrevious(bySortKey: Boolean = false) {
         val currentIdx = _currentIndex.value
         val results = _searchResults.value
         if (results.isEmpty()) return
 
-        _currentIndex.value = if (currentIdx <= 0) results.size - 1 else currentIdx - 1
+        if (!bySortKey) {
+            // ✅ 普通模式：逐项循环导航
+            _currentIndex.value = if (currentIdx <= 0) results.size - 1 else currentIdx - 1
+        } else {
+            // ✅ 按 sortKey 模式：跳转到上一个不同的 sortKey
+            val currentSortKey = if (currentIdx >= 0 && currentIdx < results.size) {
+                results[currentIdx].sortKey
+            } else null
+
+            var targetIndex = currentIdx
+            var found = false
+            
+            // 向前搜索第一个不同 sortKey 的项目
+            for (i in 1..results.size) {
+                val idx = if (currentIdx - i >= 0) currentIdx - i else results.size + (currentIdx - i)
+                if (currentSortKey == null || results[idx].sortKey != currentSortKey) {
+                    targetIndex = idx
+                    found = true
+                    break
+                }
+            }
+            
+            if (found) {
+                _currentIndex.value = targetIndex
+            }
+        }
     }
 
     /**
      * 导航到下一项
+     * @param bySortKey 是否按 sortKey 分组跳转（跳转到下一个不同的 sortKey）
      */
-    fun navigateToNext() {
+    fun navigateToNext(bySortKey: Boolean = false) {
         val currentIdx = _currentIndex.value
         val results = _searchResults.value
         if (results.isEmpty()) return
 
-        _currentIndex.value = if (currentIdx >= results.size - 1) 0 else currentIdx + 1
+        if (!bySortKey) {
+            // ✅ 普通模式：逐项循环导航
+            _currentIndex.value = if (currentIdx >= results.size - 1) 0 else currentIdx + 1
+        } else {
+            // ✅ 按 sortKey 模式：跳转到下一个不同的 sortKey
+            val currentSortKey = if (currentIdx >= 0 && currentIdx < results.size) {
+                results[currentIdx].sortKey
+            } else null
+
+            var targetIndex = currentIdx
+            var found = false
+            
+            // 向后搜索第一个不同 sortKey 的项目
+            for (i in 1..results.size) {
+                val idx = (currentIdx + i) % results.size
+                if (currentSortKey == null || results[idx].sortKey != currentSortKey) {
+                    targetIndex = idx
+                    found = true
+                    break
+                }
+            }
+            
+            if (found) {
+                _currentIndex.value = targetIndex
+            }
+        }
     }
 
     /**

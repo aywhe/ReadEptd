@@ -136,7 +136,7 @@ fun SlideInSearchPanel(
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
             .shadow(24.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .pointerInput(Unit){
                 detectDragGestures { change, dragAmount ->
                     panelPositionPx = IntOffset(
@@ -250,7 +250,7 @@ fun SlideInSearchPanel(
                     }
                     IconButton(
                         onClick = { 
-                            viewModel.navigateToPrevious()
+                            viewModel.navigateToPrevious(bySortKey =  true)
                             viewModel.getCurrentResult()?.let { onResultClick(it) }
                             scope.launch {
                                 lazyListState.scrollToItem(index = currentIndex)
@@ -267,7 +267,7 @@ fun SlideInSearchPanel(
                     }
                     IconButton(
                         onClick = { 
-                            viewModel.navigateToNext()
+                            viewModel.navigateToNext(bySortKey = true)
                             viewModel.getCurrentResult()?.let { onResultClick(it)}
                             scope.launch {
                                 lazyListState.scrollToItem(index = currentIndex)
