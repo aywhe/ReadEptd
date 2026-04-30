@@ -2,7 +2,6 @@ package com.example.readeptd.search
 
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -74,7 +71,7 @@ fun SlideInSearchPanel(
 ) {
     var visible by remember(initialVisible) { mutableStateOf(initialVisible) }
     var keyword by remember(initialKeyword) { mutableStateOf(initialKeyword) }
-    var isDragMode by remember { mutableStateOf(false) }
+    var isCollapse by remember { mutableStateOf(false) }
     var isOnRight by remember { mutableStateOf(true) }
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -104,48 +101,26 @@ fun SlideInSearchPanel(
     }
 
     // ✅ 修复：使用状态管理面板当前位置
-    var panelPosition by remember { mutableStateOf(panelHidePositionDp) }
+    var panelPositionDp by remember { mutableStateOf(panelHidePositionDp) }
 
     // ✅ 修复：根据 visible 状态更新面板位置
-    LaunchedEffect(visible, panelVisiblePositionDp, panelHidePositionDp, isDragMode) {
-        if (isDragMode) {
+    LaunchedEffect(visible, panelVisiblePositionDp, panelHidePositionDp, isCollapse) {
+        if (isCollapse) {
             // 拖拽模式下不自动更新位置
         } else {
-            panelPosition = if (visible) panelVisiblePositionDp else panelHidePositionDp
+            panelPositionDp = if (visible) panelVisiblePositionDp else panelHidePositionDp
         }
     }
 
     val animatedOffset by animateIntOffsetAsState(
-        targetValue = panelPosition,
+        targetValue = panelPositionDp,
         label = "search_panel_animation"
     )
 
-    // 面板 modifier
-    var panelModifier: Modifier = Modifier
-    if(isDragMode){
-        panelModifier = panelModifier
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        panelPosition += IntOffset(
-                            dragAmount.x.toInt(),
-                            dragAmount.y.toInt()
-                        )
-                    }
-                )
-            }
-            .wrapContentWidth()
-            .wrapContentHeight()
-    } else {
-        panelModifier = panelModifier
+    Box(
+        modifier = Modifier
             .height(panelHeightDp.dp)
             .width(panelWidthDp.dp)
-    }
-
-    Box(
-        modifier = panelModifier
             .offset(animatedOffset.x.dp, animatedOffset.y.dp)
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
@@ -161,14 +136,16 @@ fun SlideInSearchPanel(
                     .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            val currentX = panelPosition.x
+                            val currentX = panelPositionDp.x
                             val screenWidth = screenWidthDp
                             val midPoint = screenWidth / 2
                             isOnRight = currentX > midPoint
                         },
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
-                            panelPosition += IntOffset(dragAmount.roundToInt(), 0)
+                            val screenWidthPx = with(density) { configuration.screenWidthDp }
+
+                            panelPositionDp += IntOffset(dragAmount.roundToInt(), 0)
                         }
                     )
                 },
@@ -180,19 +157,16 @@ fun SlideInSearchPanel(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Row {
-
-                    if(!isDragMode) {
-                        // ✅ 左右切换按钮（更小）
-                        IconButton(
-                            onClick = { isOnRight = !isOnRight },
-                            modifier = Modifier.padding(0.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                    // ✅ 左右切换按钮（更小）
+                    IconButton(
+                        onClick = { isOnRight = !isOnRight },
+                        modifier = Modifier.padding(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                     // 关闭按钮（更小）
                     IconButton(
@@ -247,13 +221,13 @@ fun SlideInSearchPanel(
                         .pointerInput( Unit){
                             detectTapGestures(
                                 onTap = {
-                                    isDragMode = !isDragMode
+                                    isCollapse = !isCollapse
                                 }
                             )
                         }
                 )
             }
-            if(!isDragMode) {
+            if(!isCollapse) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
