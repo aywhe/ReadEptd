@@ -29,6 +29,9 @@ class SearchViewModel(
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
 
+    // ✅ 3. 搜索结果缓存：关键词 -> 结果列表
+    private val searchCache = mutableMapOf<String, List<SearchData.SearchResult>>()
+
     /**
      * 执行搜索
      */
@@ -40,6 +43,14 @@ class SearchViewModel(
         if (searchFun == null || keyword.isBlank()) {
             _searchResults.value = emptyList()
             _currentIndex.value = -1
+            return
+        }
+
+        // ✅ 检查缓存，如果已存在则直接返回
+        val cachedResults = searchCache[keyword]
+        if (cachedResults != null) {
+            _searchResults.value = cachedResults
+            _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
             return
         }
 
@@ -76,8 +87,28 @@ class SearchViewModel(
                 if (results.size > lastUpdateCount) {
                     _searchResults.value = results.toList()
                 }
+                
+                // ✅ 缓存搜索结果
+                if (results.isNotEmpty()) {
+                    searchCache[keyword] = results.toList()
+                    _currentIndex.value = 0
+                }
             }
         }
+    }
+
+    /**
+     * 清除缓存
+     */
+    fun clearCache() {
+        searchCache.clear()
+    }
+
+    /**
+     * 清除指定关键词的缓存
+     */
+    fun clearCache(keyword: String) {
+        searchCache.remove(keyword)
     }
 
     /**

@@ -64,7 +64,6 @@ import kotlin.math.roundToInt
 
 /**
  * 侧滑搜索面板
- * @param visible 是否显示
  */
 @Composable
 fun SlideInSearchPanel(
