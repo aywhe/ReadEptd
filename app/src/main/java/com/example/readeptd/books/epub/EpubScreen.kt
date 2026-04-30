@@ -127,10 +127,7 @@ fun EpubScreen(
                                 ttsModel.setOnRequestSpeechStartListener {
                                     Log.d("EpubScreen", "自动朗读开始,获取当前页文本")
                                     getCurrentPageText { text ->
-                                        Log.d(
-                                            "EpubScreen",
-                                            "获取到文本: ${text.take(50)} ..., 是否为空: ${text.isBlank()}"
-                                        )
+                                        Log.d("EpubScreen", "获取到文本: ${text.take(50)} ..., 是否为空: ${text.isBlank()}")
                                         if (text.isNotBlank()) {
                                             Log.d("EpubScreen", "调用 ttsModel.speak() 开始朗读")
                                             val cleanedText = text.replace("\\n", " ").trim()
@@ -144,7 +141,7 @@ fun EpubScreen(
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
                                     Log.d("EpubScreen", "自动朗读完成: $utteranceId, 准备翻页")
-                                    nextPage {
+                                    nextPage{
                                         getCurrentPageText { text ->
                                             if (text.isNotBlank()) {
                                                 Log.d("EpubScreen", "获取到下一页文本,开始朗读")
@@ -169,6 +166,7 @@ fun EpubScreen(
                         },
                         modifier = Modifier.fillMaxSize()
                     )
+                    
                     if (isShowJumpToProgressDialog) {
                         JumpToProgressDialog(
                             progress = location.start.percentage,
@@ -182,10 +180,13 @@ fun EpubScreen(
                             }
                         )
                     }
+                    
                     SlideInSearchPanel(
                         initialVisible = isShowSearchDialog,
-                        onClose = { isShowSearchDialog = false },
-                        searchExecutor = { emptyFlow() },
+                        onClose =  {isShowSearchDialog = false},
+                        searchExecutor = { query ->
+                            viewModel.search(query, webView = webView)  // ✅ 调用 ViewModel 的搜索函数
+                        },
                         onResultClick = { result ->
                             webView?.goToLocation((result as SearchData.EpubSearchResult).cfi)
                         }
