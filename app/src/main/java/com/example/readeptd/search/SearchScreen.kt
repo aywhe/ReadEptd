@@ -1,5 +1,6 @@
 package com.example.readeptd.search
 
+import android.util.Log
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -84,7 +85,7 @@ fun SlideInSearchPanel(
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
-    val panelWidthDp = screenWidthDp * 2 / 5
+    val panelWidthDp = (screenWidthDp * 2 / 5)
     val panelHeightDp = screenHeightDp
     // ✅ 统一使用 px 进行计算
     val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
@@ -92,7 +93,8 @@ fun SlideInSearchPanel(
 
     val panelWidthPx = with(density) { panelWidthDp.dp.toPx() }
     val panelHeightPx = screenHeightPx
-
+    Log.d("SlideInSearchPanel", "screenWidthPx: $screenWidthPx, screenHeightPx: $screenHeightPx")
+    Log.d("SlideInSearchPanel", "panelWidthPx: $panelWidthPx, panelHeightPx: $panelHeightPx")
     // ✅ 面板位置使用 px
     val panelVisiblePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight) {
         mutableStateOf(
@@ -129,6 +131,14 @@ fun SlideInSearchPanel(
             .offset { animatedOffsetPx }
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
+            .pointerInput(Unit){
+                detectDragGestures { change, dragAmount ->
+                    panelPositionPx = IntOffset(
+                        (panelPositionPx.x + dragAmount.x).roundToInt(),
+                        (panelPositionPx.y + dragAmount.y).roundToInt()
+                    )
+                }
+            }
     ) {
         Column(
             modifier = Modifier
@@ -146,14 +156,6 @@ fun SlideInSearchPanel(
                     text = "搜索",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
-                        .pointerInput(Unit){
-                            detectDragGestures { change, dragAmount ->
-                                panelPositionPx = IntOffset(
-                                    (panelPositionPx.x + dragAmount.x).roundToInt(),
-                                    (panelPositionPx.y + dragAmount.y).roundToInt()
-                                )
-                            }
-                        }
                 )
                 Row {
                     // ✅ 左右切换按钮（更小）
@@ -290,7 +292,6 @@ fun SearchResultCard(
                     pop()
                 },
                 style = MaterialTheme.typography.bodySmall,
-                maxLines = 6,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.2
             )
