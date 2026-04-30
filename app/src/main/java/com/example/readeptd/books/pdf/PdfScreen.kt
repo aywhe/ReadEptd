@@ -50,6 +50,8 @@ import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.search.SearchData
+import com.example.readeptd.search.SlideInSearchPanel
 
 @Composable
 fun PdfScreen(
@@ -139,6 +141,7 @@ fun PdfLazyViewer(
         var scale by remember { mutableFloatStateOf(1f) }
         var offset by remember { mutableStateOf(Offset.Zero) }
         var containerSize by remember { mutableStateOf(IntSize.Zero) }
+        var isShowSearchDialog by remember { mutableStateOf(false) }
 
         val initialPage = viewModel.getInitialPage()
         val pagerState = rememberPagerState(
@@ -160,6 +163,9 @@ fun PdfLazyViewer(
                 if (totalPages > 0) {
                     isShowJumpToPageDialog = true
                 }
+            }
+            contentViewModel.setOnClickSearchButtonCallback {
+                isShowSearchDialog = !isShowSearchDialog
             }
 
             ttsModel.setOnRequestSpeechStartListener {
@@ -283,6 +289,20 @@ fun PdfLazyViewer(
                     }
                 )
             }
+            SlideInSearchPanel(
+                initialVisible = isShowSearchDialog,
+                searchExecutor = { query ->
+                    viewModel.search(query)
+                },
+                onResultClick = { result ->
+                    scope.launch {
+                        pagerState.scrollToPage((result as SearchData.PdfSearchResult).pageIndex)
+                    }
+                },
+                onClose = {
+                    isShowSearchDialog = false
+                }
+            )
         }
     } else {
         Column(
