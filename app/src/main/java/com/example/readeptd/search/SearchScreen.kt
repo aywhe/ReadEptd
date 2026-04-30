@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -78,6 +80,7 @@ fun SlideInSearchPanel(
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val results by viewModel.searchResults.collectAsState()
+    val currentIndex by viewModel.currentIndex.collectAsState()
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
@@ -219,19 +222,55 @@ fun SlideInSearchPanel(
 
             // 搜索结果数量（更紧凑）
             if (results.isNotEmpty()) {
-                TextButton(
-                    onClick = { isCollapsed = !isCollapsed },
-                    modifier = Modifier
-                        .padding(bottom = 0.dp)
-                        .height(24.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        text = "${results.size}条结果",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = MaterialTheme.typography.labelSmall.fontSize
-                    )
+                    TextButton(
+                        onClick = { isCollapsed = !isCollapsed },
+                        modifier = Modifier
+                            .padding(bottom = 0.dp)
+                            .height(24.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 2.dp,
+                            vertical = 0.dp
+                        )
+                    ) {
+                        Text(
+                            text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = MaterialTheme.typography.labelSmall.fontSize
+                        )
+                    }
+                    IconButton(
+                        onClick = { 
+                            viewModel.navigateToPrevious()
+                            viewModel.getCurrentResult()?.let { onResultClick(it) }
+                        },
+                        modifier = Modifier.size(24.dp),
+                        enabled = results.isNotEmpty()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowUpward,
+                            contentDescription = "上一项",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { 
+                            viewModel.navigateToNext()
+                            viewModel.getCurrentResult()?.let { onResultClick(it) }
+                        },
+                        modifier = Modifier.size(24.dp),
+                        enabled = results.isNotEmpty()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDownward,
+                            contentDescription = "下一项",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
             if (!isCollapsed) {

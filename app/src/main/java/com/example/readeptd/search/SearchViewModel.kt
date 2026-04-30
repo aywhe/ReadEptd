@@ -22,6 +22,10 @@ class SearchViewModel(
     private val _searchResults = MutableStateFlow<List<SearchData.SearchResult>>(emptyList())
     val searchResults: StateFlow<List<SearchData.SearchResult>> = _searchResults.asStateFlow()
 
+    // ✅ 当前选中的搜索结果索引
+    private val _currentIndex = MutableStateFlow<Int>(-1)
+    val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
+
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
 
@@ -35,6 +39,7 @@ class SearchViewModel(
         // 如果没有提供搜索函数，或者关键词为空，则清空结果并返回
         if (searchFun == null || keyword.isBlank()) {
             _searchResults.value = emptyList()
+            _currentIndex.value = -1
             return
         }
 
@@ -44,6 +49,7 @@ class SearchViewModel(
         // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
             _searchResults.value = emptyList()
+            _currentIndex.value = -1
 
             // 使用 mutableStateListOf 还是 StateFlow？
             // 如果你坚持用 StateFlow，这里依然需要累积列表
@@ -72,5 +78,36 @@ class SearchViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * 导航到上一项
+     */
+    fun navigateToPrevious() {
+        val currentIdx = _currentIndex.value
+        val results = _searchResults.value
+        if (results.isEmpty()) return
+
+        _currentIndex.value = if (currentIdx <= 0) results.size - 1 else currentIdx - 1
+    }
+
+    /**
+     * 导航到下一项
+     */
+    fun navigateToNext() {
+        val currentIdx = _currentIndex.value
+        val results = _searchResults.value
+        if (results.isEmpty()) return
+
+        _currentIndex.value = if (currentIdx >= results.size - 1) 0 else currentIdx + 1
+    }
+
+    /**
+     * 获取当前选中的结果
+     */
+    fun getCurrentResult(): SearchData.SearchResult? {
+        val idx = _currentIndex.value
+        val results = _searchResults.value
+        return if (idx in results.indices) results[idx] else null
     }
 }
