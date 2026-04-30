@@ -28,34 +28,49 @@ class SearchViewModel(
     /**
      * 执行搜索
      */
-    fun onSearch(keyword: String, searchFun:((String)->Flow<SearchData.SearchResult>)? = null) {
-        // 如果关键词为空，直接清空结果
-        if (keyword.isBlank()) {
+    fun onSearch(
+        keyword: String,
+        searchFun: ((String) -> Flow<SearchData.SearchResult>)?
+    ) {
+        // 如果没有提供搜索函数，或者关键词为空，则清空结果并返回
+        if (searchFun == null || keyword.isBlank()) {
             _searchResults.value = emptyList()
             return
         }
 
-        // ✅ 3. 取消上一次的搜索任务（关键！防止并发冲突）
+        // ✅ 取消上一次的搜索任务
         searchJob?.cancel()
 
-        // ✅ 4. 启动新的协程
+        // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
-            // 先清空旧结果，准备接收新结果
             _searchResults.value = emptyList()
 
-            // 创建一个临时列表来累积结果
+            // 使用 mutableStateListOf 还是 StateFlow？
+            // 如果你坚持用 StateFlow，这里依然需要累积列表
             val results = mutableListOf<SearchData.SearchResult>()
+            var lastUpdateCount = 0
+            val updateInterval = 20
 
-            // 收集 TxtViewModel 产生的流
-            searchFun?.invoke(keyword)?.collect { result ->
-                // 每找到一个结果，就加入列表
-                results.add(result)
-
-                // ✅ 5. 实时更新 StateFlow
-                // 注意：StateFlow 需要赋值一个新的 List 对象才能触发 UI 更新
-                _searchResults.value = results.toList()
+            try {
+                // ✅ 调用传入的搜索函数并收集结果
+                searchFun(keyword).collect { result ->
+                    results.add(result)
+                    
+                    // ✅ 优化：每积累 20 个结果才更新一次 UI
+                    if (results.size - lastUpdateCount >= updateInterval) {
+                        _searchResults.value = results.toList()
+                        lastUpdateCount = results.size
+                    }
+                }
+            } catch (e: Exception) {
+                // 处理搜索过程中可能出现的异常（如文件读取错误）
+                e.printStackTrace()
+            } finally {
+                // ✅ 确保最后剩余的结果也能显示出来
+                if (results.size > lastUpdateCount) {
+                    _searchResults.value = results.toList()
+                }
             }
         }
     }
 }
-

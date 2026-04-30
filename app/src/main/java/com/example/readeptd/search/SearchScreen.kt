@@ -3,6 +3,7 @@ package com.example.readeptd.search
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -61,119 +65,83 @@ import kotlin.math.roundToInt
 @Composable
 fun SlideInSearchPanel(
     visible: Boolean,
+    onResultClick: (SearchData.SearchResult) -> Unit,
     onKeywordChange: (String) -> Unit,
     searchExecutor: (String) -> Flow<SearchData.SearchResult>,
     useKeyword: String = "",
     viewModel: SearchViewModel = viewModel()
 ) {
-    var keyword by remember { mutableStateOf(useKeyword) }  // ✅ 完全内部管理
-    
-    // ✅ 面板位置状态：true=右侧，false=左侧
+    var isDragMode by remember { mutableStateOf(false) }
+    var keyword by remember { mutableStateOf(useKeyword) }
     var isOnRight by remember { mutableStateOf(true) }
-    
-    // ✅ 拖动相关状态
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }  // 添加Y轴偏移记录
     val density = LocalDensity.current
-    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
-    val panelWidthPx = with(density) { 
-        val panelWidthDp = (LocalConfiguration.current.screenWidthDp / 3).coerceAtLeast(160).coerceAtMost(400)
-        panelWidthDp.dp.toPx() 
-    }
-
-    // ✅ 获取屏幕配置
     val configuration = LocalConfiguration.current
+    val results by viewModel.searchResults.collectAsState()
+
     val screenWidthDp = configuration.screenWidthDp
-    
-    // ✅ 计算面板宽度为屏幕宽度的 1/3（更激进：最小80dp）
-    val panelWidthDp = (screenWidthDp / 3).coerceAtLeast(160).coerceAtMost(400)
-    
-    // ✅ 根据位置和拖动偏移计算最终偏移量
-    val baseOffset = if (visible) {
-        if (isOnRight) {
-            // 右侧显示
-            IntOffset(screenWidthDp - panelWidthDp, 0)
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+
+    val panelWidthDp = 160
+    val panelHeightDp = screenHeightDp
+
+    var panelVisiblePositionDp by remember { mutableStateOf(IntOffset(screenWidthDp - panelWidthDp, 0)) }
+    var panelHidePositionDp by remember { mutableStateOf(IntOffset(screenWidthDp, 0)) }
+    if(isOnRight){
+        panelVisiblePositionDp = IntOffset(screenWidthDp - panelWidthDp, 0)
+        panelHidePositionDp = IntOffset(screenWidthDp, 0)
+    } else {
+        panelVisiblePositionDp = IntOffset(0, 0)
+        panelHidePositionDp = IntOffset(-panelWidthDp, 0)
+    }
+    var panelPosition by remember { mutableStateOf(panelVisiblePositionDp) }
+    if(isDragMode){
+        if (visible) {
+
         } else {
-            // 左侧显示
-            IntOffset(0, 0)
+            panelPosition = panelHidePositionDp
         }
     } else {
-        // 隐藏时移到屏幕外
-        IntOffset(screenWidthDp, 0)
+        if (visible) {
+            panelPosition = panelVisiblePositionDp
+        } else {
+            panelPosition = panelHidePositionDp
+        }
     }
     
-    // ✅ 应用拖动偏移（仅使用X轴偏移进行位置计算）
-    val finalOffset = IntOffset(
-        x = baseOffset.x + offsetX.roundToInt(),
-        y = baseOffset.y
-    )
-    
     val animatedOffset by animateIntOffsetAsState(
-        targetValue = if (offsetX == 0f && offsetY == 0f) baseOffset else finalOffset,  // 拖动时不使用动画
+        targetValue = panelPosition,
         label = "search_panel_animation"
     )
 
-    val results by resultsState.collectAsState()
-
-    Box(
+    var modifier: Modifier = Modifier
+    if(isDragMode){
         modifier = Modifier
-            .fillMaxHeight()
-            .width(panelWidthDp.dp)
-            .offset(animatedOffset.x.dp, animatedOffset.y.dp)
-            .shadow(8.dp)
-            .background(MaterialTheme.colorScheme.surface)
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = {
-                        // 拖动开始时重置偏移量
-                        offsetX = 0f
-                        offsetY = 0f
-                    },
-                    onDragEnd = {
-                        // 拖动结束时决定是否需要切换位置（只考虑X轴偏移）
-                        val threshold = panelWidthPx * 0.3f  // 30% 宽度作为阈值
-                        
-                        if (offsetX > threshold && !isOnRight) {
-                            // 向右拖动超过阈值且当前在左侧 -> 切换到右侧
-                            isOnRight = true
-                        } else if (offsetX < -threshold && isOnRight) {
-                            // 向左拖动超过阈值且当前在右侧 -> 切换到左侧
-                            isOnRight = false
-                        }
-                        
-                        // 重置偏移量
-                        offsetX = 0f
-                        offsetY = 0f
-                    },
-                    onDragCancel = {
-                        // 拖动取消时重置偏移量
-                        offsetX = 0f
-                        offsetY = 0f
-                    },
+                    onDragStart = { },
                     onDrag = { change, dragAmount ->
-                        // 更新水平和垂直偏移量
-                        offsetX += dragAmount.x
-                        offsetY += dragAmount.y
-                        
-                        // 限制拖动范围（只限制X轴用于位置判断）
-                        when {
-                            isOnRight -> {
-                                // 如果在右侧，主要限制向左拖动（负值）
-                                offsetX = offsetX.coerceIn(-panelWidthPx, panelWidthPx * 0.5f)
-                            }
-                            else -> {
-                                // 如果在左侧，主要限制向右拖动（正值）
-                                offsetX = offsetX.coerceIn(-panelWidthPx * 0.5f, panelWidthPx)
-                            }
-                        }
-                        
-                        // Y轴偏移也做适当限制，避免过度偏离
-                        offsetY = offsetY.coerceIn(-panelWidthPx * 0.5f, panelWidthPx * 0.5f)
-                        
                         change.consume()
+                        panelPosition += IntOffset(
+                            dragAmount.x.toInt(),
+                            dragAmount.y.toInt()
+                        )
                     }
                 )
             }
+            .wrapContentWidth()
+            .wrapContentHeight()
+    } else {
+        modifier = Modifier
+            .height(panelHeightDp.dp)
+            .width(panelWidthDp.dp)
+    }
+    Box(
+        modifier = modifier
+            .offset(animatedOffset.x.dp, animatedOffset.y.dp)
+            .shadow(8.dp)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -190,23 +158,24 @@ fun SlideInSearchPanel(
                     text = "搜索",
                     style = MaterialTheme.typography.titleMedium  // ✅ 减小字号：titleLarge -> titleMedium
                 )
-                
                 Row {
-                    // ✅ 左右切换按钮（更小）
-                    IconButton(
-                        onClick = { isOnRight = !isOnRight },
-                        modifier = Modifier.padding(0.dp)  // ✅ 移除额外padding
-                    ) {
-                        Icon(
-                            imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
-                            modifier = Modifier.size(20.dp)  // ✅ 减小图标尺寸
-                        )
+
+                    if(!isDragMode) {
+                        // ✅ 左右切换按钮（更小）
+                        IconButton(
+                            onClick = { isOnRight = !isOnRight },
+                            modifier = Modifier.padding(0.dp)  // ✅ 移除额外padding
+                        ) {
+                            Icon(
+                                imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
+                                modifier = Modifier.size(20.dp)  // ✅ 减小图标尺寸
+                            )
+                        }
                     }
-                    
                     // 关闭按钮（更小）
                     IconButton(
-                        onClick = onDismiss,
+                        onClick = { visible = false },
                         modifier = Modifier.padding(0.dp)
                     ) {
                         Icon(
@@ -228,7 +197,7 @@ fun SlideInSearchPanel(
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },  // ✅ 简化placeholder
                 singleLine = true,
                 trailingIcon = {
-                    IconButton(onClick = {onSearch(keyword)}) {
+                    IconButton(onClick = {viewModel.onSearch(keyword, searchExecutor)}) {
                         Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(20.dp))  // ✅ 减小图标
                     }
                 },
@@ -250,30 +219,38 @@ fun SlideInSearchPanel(
                     text = "${results.size}条结果",  // ✅ 简化文本
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 4.dp)  // ✅ 减小间距
+                    modifier = Modifier.padding(bottom = 4.dp)
+                        .pointerInput( Unit){
+                            detectTapGestures(
+                                onTap = {
+                                    isDragMode = !isDragMode
+                                }
+                            )
+                        }
                 )
             }
-
-            // 搜索结果列表（更紧凑）
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)  // ✅ 减小项间距：8dp -> 4dp
-            ) {
-                items(results) { result ->
-                    SearchResultCard(
-                        result = result,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-
-                if (results.isEmpty() && keyword.isNotBlank()) {
-                    item {
-                        Text(
-                            text = "无结果",  // ✅ 简化文本
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 8.dp)  // ✅ 减小间距
+            if(!isDragMode) {
+                // 搜索结果列表（更紧凑）
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)  // ✅ 减小项间距：8dp -> 4dp
+                ) {
+                    items(results.size) { index ->
+                        SearchResultCard(
+                            result = results[index],
+                            onClick = { onResultClick(results[index]) }
                         )
+                    }
+
+                    if (results.isEmpty() && keyword.isNotBlank()) {
+                        item {
+                            Text(
+                                text = "无结果",  // ✅ 简化文本
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)  // ✅ 减小间距
+                            )
+                        }
                     }
                 }
             }
@@ -287,10 +264,10 @@ fun SlideInSearchPanel(
 @Composable
 fun SearchResultCard(
     result: SearchData.SearchResult,
-    onClick: () -> Unit
+    onClick: (SearchData.SearchResult) -> Unit
 ) {
     Card(
-        onClick = onClick,
+        onClick = { onClick(result) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 1.dp)  // ✅ 减小垂直间距：2dp -> 1dp

@@ -268,6 +268,15 @@ fun TxtScreen(
                             }
                             SlideInSearchPanel(
                                 visible = isShowSearchDialog,
+                                onResultClick = {
+                                    scope.launch {
+                                        try{
+                                            pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
+                                        } catch (e: Exception){
+                                            Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                                        }
+                                    }
+                                },
                                 onKeywordChange = {currentKeyword = it},
                                 searchExecutor = {keyword -> viewModel.search(keyword) }
                             )
