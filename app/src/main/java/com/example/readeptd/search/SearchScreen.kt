@@ -198,6 +198,9 @@ fun SlideInSearchPanel(
             // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
             val shouldShowResults = results.isNotEmpty() && keyword == lastKeyword
             
+            // ✅ 判断是否执行过搜索：keyword 不为空且与 lastKeyword 一致
+            val hasSearched = keyword.isNotBlank() && keyword == lastKeyword
+            
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = keyword,
@@ -290,6 +293,17 @@ fun SlideInSearchPanel(
                     }
                 }
             }
+            
+            // ✅ 搜索无结果提示
+            if (hasSearched && results.isEmpty()) {
+                Text(
+                    text = "未找到匹配内容",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            
             if (!isCollapsed && shouldShowResults) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
