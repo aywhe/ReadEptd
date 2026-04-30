@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -110,10 +112,8 @@ fun SlideInSearchPanel(
     var panelPositionPx by remember { mutableStateOf(panelHidePositionPx) }
 
     // ✅ 根据 visible 状态更新面板位置
-    LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx, isCollapse) {
-        if (isCollapse) {
-            // 收缩模式下不自动更新位置
-        } else {
+    LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx) {
+        if (!isCollapse) {
             panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
         }
     }
@@ -125,27 +125,17 @@ fun SlideInSearchPanel(
 
     Box(
         modifier = Modifier
-            .height(panelHeightDp.dp)
             .width(panelWidthDp.dp)
+            .wrapContentHeight()
+            .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
-            // ✅ 在整个 Box 上添加水平拖动手势
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragEnd = {
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        // ✅ 直接使用 px，无需转换
-                        panelPositionPx += IntOffset(dragAmount.x.toInt(),dragAmount.y.toInt())
-                    }
-                )
-            }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .wrapContentHeight()
                 .padding(8.dp)
         ) {
             // 标题栏（更紧凑）
@@ -215,25 +205,28 @@ fun SlideInSearchPanel(
 
             // 搜索结果数量（更紧凑）
             if (results.isNotEmpty()) {
-                Text(
-                    text = "${results.size}条结果",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                TextButton(
+                    onClick = { isCollapse = !isCollapse },
                     modifier = Modifier
-                        .padding(bottom = 4.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
-                                    isCollapse = !isCollapse
-                                }
-                            )
-                        }
-                )
+                        .padding(bottom = 0.dp)
+                        .height(24.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = "${results.size}条结果",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.9
+                    )
+                }
             }
             if (!isCollapse) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .heightIn(max = screenHeightDp.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(results.size) { index ->
@@ -241,17 +234,6 @@ fun SlideInSearchPanel(
                             result = results[index],
                             onClick = { onResultClick(results[index]) }
                         )
-                    }
-
-                    if (results.isEmpty() && keyword.isNotBlank()) {
-                        item {
-                            Text(
-                                text = "无结果",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
                     }
                 }
             }
