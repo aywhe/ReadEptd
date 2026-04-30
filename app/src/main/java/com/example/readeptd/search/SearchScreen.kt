@@ -2,6 +2,7 @@ package com.example.readeptd.search
 
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -61,7 +64,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun SlideInSearchPanel(
-    searchExecutor: (String) -> Flow<SearchData.SearchResult> = {emptyFlow()},
+    searchExecutor: (String) -> Flow<SearchData.SearchResult> = { emptyFlow() },
     onResultClick: (SearchData.SearchResult) -> Unit = {},
     onKeywordChange: (String) -> Unit = {},
     onClose: () -> Unit = {},
@@ -79,41 +82,44 @@ fun SlideInSearchPanel(
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
-    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
-    val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-
-    val panelWidthDp = 160
+    val panelWidthDp = screenWidthDp * 2 / 5
     val panelHeightDp = screenHeightDp
+    // ✅ 统一使用 px 进行计算
+    val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
 
-    // ✅ 修复：使用 remember 保存面板位置状态，避免每次重组都重新计算
-    val panelVisiblePositionDp by remember(screenWidthDp, panelWidthDp, isOnRight) {
+    val panelWidthPx = with(density) { panelWidthDp.dp.toPx() }
+    val panelHeightPx = screenHeightPx
+
+    // ✅ 面板位置使用 px
+    val panelVisiblePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight) {
         mutableStateOf(
-            if (isOnRight) IntOffset(screenWidthDp - panelWidthDp, 0)
+            if (isOnRight) IntOffset((screenWidthPx - panelWidthPx).toInt(), 0)
             else IntOffset(0, 0)
         )
     }
 
-    val panelHidePositionDp by remember(screenWidthDp, panelWidthDp, isOnRight) {
+    val panelHidePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight) {
         mutableStateOf(
-            if (isOnRight) IntOffset(screenWidthDp, 0)
-            else IntOffset(-panelWidthDp, 0)
+            if (isOnRight) IntOffset(screenWidthPx.toInt(), 0)
+            else IntOffset((-panelWidthPx).toInt(), 0)
         )
     }
 
-    // ✅ 修复：使用状态管理面板当前位置
-    var panelPositionDp by remember { mutableStateOf(panelHidePositionDp) }
+    // ✅ 使用 px 管理位置
+    var panelPositionPx by remember { mutableStateOf(panelHidePositionPx) }
 
-    // ✅ 修复：根据 visible 状态更新面板位置
-    LaunchedEffect(visible, panelVisiblePositionDp, panelHidePositionDp, isCollapse) {
+    // ✅ 根据 visible 状态更新面板位置
+    LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx, isCollapse) {
         if (isCollapse) {
-            // 拖拽模式下不自动更新位置
+            // 收缩模式下不自动更新位置
         } else {
-            panelPositionDp = if (visible) panelVisiblePositionDp else panelHidePositionDp
+            panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
         }
     }
 
-    val animatedOffset by animateIntOffsetAsState(
-        targetValue = panelPositionDp,
+    val animatedOffsetPx by animateIntOffsetAsState(
+        targetValue = panelPositionPx,
         label = "search_panel_animation"
     )
 
@@ -121,9 +127,21 @@ fun SlideInSearchPanel(
         modifier = Modifier
             .height(panelHeightDp.dp)
             .width(panelWidthDp.dp)
-            .offset(animatedOffset.x.dp, animatedOffset.y.dp)
+            .offset { animatedOffsetPx }
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
+            // ✅ 在整个 Box 上添加水平拖动手势
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        // ✅ 直接使用 px，无需转换
+                        panelPositionPx += IntOffset(dragAmount.x.toInt(),dragAmount.y.toInt())
+                    }
+                )
+            }
     ) {
         Column(
             modifier = Modifier
@@ -132,23 +150,7 @@ fun SlideInSearchPanel(
         ) {
             // 标题栏（更紧凑）
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            val currentX = panelPositionDp.x
-                            val screenWidth = screenWidthDp
-                            val midPoint = screenWidth / 2
-                            isOnRight = currentX > midPoint
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            val screenWidthPx = with(density) { configuration.screenWidthDp }
-
-                            panelPositionDp += IntOffset(dragAmount.roundToInt(), 0)
-                        }
-                    )
-                },
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -195,7 +197,7 @@ fun SlideInSearchPanel(
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
                 singleLine = true,
                 trailingIcon = {
-                    IconButton(onClick = {viewModel.onSearch(keyword, searchExecutor)}) {
+                    IconButton(onClick = { viewModel.onSearch(keyword, searchExecutor) }) {
                         Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(20.dp))
                     }
                 },
@@ -217,8 +219,9 @@ fun SlideInSearchPanel(
                     text = "${results.size}条结果",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                        .pointerInput( Unit){
+                    modifier = Modifier
+                        .padding(bottom = 4.dp)
+                        .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = {
                                     isCollapse = !isCollapse
@@ -227,7 +230,7 @@ fun SlideInSearchPanel(
                         }
                 )
             }
-            if(!isCollapse) {
+            if (!isCollapse) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
