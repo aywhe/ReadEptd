@@ -113,9 +113,7 @@ fun SlideInSearchPanel(
 
     // ✅ 根据 visible 状态更新面板位置
     LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx) {
-        if (!isCollapse) {
-            panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
-        }
+        panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
     }
 
     val animatedOffsetPx by animateIntOffsetAsState(
@@ -146,7 +144,16 @@ fun SlideInSearchPanel(
             ) {
                 Text(
                     text = "搜索",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .pointerInput(Unit){
+                            detectDragGestures { change, dragAmount ->
+                                panelPositionPx = IntOffset(
+                                    (panelPositionPx.x + dragAmount.x).roundToInt(),
+                                    (panelPositionPx.y + dragAmount.y).roundToInt()
+                                )
+                            }
+                        }
                 )
                 Row {
                     // ✅ 左右切换按钮（更小）
