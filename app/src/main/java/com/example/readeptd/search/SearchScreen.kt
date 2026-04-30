@@ -3,6 +3,7 @@ package com.example.readeptd.search
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlin.math.roundToInt
 
 /**
  * 侧滑搜索面板
@@ -93,17 +95,17 @@ fun SlideInSearchPanel(
             else IntOffset(0, 0)
         )
     }
-    
+
     val panelHidePositionDp by remember(screenWidthDp, panelWidthDp, isOnRight) {
         mutableStateOf(
             if (isOnRight) IntOffset(screenWidthDp, 0)
             else IntOffset(-panelWidthDp, 0)
         )
     }
-    
+
     // ✅ 修复：使用状态管理面板当前位置
     var panelPosition by remember { mutableStateOf(panelHidePositionDp) }
-    
+
     // ✅ 修复：根据 visible 状态更新面板位置
     LaunchedEffect(visible, panelVisiblePositionDp, panelHidePositionDp, isDragMode) {
         if (isDragMode) {
@@ -112,15 +114,16 @@ fun SlideInSearchPanel(
             panelPosition = if (visible) panelVisiblePositionDp else panelHidePositionDp
         }
     }
-    
+
     val animatedOffset by animateIntOffsetAsState(
         targetValue = panelPosition,
         label = "search_panel_animation"
     )
 
-    var modifier: Modifier = Modifier
+    // 面板 modifier
+    var panelModifier: Modifier = Modifier
     if(isDragMode){
-        modifier = Modifier
+        panelModifier = panelModifier
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { },
@@ -136,12 +139,13 @@ fun SlideInSearchPanel(
             .wrapContentWidth()
             .wrapContentHeight()
     } else {
-        modifier = Modifier
+        panelModifier = panelModifier
             .height(panelHeightDp.dp)
             .width(panelWidthDp.dp)
     }
+
     Box(
-        modifier = modifier
+        modifier = panelModifier
             .offset(animatedOffset.x.dp, animatedOffset.y.dp)
             .shadow(8.dp)
             .background(MaterialTheme.colorScheme.surface)
@@ -153,7 +157,21 @@ fun SlideInSearchPanel(
         ) {
             // 标题栏（更紧凑）
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                    .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val currentX = panelPosition.x
+                            val screenWidth = screenWidthDp
+                            val midPoint = screenWidth / 2
+                            isOnRight = currentX > midPoint
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            panelPosition += IntOffset(dragAmount.roundToInt(), 0)
+                        }
+                    )
+                },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -294,7 +312,7 @@ fun SearchResultCard(
                     )
                     append("${result.displayName}：")
                     pop()
-                    
+
                     // 预览内容（普通样式）
                     pushStyle(
                         SpanStyle(

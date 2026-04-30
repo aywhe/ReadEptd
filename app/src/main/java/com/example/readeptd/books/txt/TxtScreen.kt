@@ -243,7 +243,9 @@ fun TxtScreen(
                             ) { page ->
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
-                                val pageAnnotatedContent = Utils.highLightText(pageContent, currentKeyword)
+                                val pageAnnotatedContent =
+                                    if(isShowSearchDialog) Utils.highLightText(pageContent, currentKeyword)
+                                    else Utils.highLightText(pageContent, "")
                                 PageContent(
                                     pageAnnotatedContent = pageAnnotatedContent,
                                     fontSize = viewModel.currentFontSizeSp,
