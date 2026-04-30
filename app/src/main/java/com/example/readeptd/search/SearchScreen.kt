@@ -4,14 +4,11 @@ import android.util.Log
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -20,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -77,7 +73,7 @@ fun SlideInSearchPanel(
 ) {
     var visible by remember(initialVisible) { mutableStateOf(initialVisible) }
     var keyword by remember(initialKeyword) { mutableStateOf(initialKeyword) }
-    var isCollapse by remember { mutableStateOf(false) }
+    var isCollapsed by remember { mutableStateOf(false) }
     var isOnRight by remember { mutableStateOf(true) }
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -85,8 +81,10 @@ fun SlideInSearchPanel(
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
-    val panelWidthDp = (screenWidthDp * 2 / 5)
+    Log.d("SlideInSearchPanel", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
+    val panelWidthDp = (screenWidthDp * 2 / 5).coerceIn(128,212)
     val panelHeightDp = screenHeightDp
+    Log.d("SlideInSearchPanel", "panelWidthDp: $panelWidthDp, panelHeightDp: $panelHeightDp")
     // ✅ 统一使用 px 进行计算
     val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
@@ -129,7 +127,7 @@ fun SlideInSearchPanel(
             .wrapContentHeight()
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
-            .shadow(8.dp)
+            .shadow(24.dp)
             .background(MaterialTheme.colorScheme.surface)
             .pointerInput(Unit){
                 detectDragGestures { change, dragAmount ->
@@ -144,7 +142,7 @@ fun SlideInSearchPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .padding(8.dp)
+                .padding(4.dp)
         ) {
             // 标题栏（更紧凑）
             Row(
@@ -154,36 +152,38 @@ fun SlideInSearchPanel(
             ) {
                 Text(
                     text = "搜索",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                 )
-                Row {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     // ✅ 左右切换按钮（更小）
                     IconButton(
                         onClick = { isOnRight = !isOnRight },
-                        modifier = Modifier.padding(0.dp)
+                        modifier = Modifier.size(24.dp),
                     ) {
                         Icon(
                             imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                     // 关闭按钮（更小）
                     IconButton(
                         onClick = { onClose() },
-                        modifier = Modifier.padding(0.dp)
+                        modifier = Modifier.size(24.dp),
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "关闭",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 搜索输入框（更紧凑）
             OutlinedTextField(
@@ -196,8 +196,13 @@ fun SlideInSearchPanel(
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
                 singleLine = true,
                 trailingIcon = {
-                    IconButton(onClick = { viewModel.onSearch(keyword, searchExecutor) }) {
-                        Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(20.dp))
+                    IconButton(
+                        onClick = {
+                            viewModel.onSearch(keyword, searchExecutor)
+                            isCollapsed = false
+                        },
+                        modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(16.dp))
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -207,15 +212,15 @@ fun SlideInSearchPanel(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 ),
-                textStyle = MaterialTheme.typography.bodySmall
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // 搜索结果数量（更紧凑）
             if (results.isNotEmpty()) {
                 TextButton(
-                    onClick = { isCollapse = !isCollapse },
+                    onClick = { isCollapsed = !isCollapsed },
                     modifier = Modifier
                         .padding(bottom = 0.dp)
                         .height(24.dp),
@@ -225,11 +230,11 @@ fun SlideInSearchPanel(
                         text = "${results.size}条结果",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
-                        fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.9
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize
                     )
                 }
             }
-            if (!isCollapse) {
+            if (!isCollapsed) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
                     modifier = Modifier
@@ -262,10 +267,10 @@ fun SearchResultCard(
         onClick = { onClick(result) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 1.dp)
+            .padding(vertical = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(6.dp)
+            modifier = Modifier.padding(4.dp)
         ) {
             // ✅ 合并为一个 Text，使用 AnnotatedString 实现不同样式
             Text(
