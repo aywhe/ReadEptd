@@ -188,6 +188,9 @@
             },
             onPageTextRetrieved: function(text){
                 console.log('Page text retrieved:', text);
+            },
+            onSearchingResult: function(result){
+                console.log('Searching result:', result);
             }
         };
 
@@ -1008,6 +1011,48 @@
             }
         }
 
+        /**
+         * 在整个 EPUB 书籍中搜索关键词
+         * @param {Book} book - 已加载的书籍对象
+         * @param {string} query - 搜索关键词
+         * @returns {Promise<Array>} - 包含所有匹配结果的数组
+         */
+        async function searchInBook(book, query) {
+          // 确保书籍已加载
+          if(!book.ready) return;
+          // 遍历所有章节
+          book.spine.each((section) => {
+            if (section.linear) { // 只搜索线性章节（跳过封面等）
+              try {
+                // 加载章节内容
+                section.load().then(() => {
+                  // 执行搜索
+                  const matches = section.find(query);
+
+                  // 为每个匹配项添加章节信息
+                  matches.forEach(match => {
+                    allMatches.push({
+                      cfi: match.cfi,           // CFI 位置标识符
+                      excerpt: match.excerpt,   // 匹配文本的上下文摘要
+                      sectionIndex: section.index, // 章节索引
+                      sectionHref: section.href,   // 章节链接
+                      sectionIdref: section.idref  // 章节 ID 引用
+                    });
+                  });
+                });
+              } catch (error) {
+                console.error(`搜索章节 ${section.href} 时出错:`, error);
+              }
+            }
+          });
+        }
+
+        function search(query) {
+          // 搜索整个书籍
+          searchInBook(book, query);
+        }
+
+
         // 暴露给 Android 的方法
         window.EpubReader = {
             init: initReader,
@@ -1020,7 +1065,8 @@
             getCurrentLocation: getCurrentLocation,
             openNavPanel: openNavPanel,
             closeNavPanel: closeNavPanel,
-            toggleNavPanel: toggleNavPanel
+            toggleNavPanel: toggleNavPanel,
+            search: search
         };
     </script>
 

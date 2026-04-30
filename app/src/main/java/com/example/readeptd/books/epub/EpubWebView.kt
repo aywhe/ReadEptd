@@ -33,6 +33,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var pageActionPendingCallback: (() -> Unit)? = null
     private var locationRetrievedCallback: ((EpubLocation) -> Unit)? = null
     private var currentPageTextCallback: ((String) -> Unit)? = null
+    private var onSearchingResultCallback: ((String) -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
@@ -230,6 +231,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.toggleNavPanel()")
     }
 
+    fun search(keyword: String, callback: (String) -> Unit) {
+        Log.d(TAG, "执行 JavaScript 搜索文本..")
+        onSearchingResultCallback = callback
+        executeJs("window.EpubReader.search($keyword)")
+    }
+
     /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
@@ -313,6 +320,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                     locationRetrievedCallback = null
                 }
             }
+        }
+        @JavascriptInterface
+        fun onSearchingResult(result: String) {
+            Log.d(TAG, "搜索结果: $result")
+            runOnMain { onSearchingResultCallback?.invoke(result) }
         }
         
         @JavascriptInterface
