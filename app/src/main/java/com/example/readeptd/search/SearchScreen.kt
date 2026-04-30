@@ -85,6 +85,12 @@ fun SlideInSearchPanel(
     val currentIndex by viewModel.currentIndex.collectAsState()
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    
+    // ✅ 监听屏幕旋转，清除搜索结果
+    LaunchedEffect(configuration.orientation) {
+        viewModel.clearCache()
+        viewModel.clearResults()
+    }
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp

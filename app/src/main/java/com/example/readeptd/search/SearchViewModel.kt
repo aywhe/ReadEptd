@@ -104,6 +104,11 @@ class SearchViewModel(
         searchCache.clear()
     }
 
+    fun clearResults() {
+        _searchResults.value = emptyList()
+        _currentIndex.value = -1
+    }
+
     /**
      * 清除指定关键词的缓存
      */
