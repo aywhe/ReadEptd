@@ -191,7 +191,10 @@
             },
             onSearchingResult: function(result){
                 console.log('Searching result:', result);
-            }
+            },
+            onSearchCompleted: function(){
+                console.log('Searching completed');
+            },
         };
 
         // 初始化阅读器
@@ -1011,6 +1014,8 @@
             }
         }
 
+        let isSearching = false;
+
         /**
          * 在整个 EPUB 书籍中搜索关键词
          * @param {Book} book - 已加载的书籍对象
@@ -1020,6 +1025,7 @@
         async function searchInBook(book, query) {
           // 确保书籍已加载
           if(!book.ready) return;
+          isSearching = true;
           // 遍历所有章节
           book.spine.each((section) => {
             if (section.linear) { // 只搜索线性章节（跳过封面等）
@@ -1028,16 +1034,11 @@
                 section.load().then(() => {
                   // 执行搜索
                   const matches = section.find(query);
-
                   // 为每个匹配项添加章节信息
                   matches.forEach(match => {
-                    allMatches.push({
-                      cfi: match.cfi,           // CFI 位置标识符
-                      excerpt: match.excerpt,   // 匹配文本的上下文摘要
-                      sectionIndex: section.index, // 章节索引
-                      sectionHref: section.href,   // 章节链接
-                      sectionIdref: section.idref  // 章节 ID 引用
-                    });
+                    if(Android && Android.onSearchingResult){
+                      Android.onSearchingResult(JSON.stringify(match));
+                    }
                   });
                 });
               } catch (error) {
@@ -1045,6 +1046,10 @@
               }
             }
           });
+          isSearching = false;
+          if(Android && Android.onSearchCompleted){
+              Android.onSearchCompleted();
+            }
         }
 
         function search(query) {
