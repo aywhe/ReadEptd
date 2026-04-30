@@ -1015,6 +1015,7 @@
         }
 
         let isSearching = false;
+        let searchPromiseQueue = [];  // ✅ 跟踪所有搜索 Promise
 
         /**
          * 在整个 EPUB 书籍中搜索关键词
@@ -1023,33 +1024,72 @@
          * @returns {Promise<Array>} - 包含所有匹配结果的数组
          */
         async function searchInBook(book, query) {
+          // ✅ 取消上一次搜索
+          if (isSearching) {
+            console.log('取消上一次搜索');
+            // 等待之前的 Promise 完成（不完美，但简单）
+            await Promise.allSettled(searchPromiseQueue);
+            searchPromiseQueue = [];
+          }
+
           // 确保书籍已加载
           if(!book.ready) return;
+
           isSearching = true;
-          // 遍历所有章节
-          book.spine.each((section) => {
+          searchPromiseQueue = [];
+
+          // ✅ 遍历所有章节
+          const spineItems = book.spine.spineItems;
+          console.log('spine size: ' + spineItems.length);
+
+          for (let i = 0; i < spineItems.length; i++) {
+            const section = spineItems[i];
+
             if (section.linear) { // 只搜索线性章节（跳过封面等）
               try {
-                // 加载章节内容
-                section.load().then(() => {
-                  // 执行搜索
-                  const matches = section.find(query);
-                  // 为每个匹配项添加章节信息
-                  matches.forEach(match => {
-                    if(Android && Android.onSearchingResult){
-                      Android.onSearchingResult(JSON.stringify(match));
-                    }
+                console.log('searching in section href: ' + section.href);
+
+                // ✅ 创建 Promise 并加入队列
+                const searchPromise = section.load()
+                  .then(() => {
+                    // 执行搜索
+                    const matches = section.find(query);
+                    console.log('matches size: ' + matches.length);
+
+                    // 为每个匹配项添加章节信息
+                    matches.forEach(match => {
+                      // ✅ 添加章节索引和标题
+                      match.chapterIndex = i;
+                      match.chapterTitle = section.href;
+
+                      if(Android && Android.onSearchingResult){
+                        Android.onSearchingResult(JSON.stringify(match));
+                      }
+                    });
+                  })
+                  .catch(error => {
+                    console.error(`搜索章节 ${section.href} 时出错:`, error);
                   });
-                });
+
+                searchPromiseQueue.push(searchPromise);
               } catch (error) {
                 console.error(`搜索章节 ${section.href} 时出错:`, error);
               }
+            } else {
+              console.log(`跳过非线性章节 ${section.href}`);
             }
-          });
+          }
+
+          // ✅ 等待所有搜索完成
+          await Promise.allSettled(searchPromiseQueue);
+
           isSearching = false;
+          searchPromiseQueue = [];
+
+          console.log('搜索完成');
           if(Android && Android.onSearchCompleted){
-              Android.onSearchCompleted();
-            }
+            Android.onSearchCompleted();
+          }
         }
 
         function search(query) {

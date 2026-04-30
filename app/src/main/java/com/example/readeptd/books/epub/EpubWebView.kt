@@ -238,7 +238,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "执行 JavaScript 搜索文本..")
         onSearchingResultCallback = resultCallback
         onSearchCompletedCallback = completedCallback
-        executeJs("window.EpubReader.search($keyword)")
+        // ✅ 给关键词加上引号，避免 JS 将其当作变量名
+        executeJs("window.EpubReader.search('$keyword')")
     }
 
     /**
@@ -331,10 +332,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             runOnMain { onSearchingResultCallback?.invoke(result) }
         }
         @JavascriptInterface
-        fun onSearchCompleted(){
-            onSearchCompletedCallback?.invoke()
-            onSearchingResultCallback = null
-            onSearchCompletedCallback = null
+        fun onSearchCompleted() {
+            runOnMain {
+                onSearchCompletedCallback?.invoke()
+                onSearchingResultCallback = null
+                onSearchCompletedCallback = null
+            }
         }
         
         @JavascriptInterface
