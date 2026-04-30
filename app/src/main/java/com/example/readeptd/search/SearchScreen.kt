@@ -193,6 +193,11 @@ fun SlideInSearchPanel(
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            var lastKeyword by remember { mutableStateOf("") }
+            
+            // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
+            val shouldShowResults = results.isNotEmpty() && keyword == lastKeyword
+            
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = keyword,
@@ -207,6 +212,7 @@ fun SlideInSearchPanel(
                     IconButton(
                         onClick = {
                             viewModel.onSearch(keyword, searchExecutor)
+                            lastKeyword = keyword
                             isCollapsed = false
                         },
                         modifier = Modifier.size(24.dp)) {
@@ -226,7 +232,7 @@ fun SlideInSearchPanel(
             Spacer(modifier = Modifier.height(2.dp))
 
             // 搜索结果数量（更紧凑）
-            if (results.isNotEmpty()) {
+            if (shouldShowResults) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -284,7 +290,7 @@ fun SlideInSearchPanel(
                     }
                 }
             }
-            if (!isCollapsed) {
+            if (!isCollapsed && shouldShowResults) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
                     state = lazyListState,
