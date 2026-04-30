@@ -271,6 +271,7 @@ fun TxtScreen(
                             SlideInSearchPanel(
                                 initialVisible = isShowSearchDialog,
                                 onClose =  {isShowSearchDialog =  false},
+                                getCurrentPosition = {pagerState.currentPage},
                                 onResultClick = {
                                     scope.launch {
                                         try{

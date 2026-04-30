@@ -70,6 +70,7 @@ fun SlideInSearchPanel(
     searchExecutor: (String) -> Flow<SearchData.SearchResult> = { emptyFlow() },
     onResultClick: (SearchData.SearchResult) -> Unit = {},
     onKeywordChange: (String) -> Unit = {},
+    getCurrentPosition: () -> Int = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
     initialVisible: Boolean = true,
     initialKeyword: String = "",
@@ -90,6 +91,25 @@ fun SlideInSearchPanel(
     LaunchedEffect(configuration.orientation) {
         viewModel.clearCache()
         viewModel.clearResults()
+    }
+    
+    // ✅ 搜索完成后，主动获取当前位置并滚动到最近的结果
+    LaunchedEffect(results.size) {
+        if (results.isNotEmpty()) {
+            // ✅ 主动获取当前位置
+            val currentPosition = getCurrentPosition()
+            
+            // ✅ 使用 ViewModel 的方法找到最近的索引
+            val closestIndex = viewModel.findClosestResultIndex(currentPosition)
+            
+            if (closestIndex >= 0) {
+                // 更新选中状态并滚动
+                if (closestIndex != currentIndex) {
+                    viewModel.setCurrentIndex(closestIndex)
+                }
+                lazyListState.scrollToItem(closestIndex)
+            }
+        }
     }
 
     val screenWidthDp = configuration.screenWidthDp

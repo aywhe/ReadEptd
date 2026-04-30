@@ -208,4 +208,27 @@ class SearchViewModel(
             _currentIndex.value = index
         }
     }
+
+    /**
+     * 找到距离指定位置最近的搜索结果索引
+     * @param currentPosition 当前位置（页码/字符偏移等，与 sortKey 同类型）
+     * @return 最近的搜索结果索引，如果没有结果返回 -1
+     */
+    fun findClosestResultIndex(currentPosition: Int): Int {
+        val results = _searchResults.value
+        if (results.isEmpty()) return -1
+        
+        var closestIndex = 0
+        var minDistance = Int.MAX_VALUE
+        
+        results.forEachIndexed { index, result ->
+            val distance = kotlin.math.abs(result.sortKey - currentPosition)
+            if (distance < minDistance) {
+                minDistance = distance
+                closestIndex = index
+            }
+        }
+        
+        return closestIndex
+    }
 }
