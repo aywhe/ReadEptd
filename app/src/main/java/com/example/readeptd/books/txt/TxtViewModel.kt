@@ -13,6 +13,7 @@ import com.example.readeptd.parser.TextSplitter
 import com.example.readeptd.parser.TxtExtractor
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.utils.Utils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -405,8 +407,7 @@ class TxtViewModel(
         previewCharsNeighborRight: Int = 25,
         maxCountOnePage: Int = 10,
         searchSwitchStep: Int = 20
-    )
-            : Flow<SearchData.TxtSearchResult> = flow {
+    ): Flow<SearchData.TxtSearchResult> = flow {
         if (keyword.isEmpty()) {
             return@flow
         }
@@ -502,7 +503,7 @@ class TxtViewModel(
         }
         
         Log.d(TAG, "搜索完成，找到 $allCount 个结果")
-    }
+    }.flowOn(Dispatchers.Default)  // ✅ 确保在后台线程执行
 
     override fun getViewModelName(): String {
         return "TxtViewModel"

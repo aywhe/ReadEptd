@@ -10,11 +10,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -352,7 +354,7 @@ class PdfViewModel(
         }
 
         Log.d(TAG, "搜索完成，找到 $allCount 个结果")
-    }
+    }.flowOn(Dispatchers.Default)  // ✅ 确保在后台线程执行
 
     override fun onCleared() {
         super.onCleared()
