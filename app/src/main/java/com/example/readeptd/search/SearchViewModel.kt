@@ -26,6 +26,10 @@ class SearchViewModel(
     private val _currentIndex = MutableStateFlow<Int>(-1)
     val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
 
+    // ✅ 搜索是否正在进行
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
 
@@ -59,6 +63,7 @@ class SearchViewModel(
 
         // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
+            _isSearching.value = true  // ✅ 标记搜索开始
             _searchResults.value = emptyList()
             _currentIndex.value = -1
 
@@ -66,14 +71,14 @@ class SearchViewModel(
             // 如果你坚持用 StateFlow，这里依然需要累积列表
             val results = mutableListOf<SearchData.SearchResult>()
             var lastUpdateCount = 0
-            val updateInterval = 20
+            val updateInterval = 50  // ✅ 增加到 50，减少 UI 更新频率
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
                 searchFun(keyword).collect { result ->
                     results.add(result)
                     
-                    // ✅ 优化：每积累 20 个结果才更新一次 UI
+                    // ✅ 优化：每积累 50 个结果才更新一次 UI
                     if (results.size - lastUpdateCount >= updateInterval) {
                         _searchResults.value = results.toList()
                         lastUpdateCount = results.size
@@ -83,16 +88,18 @@ class SearchViewModel(
                 // 处理搜索过程中可能出现的异常（如文件读取错误）
                 e.printStackTrace()
             } finally {
-                // ✅ 确保最后剩余的结果也能显示出来
-                if (results.size > lastUpdateCount) {
-                    _searchResults.value = results.toList()
-                }
-                _searchResults.value = _searchResults.value.sortedBy { it.sortKey }
-                // ✅ 缓存搜索结果
+                // ✅ 统一排序并更新最终结果
                 if (results.isNotEmpty()) {
-                    searchCache[keyword] = _searchResults.value
+                    val sortedResults = results.sortedBy { it.sortKey }
+                    searchCache[keyword] = sortedResults
+                    _searchResults.value = sortedResults
                     _currentIndex.value = 0
+                } else {
+                    // ✅ 确保无结果时也清空列表
+                    _searchResults.value = emptyList()
                 }
+                
+                _isSearching.value = false  // ✅ 标记搜索结束
             }
         }
     }
@@ -103,7 +110,7 @@ class SearchViewModel(
     fun clearCache() {
         searchCache.clear()
     }
-
+    
     fun clearResults() {
         _searchResults.value = emptyList()
         _currentIndex.value = -1

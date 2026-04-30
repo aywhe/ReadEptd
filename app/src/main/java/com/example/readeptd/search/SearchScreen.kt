@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +85,7 @@ fun SlideInSearchPanel(
     val configuration = LocalConfiguration.current
     val results by viewModel.searchResults.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()  // ✅ 监听搜索状态
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     
@@ -94,8 +96,9 @@ fun SlideInSearchPanel(
     }
     
     // ✅ 搜索完成后，主动获取当前位置并滚动到最近的结果
-    LaunchedEffect(results.size) {
-        if (results.isNotEmpty()) {
+    LaunchedEffect(isSearching, results.size) {
+        // ✅ 只在搜索刚完成且结果不为空时触发
+        if (!isSearching && results.isNotEmpty()) {
             // ✅ 主动获取当前位置
             val currentPosition = getCurrentPosition()
             
@@ -260,6 +263,25 @@ fun SlideInSearchPanel(
 
             Spacer(modifier = Modifier.height(2.dp))
 
+            // ✅ 搜索状态提示
+            if (isSearching && results.isEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = "搜索中...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // 搜索结果数量（更紧凑）
             if (shouldShowResults) {
                 Row(
@@ -317,11 +339,19 @@ fun SlideInSearchPanel(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                    
+                    // ✅ 搜索中提示（放在按钮后面）
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
                 }
             }
             
-            // ✅ 搜索无结果提示
-            if (hasSearched && results.isEmpty()) {
+            // ✅ 搜索无结果提示（只在搜索完成后且无结果时显示）
+            if (!isSearching && hasSearched && results.isEmpty()) {
                 Text(
                     text = "未找到匹配内容",
                     style = MaterialTheme.typography.bodySmall,
