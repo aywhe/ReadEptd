@@ -267,7 +267,8 @@ fun TxtScreen(
                                 )
                             }
                             SlideInSearchPanel(
-                                visible = isShowSearchDialog,
+                                initialVisible = isShowSearchDialog,
+                                onClose =  {isShowSearchDialog =  false},
                                 onResultClick = {
                                     scope.launch {
                                         try{
