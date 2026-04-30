@@ -294,6 +294,9 @@ fun PdfLazyViewer(
                 searchExecutor = { query ->
                     viewModel.search(query)
                 },
+                getCurrentPosition = {
+                    pagerState.currentPage
+                },
                 onResultClick = { result ->
                     scope.launch {
                         pagerState.scrollToPage((result as SearchData.PdfSearchResult).pageIndex)

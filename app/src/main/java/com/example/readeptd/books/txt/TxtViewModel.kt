@@ -406,7 +406,7 @@ class TxtViewModel(
         maxCountOnePage: Int = 10,
         searchSwitchStep: Int = 20
     )
-            : Flow<SearchData.SearchResult> = flow {
+            : Flow<SearchData.TxtSearchResult> = flow {
         if (keyword.isEmpty()) {
             return@flow
         }
