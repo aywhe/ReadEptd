@@ -235,8 +235,7 @@ fun TxtScreen(
                                     ttsModel.clearCallbacks()
                                 }
                             }
-
-
+                            var currentKeyword by remember { mutableStateOf("") }
                             HorizontalPager(
                                 state = pagerState,
                                 modifier = Modifier.fillMaxSize(),
@@ -244,7 +243,7 @@ fun TxtScreen(
                             ) { page ->
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
-                                val pageAnnotatedContent = Utils.highLightText(pageContent, viewModel.currentKeyword)
+                                val pageAnnotatedContent = Utils.highLightText(pageContent, currentKeyword)
                                 PageContent(
                                     pageAnnotatedContent = pageAnnotatedContent,
                                     fontSize = viewModel.currentFontSizeSp,
@@ -269,18 +268,8 @@ fun TxtScreen(
                             }
                             SlideInSearchPanel(
                                 visible = isShowSearchDialog,
-                                onDismiss = {
-                                    isShowSearchDialog = false
-                                },
-                                onSearch = {
-                                    viewModel.search(it)
-                                },
-                                resultsState = viewModel.searchResults,
-                                onResultClick = {
-                                    scope.launch {
-                                        pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
-                                    }
-                                }
+                                onKeywordChange = {currentKeyword = it},
+                                searchExecutor = {keyword -> viewModel.search(keyword) }
                             )
                         }
                     }

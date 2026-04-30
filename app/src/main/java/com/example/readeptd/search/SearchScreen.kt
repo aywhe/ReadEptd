@@ -3,7 +3,6 @@ package com.example.readeptd.search
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -43,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -54,25 +50,23 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.Flow
 import kotlin.math.roundToInt
 
 /**
  * 侧滑搜索面板
  * @param visible 是否显示
- * @param onDismiss 关闭回调
- * @param onSearch 执行搜索回调
- * @param onResultClick 点击搜索结果回调
  */
 @Composable
 fun SlideInSearchPanel(
     visible: Boolean,
-    onDismiss: () -> Unit,
-    onSearch: (String) -> Unit,  // ✅ 只需要这个回调
-    resultsState: StateFlow<List<SearchData.SearchResult>>,
-    onResultClick: (SearchData.SearchResult) -> Unit
+    onKeywordChange: (String) -> Unit,
+    searchExecutor: (String) -> Flow<SearchData.SearchResult>,
+    useKeyword: String = "",
+    viewModel: SearchViewModel = viewModel()
 ) {
-    var keyword by remember { mutableStateOf("") }  // ✅ 完全内部管理
+    var keyword by remember { mutableStateOf(useKeyword) }  // ✅ 完全内部管理
     
     // ✅ 面板位置状态：true=右侧，false=左侧
     var isOnRight by remember { mutableStateOf(true) }

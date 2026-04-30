@@ -12,13 +12,14 @@ import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.parser.TextSplitter
 import com.example.readeptd.parser.TxtExtractor
 import com.example.readeptd.search.SearchData
-import com.example.readeptd.search.SearchableViewModel
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -29,8 +30,7 @@ import kotlinx.coroutines.sync.withLock
  */
 class TxtViewModel(
     application: Application
-) : BookViewModel<ReadingState.Txt>(application, ReadingState.Txt::class.java),
-    SearchableViewModel {
+) : BookViewModel<ReadingState.Txt>(application, ReadingState.Txt::class.java){
 
     private val textExtractor = TxtExtractor(application)
     private var viewSize: IntSize = IntSize(0, 0)
@@ -384,73 +384,46 @@ class TxtViewModel(
         saveProgress(state)
     }
 
-    // search 相关逻辑
-    private val _searchResults = MutableStateFlow<List<SearchData.SearchResult>>(emptyList())
-    override val searchResults: StateFlow<List<SearchData.SearchResult>> = _searchResults.asStateFlow()
-    
-    private val _isSearching = MutableStateFlow(false)
-    override val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
-    override var currentKeyword: String = ""
-    private val searchResultsMap = mutableMapOf<String, MutableList<SearchData.SearchResult>>()
     private var jobSearching: Job? = null
-    
-    override fun search(keyword: String) {
+    fun search(keyword: String,
+               startPage: Int = 0,
+               previewCharsNeighborLeft: Int = 25,
+               previewCharsNeighborRight: Int = 25,
+               maxCountOnePage: Int = 10)
+    : Flow<SearchData.SearchResult> = flow {
         // ✅ 取消之前的搜索任务
         jobSearching?.cancel()
-        
-        currentKeyword = keyword
-        
+
         if (keyword.isEmpty()) {
-            _searchResults.value = emptyList()
-            _isSearching.value = false
-            return
+            return@flow
         }
-        
-        // ✅ 检查缓存
-        val cachedResults = searchResultsMap[keyword]
-        if (cachedResults != null) {
-            _searchResults.value = cachedResults
-            _isSearching.value = false
-            Log.d(TAG, "使用缓存的搜索结果: ${cachedResults.size} 条")
-            return
-        }
-        
+
         // ✅ 启动新的搜索任务
         jobSearching = viewModelScope.launch {
-            _isSearching.value = true
-            _searchResults.value = emptyList()
-            
             Log.d(TAG, "开始搜索关键词: $keyword")
-            val results = mutableListOf<SearchData.SearchResult>()
-            var resultIndex = 0
-            
+            var allCount = 0
             // ✅ 遍历所有页面进行搜索
             _pages.value.forEach { it ->
                 val pageIndex = it.index
                 val pageContent = it.content
-                // 限制最多 200 条结果
-                if (results.size >= 200) {
-                    Log.w(TAG, "搜索结果超过200条，停止搜索")
-                    return@forEach
-                }
 
+                // 开始搜索当前页
                 var startIndex = 0
-                val previewCharsLR = 25
-                
+                var count = 0
                 // ✅ 在当前页中查找所有匹配
                 while (true) {
                     val matchIndex = pageContent.indexOf(keyword, startIndex, ignoreCase = true)
                     if (matchIndex == -1) break
                     
                     // ✅ 提取上下文预览（前后 50 字符）
-                    val contextStart = (matchIndex - previewCharsLR).coerceAtLeast(0)
-                    val contextEnd = (matchIndex + keyword.length + previewCharsLR).coerceAtMost(pageContent.length)
+                    val contextStart = (matchIndex - previewCharsNeighborLeft).coerceAtLeast(0)
+                    val contextEnd = (matchIndex + keyword.length + previewCharsNeighborRight).coerceAtMost(pageContent.length)
                     val previewContent = pageContent.substring(contextStart, contextEnd)
                     
                     // ✅ 计算字符偏移量
                     val charOffset = it.startPos + matchIndex
                     
-                    results.add(SearchData.TxtSearchResult(
+                    emit(SearchData.TxtSearchResult(
                         keyword = keyword,
                         previewContent = previewContent,
                         pageIndex = pageIndex,
@@ -459,48 +432,35 @@ class TxtViewModel(
                     ))
                     
                     startIndex = matchIndex + keyword.length
+                    count++
+                    allCount++
                     
                     // 每页最多 10 个结果
-                    if (results.count { it is SearchData.TxtSearchResult && it.pageIndex == pageIndex } >= 10) {
+                    if (count >= maxCountOnePage) {
                         break
                     }
                 }
-                
-                // ✅ 渐进式更新 UI（每 10 页更新一次）
-                if (pageIndex % 10 == 0 && results.isNotEmpty()) {
-                    _searchResults.value = results.toList()
-                    delay(20)  // 避免阻塞 UI
-                }
             }
-            
-            // ✅ 缓存结果
-            searchResultsMap[keyword] = results.toMutableList()
-            
-            // ✅ 最终更新
-            _searchResults.value = results
-            _isSearching.value = false
-            
-            Log.d(TAG, "搜索完成，找到 ${results.size} 个结果")
+            Log.d(TAG, "搜索完成，找到 $allCount 个结果")
         }
-    }
-    
-    override fun clearSearch() {
-        // ✅ 取消搜索任务
-        jobSearching?.cancel()
-        jobSearching = null
-        
-        // ✅ 清空状态
-        _searchResults.value = emptyList()
-        _isSearching.value = false
-        currentKeyword = ""
-        
-        Log.d(TAG, "清除搜索结果")
     }
 
     override fun getViewModelName(): String {
         return "TxtViewModel"
     }
 
+    /**
+     * 清理资源
+     */
+    override fun onCleared() {
+        super.onCleared()
+        jobSearching?.cancel()
+        jobSearching = null
+        jobSetAllowRePagination?.cancel()
+        jobSetAllowRePagination = null
+        currentPageJob?.cancel()
+        currentPageJob = null
+    }
     companion object {
         private const val TAG = "TxtViewModel"
     }
