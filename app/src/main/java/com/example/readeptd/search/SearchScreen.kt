@@ -41,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -82,9 +84,8 @@ fun SlideInSearchPanel(
     val configuration = LocalConfiguration.current
     val results by viewModel.searchResults.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
-    
-    // ✅ LazyColumn 的状态
     val lazyListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
@@ -122,14 +123,7 @@ fun SlideInSearchPanel(
     LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx) {
         panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
     }
-    
-    // ✅ 当 currentIndex 变化时，滚动到对应项
-    LaunchedEffect(currentIndex) {
-        if (currentIndex >= 0 && currentIndex < results.size) {
-            // ✅ 使用 scrollToItem 而不是 animateScrollToItem，避免长距离滚动动画
-            lazyListState.scrollToItem(index = currentIndex)
-        }
-    }
+
 
     val animatedOffsetPx by animateIntOffsetAsState(
         targetValue = panelPositionPx,
@@ -259,6 +253,9 @@ fun SlideInSearchPanel(
                         onClick = { 
                             viewModel.navigateToPrevious()
                             viewModel.getCurrentResult()?.let { onResultClick(it) }
+                            scope.launch {
+                                lazyListState.scrollToItem(index = currentIndex)
+                            }
                         },
                         modifier = Modifier.size(24.dp),
                         enabled = results.isNotEmpty()
@@ -272,7 +269,10 @@ fun SlideInSearchPanel(
                     IconButton(
                         onClick = { 
                             viewModel.navigateToNext()
-                            viewModel.getCurrentResult()?.let { onResultClick(it) }
+                            viewModel.getCurrentResult()?.let { onResultClick(it)}
+                            scope.launch {
+                                lazyListState.scrollToItem(index = currentIndex)
+                            }
                         },
                         modifier = Modifier.size(24.dp),
                         enabled = results.isNotEmpty()
