@@ -87,10 +87,10 @@ class SearchViewModel(
                 if (results.size > lastUpdateCount) {
                     _searchResults.value = results.toList()
                 }
-                
+                _searchResults.value = _searchResults.value.sortedBy { it.sortKey }
                 // ✅ 缓存搜索结果
                 if (results.isNotEmpty()) {
-                    searchCache[keyword] = results.toList()
+                    searchCache[keyword] = _searchResults.value
                     _currentIndex.value = 0
                 }
             }

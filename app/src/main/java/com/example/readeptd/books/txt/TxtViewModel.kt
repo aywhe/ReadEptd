@@ -403,29 +403,65 @@ class TxtViewModel(
         startPage: Int = 0,
         previewCharsNeighborLeft: Int = 25,
         previewCharsNeighborRight: Int = 25,
-        maxCountOnePage: Int = 10
+        maxCountOnePage: Int = 10,
+        searchSwitchStep: Int = 20
     )
             : Flow<SearchData.SearchResult> = flow {
         if (keyword.isEmpty()) {
             return@flow
         }
 
-        Log.d(TAG, "开始搜索关键词: $keyword")
+        Log.d(TAG, "开始搜索关键词: $keyword, 起始页: $startPage, 切换步长: $searchSwitchStep")
         var allCount = 0
-        // ✅ 遍历所有页面进行搜索
-        _pages.value.forEach { it ->
-            val pageIndex = it.index
-            val pageContent = it.content
-
-            // 开始搜索当前页
+        
+        val totalPages = _pages.value.size
+        if (totalPages == 0) return@flow
+        
+        // ✅ 双向交替搜索策略
+        var forwardIndex = startPage  // 向前搜索的索引
+        var backwardIndex = startPage - 1  // 向后搜索的索引（从 startPage-1 开始）
+        var isForwardTurn = true  // 当前是否轮到向前搜索
+        var stepCount = 0  // 当前方向已搜索的页数
+        
+        // ✅ 记录已搜索的页面，避免重复
+        val searchedPages = mutableSetOf<Int>()
+        
+        while (forwardIndex < totalPages || backwardIndex >= 0) {
+            val currentPageIndex = if (isForwardTurn) {
+                // 向前搜索
+                if (forwardIndex >= totalPages) {
+                    // 向前已到末尾，切换到向后
+                    isForwardTurn = false
+                    stepCount = 0
+                    continue
+                }
+                forwardIndex++
+            } else {
+                // 向后搜索
+                if (backwardIndex < 0) {
+                    // 向后已到开头，切换到向前
+                    isForwardTurn = true
+                    stepCount = 0
+                    continue
+                }
+                backwardIndex--
+            }
+            
+            // 检查是否已搜索过（理论上不会，但保险起见）
+            if (currentPageIndex in searchedPages) continue
+            searchedPages.add(currentPageIndex)
+            
+            // ✅ 搜索当前页
+            val page = _pages.value[currentPageIndex]
+            val pageContent = page.content
             var startIndex = 0
             var count = 0
-            // ✅ 在当前页中查找所有匹配
+            
             while (true) {
                 val matchIndex = pageContent.indexOf(keyword, startIndex, ignoreCase = true)
                 if (matchIndex == -1) break
 
-                // ✅ 提取上下文预览（前后 50 字符）
+                // ✅ 提取上下文预览
                 val contextStart = (matchIndex - previewCharsNeighborLeft).coerceAtLeast(0)
                 val contextEnd =
                     (matchIndex + keyword.length + previewCharsNeighborRight).coerceAtMost(
@@ -434,13 +470,13 @@ class TxtViewModel(
                 val previewContent = pageContent.substring(contextStart, contextEnd)
 
                 // ✅ 计算字符偏移量
-                val charOffset = it.startPos + matchIndex
+                val charOffset = page.startPos + matchIndex
 
                 emit(
                     SearchData.TxtSearchResult(
                         keyword = keyword,
                         previewContent = previewContent,
-                        pageIndex = pageIndex,
+                        pageIndex = currentPageIndex,
                         charOffset = charOffset,
                         charOffsetInPage = matchIndex
                     )
@@ -450,12 +486,21 @@ class TxtViewModel(
                 count++
                 allCount++
 
-                // 每页最多 10 个结果
+                // 每页最多 maxCountOnePage 个结果
                 if (count >= maxCountOnePage) {
                     break
                 }
             }
+            
+            // ✅ 检查是否需要切换方向
+            stepCount++
+            if (stepCount >= searchSwitchStep) {
+                isForwardTurn = !isForwardTurn
+                stepCount = 0
+                Log.d(TAG, "搜索方向切换，已找到 $allCount 个结果")
+            }
         }
+        
         Log.d(TAG, "搜索完成，找到 $allCount 个结果")
     }
 
