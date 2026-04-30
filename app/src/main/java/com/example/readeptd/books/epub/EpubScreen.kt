@@ -74,7 +74,7 @@ fun EpubScreen(
                 var location by remember { mutableStateOf(EpubLocation.default()) }
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
 
-                Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
                     AndroidView(
                         factory = { context ->
