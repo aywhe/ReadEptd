@@ -196,7 +196,7 @@ fun SlideInSearchPanel(
             var lastKeyword by remember { mutableStateOf("") }
             
             // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
-            val shouldShowResults = results.isNotEmpty() && keyword == lastKeyword
+            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == lastKeyword
             
             // ✅ 判断是否执行过搜索：keyword 不为空且与 lastKeyword 一致
             val hasSearched = keyword.isNotBlank() && keyword == lastKeyword
