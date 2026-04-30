@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -81,6 +82,9 @@ fun SlideInSearchPanel(
     val configuration = LocalConfiguration.current
     val results by viewModel.searchResults.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
+    
+    // ✅ LazyColumn 的状态
+    val lazyListState = rememberLazyListState()
 
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
@@ -117,6 +121,14 @@ fun SlideInSearchPanel(
     // ✅ 根据 visible 状态更新面板位置
     LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx) {
         panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
+    }
+    
+    // ✅ 当 currentIndex 变化时，滚动到对应项
+    LaunchedEffect(currentIndex) {
+        if (currentIndex >= 0 && currentIndex < results.size) {
+            // ✅ 使用 scrollToItem 而不是 animateScrollToItem，避免长距离滚动动画
+            lazyListState.scrollToItem(index = currentIndex)
+        }
     }
 
     val animatedOffsetPx by animateIntOffsetAsState(
@@ -276,6 +288,7 @@ fun SlideInSearchPanel(
             if (!isCollapsed) {
                 // 搜索结果列表（更紧凑）
                 LazyColumn(
+                    state = lazyListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .wrapContentHeight()
@@ -285,7 +298,10 @@ fun SlideInSearchPanel(
                     items(results.size) { index ->
                         SearchResultCard(
                             result = results[index],
-                            onClick = { onResultClick(results[index]) }
+                            onClick = { 
+                                viewModel.setCurrentIndex(index)
+                                onResultClick(results[index]) 
+                            }
                         )
                     }
                 }

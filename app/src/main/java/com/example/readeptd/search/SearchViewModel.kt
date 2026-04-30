@@ -110,4 +110,14 @@ class SearchViewModel(
         val results = _searchResults.value
         return if (idx in results.indices) results[idx] else null
     }
+
+    /**
+     * 设置当前选中的索引
+     */
+    fun setCurrentIndex(index: Int) {
+        val results = _searchResults.value
+        if (index in results.indices) {
+            _currentIndex.value = index
+        }
+    }
 }
