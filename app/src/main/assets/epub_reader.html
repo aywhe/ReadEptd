@@ -115,7 +115,11 @@
     <script>
         let book = null;
         let rendition = null;
+
         let isLoaded = false;
+        let isSearching = false;
+        let isGeneratedLocations = false;
+
         let tableOfContents = []; // 存储目录数据
 
         // 按钮拖动相关变量
@@ -129,7 +133,6 @@
         let currentY = 20;
         let isCollapsed = false; // 是否处于收缩状态
         let isTocButtonVisible = true; // 悬浮按钮是否可见
-        let isSearching = false;
 
         window.onload = function() {
             // 通知 Android js 已经准备好
@@ -213,6 +216,7 @@
                 clearBook();
 
                 isLoaded = false;
+                isGeneratedLocations = false;
 
                 // 显示加载指示器
                 document.getElementById('loading').style.display = 'block';
@@ -315,7 +319,7 @@
                         try{
                             const location = rendition.currentLocation();
                             if(location) {
-                                console.log('Current location:', location);
+                                console.log('Current location:', JSON.stringify(location));
                                 if (Android && Android.onPageChanged) {
                                     Android.onPageChanged(JSON.stringify(location));
                                 }
@@ -352,7 +356,11 @@
                     console.log('Generating locations asynchronously...');
                     return book.locations.generate(1024);
                 }).then(() => {
+                    isGeneratedLocations = true;
                     console.log('Locations generated');
+                    if(isLoaded){
+                        notifyPageChanged();
+                    }
                 }).catch((err) => {
                     console.error('Location generation error:', err);
                 });
@@ -388,18 +396,12 @@
 
                     // 自定义mapping中的字符分割函数
                     hookMappingFunctions();
-                    //
-                    try{
-                        const location = rendition.currentLocation();
-                        if(location){
-                            highlightCurrentChapter(location.end.href);
-                        }
-                    } catch(err) {
-                        console.error('Error in displayed event:', err.stack);
-                    }
                     // 通知 Android 加载完成
                     if (Android && Android.onLoadComplete) {
                         Android.onLoadComplete();
+                    }
+                    if(isGeneratedLocations){
+                        notifyPageChanged();
                     }
                 }).catch((error) => {
                     console.error('Display error:', error);
@@ -411,6 +413,24 @@
                 console.error('Init error:', error);
                 showError("初始化失败: " + error.message);
                 hideLoading();
+            }
+        }
+
+        function notifyPageChanged() {
+            try {
+                const location = rendition.currentLocation();
+                if (location && location.start && location.end) {
+                    const jsonLocation = JSON.stringify(location);
+                    console.log('Current location available:', jsonLocation);
+                    if (Android && Android.onPageChanged) {
+                        console.log('Notifying Android with location:', jsonLocation);
+                        Android.onPageChanged(jsonLocation);
+                    }
+                } else {
+                    console.warn('No current location available yet');
+                }
+            } catch(err) {
+                console.error('Error getting current location:', err.stack);
             }
         }
 
