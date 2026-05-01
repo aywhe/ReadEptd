@@ -242,6 +242,10 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.search('$keyword')")
     }
 
+    fun highlight(cfi: String, isRemove: Boolean){
+        executeJs("window.EpubReader.highlight('$cfi', $isRemove)")
+    }
+
     /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
@@ -252,6 +256,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         
         // ✅ 启动协程，自动切换到主线程
         scope.launch(Dispatchers.Main) {
+            Log.d(TAG, "执行 JavaScript: $jsCode")
             evaluateJavascript(jsCode, callback)
         }
     }

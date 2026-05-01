@@ -1110,6 +1110,34 @@
           searchInBook(book, query);
         }
 
+        function highlight(cfi, isRemove) {
+          if(rendition){
+              if (isRemove) {
+                // 移除高亮
+                console.log('remove highlight: ' + cfi);
+                book.rendition.annotations.remove(cfi);
+              } else {
+                // 添加高亮
+                console.log('add highlight: ' + cfi);
+                rendition.annotations.highlight(
+                  cfi,  // CFI 范围
+                  { note: "高亮文本" },              // 附加数据
+                  (event) => {                       // 点击回调
+                    console.log("高亮被点击", event);
+                  },
+                  "my-highlight",                   // CSS 类名（可选）
+                  {                                  // 自定义样式（可选）
+                    "fill": "RGB(128, 128, 128)",
+                    "fill-opacity": "1.0"
+                  }
+                );
+              }
+          } else {
+            console.error('rendition not ready');
+          }
+
+        }
+
 
         // 暴露给 Android 的方法
         window.EpubReader = {
@@ -1124,7 +1152,8 @@
             openNavPanel: openNavPanel,
             closeNavPanel: closeNavPanel,
             toggleNavPanel: toggleNavPanel,
-            search: search
+            search: search,
+            highlight: highlight
         };
     </script>
 

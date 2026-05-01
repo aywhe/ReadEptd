@@ -189,7 +189,9 @@ fun EpubScreen(
                             viewModel.search(query, webView = webView)  // ✅ 调用 ViewModel 的搜索函数
                         },
                         onResultClick = { result ->
-                            webView?.goToLocation((result as SearchData.EpubSearchResult).cfi)
+                            val epubResult = (result as SearchData.EpubSearchResult)
+                            webView?.highlight(epubResult.cfi, false)
+                            webView?.goToLocation(epubResult.cfi)
                         },
                         onKeywordChange = { keyword -> currentKeyword = keyword}
                     )
