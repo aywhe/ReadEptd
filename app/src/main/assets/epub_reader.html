@@ -322,8 +322,8 @@
                             if (Android && Android.onPageChanged) {
                                 Android.onPageChanged(JSON.stringify(location));
                             }
-                            // 高亮当前章节（scroll 事件中的 location 是准确的）
-                            highlightCurrentChapter(location.start.href);
+                            // 高亮当前章节（scroll 事件中的 location 是准确的）,使用 end 避免跨页
+                            highlightCurrentChapter(location.end.href);
                         }
                     });
                 });
