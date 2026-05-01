@@ -138,11 +138,11 @@ object Utils {
                     val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
                     if (matchIndex == -1) break
 
-                    // 为匹配的关键词添加黄色背景高亮
+                    // 为匹配的关键词添加橙色背景高亮（与主题统一）
                     addStyle(
                         style = SpanStyle(
-                            background = MaterialTheme.colorScheme.tertiaryContainer,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            background = MaterialTheme.colorScheme.primaryContainer,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         start = matchIndex,
                         end = matchIndex + keyword.length
