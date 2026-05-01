@@ -181,6 +181,10 @@ fun SlideInSearchPanel(
                 .wrapContentHeight()
                 .padding(4.dp)
         ) {
+            var lastKeyword by remember { mutableStateOf("") }
+            // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
+            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == lastKeyword
+
             // 标题栏（更紧凑）
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -195,6 +199,13 @@ fun SlideInSearchPanel(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // ✅ 搜索中提示（放在按钮后面）
+                    if (isSearching && shouldShowResults) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
                     // ✅ 左右切换按钮（更小）
                     IconButton(
                         onClick = { isOnRight = !isOnRight },
@@ -222,11 +233,6 @@ fun SlideInSearchPanel(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            var lastKeyword by remember { mutableStateOf("") }
-            
-            // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
-            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == lastKeyword
-            
             // ✅ 判断是否执行过搜索：keyword 不为空且与 lastKeyword 一致
             val hasSearched = keyword.isNotBlank() && keyword == lastKeyword
             
@@ -337,14 +343,6 @@ fun SlideInSearchPanel(
                             imageVector = Icons.Default.ArrowDownward,
                             contentDescription = "下一项",
                             modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    
-                    // ✅ 搜索中提示（放在按钮后面）
-                    if (isSearching) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
                         )
                     }
                 }

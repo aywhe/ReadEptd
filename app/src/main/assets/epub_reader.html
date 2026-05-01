@@ -249,7 +249,6 @@
                 book.loaded.navigation.then(function(toc) {
                     console.log('Navigation loaded');
                     tableOfContents = toc.toc || [];
-                    console.log('Table of Contents:', tableOfContents);
 
                     // 生成目录HTML
                     generateTOC(tableOfContents);
@@ -315,15 +314,21 @@
                     });
                     rendition.manager.on("scroll", (position) => {
                         console.log('View scroll');
-                        const location = rendition.currentLocation();
-                        if(location) {
-                            console.log('Current location:', location);
-                            currentLocation = location;
-                            if (Android && Android.onPageChanged) {
-                                Android.onPageChanged(JSON.stringify(location));
+                        try{
+                            const location = rendition.currentLocation();
+                            if(location) {
+                                console.log('Current location:', location);
+                                currentLocation = location;
+                                if (Android && Android.onPageChanged) {
+                                    Android.onPageChanged(JSON.stringify(location));
+                                }
+                                // 高亮当前章节（scroll 事件中的 location 是准确的）,使用 end 避免跨页
+                                highlightCurrentChapter(location.end.href);
+                            } else {
+                                console.warn('No location available');
                             }
-                            // 高亮当前章节（scroll 事件中的 location 是准确的）,使用 end 避免跨页
-                            highlightCurrentChapter(location.end.href);
+                        } catch(err) {
+                            console.error('Error in scroll event:', err.stack);
                         }
                     });
                 });
@@ -598,7 +603,7 @@
             toc.forEach(function(chapter) {
                 const indent = level * 20; // 每层缩进 20px
                 const fontSize = Math.max(12, 16 - level * 2); // 层级越深字体越小
-
+                console.log(`Generating TOC item, level ${level}, chapter ${chapter.href}, label ${chapter.label}`);
                 html += `
                     <li style="margin: 5px 0;">
                         <a href="#"
