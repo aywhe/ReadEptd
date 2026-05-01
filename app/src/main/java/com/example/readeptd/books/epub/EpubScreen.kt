@@ -31,7 +31,6 @@ import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
-import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 fun EpubScreen(
@@ -186,11 +185,11 @@ fun EpubScreen(
                         initialVisible = isShowSearchDialog,
                         onClose =  {isShowSearchDialog = false},
                         searchExecutor = { query ->
-                            viewModel.search(query, webView = webView)  // ✅ 调用 ViewModel 的搜索函数
+                            viewModel.search(query, epubWebView = webView)  // ✅ 调用 ViewModel 的搜索函数
                         },
                         onResultClick = { result ->
                             val epubResult = (result as SearchData.EpubSearchResult)
-                            webView?.highlight(epubResult.cfi, false)
+                            viewModel.highlightSingle(epubResult.cfi, webView)
                             webView?.goToLocation(epubResult.cfi)
                         },
                         onKeywordChange = { keyword -> currentKeyword = keyword}

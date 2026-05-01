@@ -266,13 +266,13 @@
                     console.log('Page relocated:', location);
 
                     // relocated不会每页触发，所以改到scroll中，scroll是每次翻页触发
-                    //if (Android && Android.onPageChanged) {
-                    //    // 直接传递完整的 location 对象
-                    //    Android.onPageChanged(JSON.stringify(location));
-                    //}
+                    if (Android && Android.onPageChanged) {
+                        // 直接传递完整的 location 对象
+                        Android.onPageChanged(JSON.stringify(location));
+                    }
 
                     // 注意：不在这里高亮，因为 relocated 的 href 可能有延迟
-                    // highlightCurrentChapter(location.start.href);
+                    highlightCurrentChapter(location.start.href);
                 });
 
                 // 监听渲染器调整大小
@@ -637,17 +637,17 @@
 
             // 判断按钮在屏幕的哪一侧
             if (btnCenterX < screenWidth / 2) {
-                // 按钮在左边，目录面板从左边滑出
-                navContent.style.left = '0';
-                navContent.style.right = 'auto';
-                navContent.style.boxShadow = '2px 0 10px rgba(0,0,0,0.3)';
-                navContent.style.transform = 'translateX(-100%)';
-            } else {
-                // 按钮在右边，目录面板从右边滑出
+                // 按钮在左边，目录面板从右边滑出
                 navContent.style.right = '0';
                 navContent.style.left = 'auto';
                 navContent.style.boxShadow = '-2px 0 10px rgba(0,0,0,0.3)';
                 navContent.style.transform = 'translateX(100%)';
+            } else {
+                // 按钮在右边，目录面板从左边滑出
+                navContent.style.left = '0';
+                navContent.style.right = 'auto';
+                navContent.style.boxShadow = '2px 0 10px rgba(0,0,0,0.3)';
+                navContent.style.transform = 'translateX(-100%)';
             }
 
             // 先显示面板
@@ -1006,6 +1006,9 @@
             const btn = document.getElementById('toc-toggle-btn');
             const tocBtn = document.getElementById('toc-btn');
 
+            // 关闭目录面板
+            closeNavPanel()
+
             if (isTocButtonVisible) {
                 btn.textContent = '隐藏悬浮按钮';
                 tocBtn.style.display = 'block';
@@ -1115,20 +1118,18 @@
               if (isRemove) {
                 // 移除高亮
                 console.log('remove highlight: ' + cfi);
-                book.rendition.annotations.remove(cfi);
+                rendition.annotations.remove(cfi,"highlight");
               } else {
                 // 添加高亮
                 console.log('add highlight: ' + cfi);
                 rendition.annotations.highlight(
                   cfi,  // CFI 范围
-                  { note: "高亮文本" },              // 附加数据
-                  (event) => {                       // 点击回调
-                    console.log("高亮被点击", event);
-                  },
+                  { color: "gray" },              // 附加数据
+                  null,
                   "my-highlight",                   // CSS 类名（可选）
                   {                                  // 自定义样式（可选）
-                    "fill": "RGB(128, 128, 128)",
-                    "fill-opacity": "1.0"
+                    "fill": "rgb(72, 72, 72)",
+                    "mix-blend-mode": "multiply"
                   }
                 );
               }

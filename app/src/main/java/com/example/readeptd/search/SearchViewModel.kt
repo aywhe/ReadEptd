@@ -71,14 +71,13 @@ class SearchViewModel(
             // 如果你坚持用 StateFlow，这里依然需要累积列表
             val results = mutableListOf<SearchData.SearchResult>()
             var lastUpdateCount = 0
-            val updateInterval = 50  // ✅ 增加到 50，减少 UI 更新频率
+            val updateInterval = 20  // UI 更新频率
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
                 searchFun(keyword).collect { result ->
                     results.add(result)
-                    
-                    // ✅ 优化：每积累 50 个结果才更新一次 UI
+
                     if (results.size - lastUpdateCount >= updateInterval) {
                         _searchResults.value = results.toList()
                         lastUpdateCount = results.size
