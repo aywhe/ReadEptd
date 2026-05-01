@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ReadEptd" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ReadEptd" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Material Design 3 主题属性 -->
+        <item name="android:colorPrimary">@color/md_primary_light</item>
+        <item name="android:colorPrimaryDark">@color/md_primary_container_light</item>
+        <item name="android:colorAccent">@color/md_secondary_light</item>
+        <item name="android:windowBackground">@color/md_background_light</item>
+    </style>
 </resources>

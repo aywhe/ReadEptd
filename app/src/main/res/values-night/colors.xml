@@ -1,31 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Google Material Design 3 颜色 - 橙色活力风 -->
-    <color name="md_primary_light">#9A4500</color>
-    <color name="md_on_primary_light">#FFFFFF</color>
-    <color name="md_primary_container_light">#FFDBCC</color>
-    <color name="md_on_primary_container_light">#321200</color>
-    
-    <color name="md_secondary_light">#76574A</color>
-    <color name="md_on_secondary_light">#FFFFFF</color>
-    <color name="md_secondary_container_light">#FFDBCC</color>
-    <color name="md_on_secondary_container_light">#2C160C</color>
-    
-    <color name="md_tertiary_light">#685F31</color>
-    <color name="md_on_tertiary_light">#FFFFFF</color>
-    <color name="md_tertiary_container_light">#F0E3A9</color>
-    <color name="md_on_tertiary_container_light">#211C00</color>
-    
-    <color name="md_error_light">#BA1A1A</color>
-    <color name="md_on_error_light">#FFFFFF</color>
-    <color name="md_error_container_light">#FFDAD6</color>
-    <color name="md_on_error_container_light">#410002</color>
-    
-    <color name="md_background_light">#FFFBFF</color>
-    <color name="md_on_background_light">#201A18</color>
-    <color name="md_surface_light">#FFFBFF</color>
-    <color name="md_on_surface_light">#201A18</color>
-    
     <!-- 深色主题颜色 - 橙色活力风 -->
     <color name="md_primary_dark">#FFB694</color>
     <color name="md_on_primary_dark">#522300</color>
