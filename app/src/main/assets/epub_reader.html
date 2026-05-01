@@ -271,8 +271,8 @@
                         Android.onPageChanged(JSON.stringify(location));
                     }
 
-                    // 注意：不在这里高亮，因为 relocated 的 href 可能有延迟
-                    highlightCurrentChapter(location.start.href);
+                    // 使用end，避免start cfi跨页
+                    highlightCurrentChapter(location.end.href);
                 });
 
                 // 监听渲染器调整大小
@@ -283,7 +283,6 @@
                 // 监听章节渲染完成
                 rendition.on("rendered", (section, view) => {
                     console.log('Section rendered:', section.href);
-                    highlightCurrentChapter(section.href);
                     // 获取当前视图的 contents 对象
                     const contents = view.contents;
                     if (contents && contents.window) {
@@ -323,8 +322,8 @@
                             if (Android && Android.onPageChanged) {
                                 Android.onPageChanged(JSON.stringify(location));
                             }
-                            // 高亮当前章节（scroll 事件中的 location 是准确的）
-                            highlightCurrentChapter(location.start.href);
+                            // 高亮当前章节（scroll 事件中的 location 是准确的）,使用 end 避免跨页
+                            highlightCurrentChapter(location.end.href);
                         }
                     });
                 });
