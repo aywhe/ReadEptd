@@ -390,7 +390,8 @@ fun ContentScreen(
     
     Box(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (files.isEmpty()) {
                 Text(
