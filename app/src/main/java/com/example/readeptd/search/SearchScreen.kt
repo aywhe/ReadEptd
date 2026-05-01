@@ -196,16 +196,16 @@ fun SlideInSearchPanel(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                 )
+                // ✅ 搜索中提示（放在按钮后面）
+                if (isSearching && shouldShowResults) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // ✅ 搜索中提示（放在按钮后面）
-                    if (isSearching && shouldShowResults) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
                     // ✅ 左右切换按钮（更小）
                     IconButton(
                         onClick = { isOnRight = !isOnRight },
