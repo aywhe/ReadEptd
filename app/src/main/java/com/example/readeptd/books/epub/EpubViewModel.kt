@@ -87,6 +87,21 @@ class EpubViewModel(
     }
 
     private val highlightedCFIs: Queue<String> = ArrayDeque()
+
+    fun removeAllHighlights(epubWebView: EpubWebView?) {
+        if (epubWebView == null) {
+            Log.w(TAG, "EPUB WebView 未初始化，无法执行清除操作")
+            return
+        }
+
+        // 移除所有已存在的高亮
+        while (highlightedCFIs.isNotEmpty()) {
+            val oldCfi = highlightedCFIs.poll()
+            if (oldCfi != null) {
+                epubWebView.highlight(oldCfi, true)
+            }
+        }
+    }
     
     /**
      * 清除所有高亮并添加新的高亮
@@ -98,15 +113,8 @@ class EpubViewModel(
             Log.w(TAG, "EPUB WebView 未初始化，无法执行高亮操作")
             return
         }
-        
-        // 清除所有已存在的高亮
-        while (highlightedCFIs.isNotEmpty()) {
-            val oldCfi = highlightedCFIs.poll()
-            if (oldCfi != null) {
-                epubWebView.highlight(oldCfi, true)
-            }
-            Log.d(TAG, "移除高亮: $oldCfi")
-        }
+
+        removeAllHighlights(epubWebView)
         
         // 添加新的高亮
         epubWebView.highlight(cfi, false)
