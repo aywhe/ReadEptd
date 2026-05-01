@@ -183,7 +183,10 @@ fun EpubScreen(
                     
                     SlideInSearchPanel(
                         initialVisible = isShowSearchDialog,
-                        onClose =  {isShowSearchDialog = false},
+                        onClose = {
+                            isShowSearchDialog = false
+                            viewModel.removeAllHighlights(epubWebView = webView)
+                        },
                         searchExecutor = { query ->
                             viewModel.search(query, epubWebView = webView)  // ✅ 调用 ViewModel 的搜索函数
                         },
