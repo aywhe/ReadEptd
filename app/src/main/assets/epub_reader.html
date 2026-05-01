@@ -115,7 +115,6 @@
     <script>
         let book = null;
         let rendition = null;
-        let currentLocation = null;
         let isLoaded = false;
         let tableOfContents = []; // 存储目录数据
 
@@ -261,7 +260,6 @@
 
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
-                    currentLocation = location;
                     console.log('Page relocated:', location);
 
                     // relocated不会每页触发，所以改到scroll中，scroll是每次翻页触发
@@ -318,7 +316,6 @@
                             const location = rendition.currentLocation();
                             if(location) {
                                 console.log('Current location:', location);
-                                currentLocation = location;
                                 if (Android && Android.onPageChanged) {
                                     Android.onPageChanged(JSON.stringify(location));
                                 }
@@ -391,7 +388,15 @@
 
                     // 自定义mapping中的字符分割函数
                     hookMappingFunctions();
-
+                    //
+                    try{
+                        const location = rendition.currentLocation();
+                        if(location){
+                            highlightCurrentChapter(location.end.href);
+                        }
+                    } catch(err) {
+                        console.error('Error in displayed event:', err.stack);
+                    }
                     // 通知 Android 加载完成
                     if (Android && Android.onLoadComplete) {
                         Android.onLoadComplete();
@@ -576,7 +581,6 @@
         function getCurrentLocation() {
             var location = rendition.currentLocation();
             if (location) {
-                currentLocation = location;
                 console.log('Getting current location:', location);
                 // 直接调用 Android 接口，避免返回值序列化问题
                 if (Android && Android.onLocationRetrieved) {
