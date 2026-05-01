@@ -237,4 +237,10 @@ class SearchViewModel(
         
         return closestIndex
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        clearCache()
+        clearResults()
+    }
 }
