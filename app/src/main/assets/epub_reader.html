@@ -1073,9 +1073,6 @@
           // ✅ 取消上一次搜索
           if (isSearching) {
             console.log('正在搜索中...');
-            if(Android && Android.onSearchCompleted) {
-              Android.onSearchCompleted();
-            }
             return;
           }
 
