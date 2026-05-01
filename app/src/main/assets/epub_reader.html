@@ -1015,80 +1015,55 @@
         }
 
         let isSearching = false;
-        let searchPromiseQueue = [];  // ✅ 跟踪所有搜索 Promise
 
         /**
          * 在整个 EPUB 书籍中搜索关键词
          * @param {Book} book - 已加载的书籍对象
          * @param {string} query - 搜索关键词
-         * @returns {Promise<Array>} - 包含所有匹配结果的数组
          */
         async function searchInBook(book, query) {
           // ✅ 取消上一次搜索
           if (isSearching) {
-            console.log('取消上一次搜索');
-            // 等待之前的 Promise 完成（不完美，但简单）
-            await Promise.allSettled(searchPromiseQueue);
-            searchPromiseQueue = [];
+            console.log('正在搜索中...');
+            return;
           }
-
-          // 确保书籍已加载
-          if(!book.ready) return;
 
           isSearching = true;
-          searchPromiseQueue = [];
+          console.log('开始搜索：' + query);
 
-          // ✅ 遍历所有章节
-          const spineItems = book.spine.spineItems;
-          console.log('spine size: ' + spineItems.length);
+          try {
+            await book.ready;
+            const spineItems = book.spine.spineItems;
+            console.log('spine size: ' + spineItems.length);
 
-          for (let i = 0; i < spineItems.length; i++) {
-            const section = spineItems[i];
+            for (let i = 0; i < spineItems.length; i++) {
+              const section = spineItems[i];
+              console.log('searching in section href: ' + section.href);
 
-            if (section.linear) { // 只搜索线性章节（跳过封面等）
               try {
-                console.log('searching in section href: ' + section.href);
-
-                // ✅ 创建 Promise 并加入队列
-                const searchPromise = section.load()
-                  .then(() => {
-                    // 执行搜索
-                    const matches = section.find(query);
-                    console.log('matches size: ' + matches.length);
-
-                    // 为每个匹配项添加章节信息
-                    matches.forEach(match => {
-                      // ✅ 添加章节索引和标题
-                      match.chapterIndex = i;
-                      match.chapterTitle = section.href;
-
-                      if(Android && Android.onSearchingResult){
-                        Android.onSearchingResult(JSON.stringify(match));
-                      }
-                    });
-                  })
-                  .catch(error => {
-                    console.error(`搜索章节 ${section.href} 时出错:`, error);
-                  });
-
-                searchPromiseQueue.push(searchPromise);
-              } catch (error) {
-                console.error(`搜索章节 ${section.href} 时出错:`, error);
+                const contents = await section.load(book.load.bind(book));
+                const matches = section.search(query);
+                console.log('matches size: ' + matches.length);
+                matches.forEach(match => {
+                  console.log(match.cfi, match.excerpt);
+                  if(Android && Android.onSearchingResult) {
+                    Android.onSearchingResult(JSON.stringify(match));
+                  }
+                });
+                // 搜索完成后可以卸载以释放内存
+                section.unload();
+              } catch (err) {
+                console.error('section load error:', err.stack);
               }
-            } else {
-              console.log(`跳过非线性章节 ${section.href}`);
             }
-          }
-
-          // ✅ 等待所有搜索完成
-          await Promise.allSettled(searchPromiseQueue);
-
-          isSearching = false;
-          searchPromiseQueue = [];
-
-          console.log('搜索完成');
-          if(Android && Android.onSearchCompleted){
-            Android.onSearchCompleted();
+          } catch (err) {
+            console.error('book ready error:', err.stack);
+          } finally {
+            console.log('search completed');
+            isSearching = false;
+            if(Android && Android.onSearchCompleted) {
+              Android.onSearchCompleted();
+            }
           }
         }
 
