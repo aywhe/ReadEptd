@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import org.json.JSONObject
+import kotlin.String
 
 /**
  * EPUB 阅读器 ViewModel
@@ -56,29 +57,20 @@ class EpubViewModel(
         // ✅ 设置搜索结果回调
         webView.search(
             keyword = keyword,
-            resultCallback = { resultJson ->
-                Log.d(TAG, "搜索结果: $resultJson")
-                try {
-                    // ✅ 解析 JSON 结果
-                    val json = JSONObject(resultJson)
-                    val cfi = json.optString("cfi", "")
-                    val excerpt = json.optString("excerpt", "")
-                    val chapterIndex = json.optInt("chapterIndex", -1)
-                    val chapterTitle = json.optString("chapterTitle", "")
-                    
-                    // ✅ 创建搜索结果对象
+            resultCallback = { result ->
+                if(result != null) {
                     val searchResult = SearchData.EpubSearchResult(
-                        keyword = keyword,
-                        previewContent = excerpt.take(100),  // 限制预览长度
-                        cfi = cfi,
-                        chapterTitle = chapterTitle,
-                        href = chapterIndex.toString()
+                        keyword = result.query,
+                        previewContent = result.excerpt,
+                        chapterTitle = result.chapterTitle,
+                        href = result.href,
+                        cfi = result.cfi,
+                        sortKey = result.sectionIndex * 1000 + result.matchIndex
                     )
-                    
                     // ✅ 发送结果到 Flow
                     trySend(searchResult)
-                } catch (e: Exception) {
-                    Log.e(TAG, "解析搜索结果失败", e)
+                } else {
+                    Log.e(TAG, "搜索结果为空")
                 }
             },
             completedCallback = {

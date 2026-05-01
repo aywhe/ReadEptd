@@ -130,6 +130,7 @@
         let currentY = 20;
         let isCollapsed = false; // 是否处于收缩状态
         let isTocButtonVisible = true; // 悬浮按钮是否可见
+        let isSearching = false;
 
         window.onload = function() {
             // 通知 Android js 已经准备好
@@ -1014,8 +1015,6 @@
             }
         }
 
-        let isSearching = false;
-
         /**
          * 在整个 EPUB 书籍中搜索关键词
          * @param {Book} book - 已加载的书籍对象
@@ -1025,6 +1024,9 @@
           // ✅ 取消上一次搜索
           if (isSearching) {
             console.log('正在搜索中...');
+            if(Android && Android.onSearchCompleted) {
+              Android.onSearchCompleted();
+            }
             return;
           }
 
@@ -1041,15 +1043,51 @@
               console.log('searching in section href: ' + section.href);
 
               try {
+                let chapterTitle = '';
+                try{
+                    const navItem = book.navigation.get(section.href);
+                    chapterTitle = navItem ? navItem.label : '';
+                } catch (error) {
+                    console.error('获取章节标题失败：', error);
+                }
+                console.log('chapterTitle: ' + chapterTitle);
                 const contents = await section.load(book.load.bind(book));
                 const matches = section.search(query);
                 console.log('matches size: ' + matches.length);
-                matches.forEach(match => {
-                  console.log(match.cfi, match.excerpt);
+                for(let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+                  const match = matches[matchIndex];
+                  console.log('match info: ', JSON.stringify(match));
+                  result = {
+                      href: section.href,                    // 章节文件路径
+                      sectionIndex: section.index,                  // 章节索引（在 spine 中的位置）
+                      cfi: match.cfi,                               // CFI 定位符
+                      excerpt: match.excerpt,                       // 摘要文本
+
+                      // === 增强的章节信息 ===
+                      chapterTitle: chapterTitle,                   // ✅ 章节标题（来自目录）
+                      idref: section.idref,                         // ✅ 章节 ID 引用
+                      //linear: section.linear,                       // ✅ 是否为线性章节
+                      //canonical: section.canonical,                 // ✅ 规范化 URL
+
+                      // === 位置信息 ===
+                      matchIndex: matchIndex,                       // ✅ 当前匹配在章节中的索引
+
+                      // === 高级信息（可选）===
+                      sectionBaseCfi: section.cfiBase,                     // ✅ CFI 基础路径
+                      //properties: section.properties,               // ✅ 章节属性数组
+                      //url: section.url,                             // ✅ 完整 URL
+
+                      // === 上下文信息（可选，需要额外处理）===
+                      position: match.position,                  // 在文本中的位置
+                      // contextBefore: match.contextBefore,        // 匹配前的文本
+                      // contextAfter: match.contextAfter,          // 匹配后的文本
+
+                      query: query
+                    };
                   if(Android && Android.onSearchingResult) {
-                    Android.onSearchingResult(JSON.stringify(match));
+                    Android.onSearchingResult(JSON.stringify(result));
                   }
-                });
+                }
                 // 搜索完成后可以卸载以释放内存
                 section.unload();
               } catch (err) {

@@ -73,6 +73,7 @@ fun EpubScreen(
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
                 var location by remember { mutableStateOf(EpubLocation.default()) }
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
+                var currentKeyword by remember { mutableStateOf("") }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
@@ -189,7 +190,8 @@ fun EpubScreen(
                         },
                         onResultClick = { result ->
                             webView?.goToLocation((result as SearchData.EpubSearchResult).cfi)
-                        }
+                        },
+                        onKeywordChange = { keyword -> currentKeyword = keyword}
                     )
                 }
             }

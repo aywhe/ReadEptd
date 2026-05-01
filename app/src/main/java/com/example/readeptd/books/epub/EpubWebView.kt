@@ -33,7 +33,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var pageActionPendingCallback: (() -> Unit)? = null
     private var locationRetrievedCallback: ((EpubLocation) -> Unit)? = null
     private var currentPageTextCallback: ((String) -> Unit)? = null
-    private var onSearchingResultCallback: ((String) -> Unit)? = null
+    private var onSearchingResultCallback: ((EpubSearchResult?) -> Unit)? = null
     private var onSearchCompletedCallback: (() -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
@@ -233,7 +233,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
 
     fun search(keyword: String,
-               resultCallback: (String) -> Unit,
+               resultCallback: (EpubSearchResult?) -> Unit,
                completedCallback: () -> Unit) {
         Log.d(TAG, "执行 JavaScript 搜索文本..")
         onSearchingResultCallback = resultCallback
@@ -293,7 +293,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onPageChanged(locationJson: String) {
             Log.d(TAG, "页面位置变化: $locationJson")
             try {
-                val epubLocation = parseLocationInfo(locationJson)
+                val epubLocation = EpubLocation.fromJson(locationJson)
                 if(epubLocation.start.percentage > 0) {
                     runOnMain { onPageChangedListener?.invoke(epubLocation) }
                 } else {
@@ -308,7 +308,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onLocationRetrieved(locationJson: String) {
             Log.d(TAG, "获取到位置信息: $locationJson")
             try {
-                val epubLocation = parseLocationInfo(locationJson)
+                val epubLocation = EpubLocation.fromJson(locationJson)
                 runOnMain {
                     if(epubLocation.start.percentage > 0) {
                         locationRetrievedCallback?.invoke(epubLocation)
@@ -329,7 +329,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onSearchingResult(result: String) {
             Log.d(TAG, "搜索结果: $result")
-            runOnMain { onSearchingResultCallback?.invoke(result) }
+            val searchResult = try {
+                EpubSearchResult.fromJson(result)
+            } catch (e: Exception) {
+                Log.e(TAG, "解析搜索结果失败", e)
+                null
+            }
+            runOnMain { onSearchingResultCallback?.invoke(searchResult) }
         }
         @JavascriptInterface
         fun onSearchCompleted() {
@@ -392,58 +398,6 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         }
     }
     
-    /**
-     * 解析页面信息 JSON
-     */
-    private fun parseLocationInfo(jsonString: String): EpubLocation {
-        val json = JSONObject(jsonString)
-        
-        // 解析 start 对象
-        val startJson = json.optJSONObject("start")
-        val endJson = json.optJSONObject("end")
-        
-        // 解析 start Position
-        val startPosition = parsePosition(startJson)
-        val endPosition = parsePosition(endJson)
-        
-        return EpubLocation(
-            start = startPosition,
-            end = endPosition,
-            rawJson = jsonString
-        )
-    }
-    
-    /**
-     * 解析位置对象
-     */
-    private fun parsePosition(positionJson: JSONObject?): EpubLocation.Position {
-        if (positionJson == null) {
-            return EpubLocation.Position(
-                index = 0,
-                href = "",
-                cfi = "",
-                displayed = EpubLocation.Displayed(page = 1, total = 1),
-                location = 0,
-                percentage = 0f
-            )
-        }
-        
-        val displayedJson = positionJson.optJSONObject("displayed")
-        val displayed = EpubLocation.Displayed(
-            page = displayedJson?.optInt("page", 1) ?: 1,
-            total = displayedJson?.optInt("total", 1) ?: 1
-        )
-        
-        return EpubLocation.Position(
-            index = positionJson.optInt("index", 0),
-            href = positionJson.optString("href", ""),
-            cfi = positionJson.optString("cfi", ""),
-            displayed = displayed,
-            location = positionJson.optInt("location", 0),
-            percentage = (positionJson.optDouble("percentage", 0.0)).toFloat()
-        )
-    }
-    
     companion object {
         private const val TAG = "EpubWebView"
     }
@@ -465,27 +419,98 @@ data class EpubLocation(
         val displayed: Displayed,
         val location: Int,
         val percentage: Float
-    )
+    ) {
+        companion object {
+            /**
+             * 从 JSON 对象解析 Position
+             */
+            fun fromJson(positionJson: JSONObject?): Position {
+                if (positionJson == null) {
+                    return default()
+                }
+                
+                val displayedJson = positionJson.optJSONObject("displayed")
+                val displayed = Displayed.fromJson(displayedJson)
+                
+                return Position(
+                    index = positionJson.optInt("index", 0),
+                    href = positionJson.optString("href", ""),
+                    cfi = positionJson.optString("cfi", ""),
+                    displayed = displayed,
+                    location = positionJson.optInt("location", 0),
+                    percentage = positionJson.optDouble("percentage", 0.0).toFloat()
+                )
+            }
+            
+            /**
+             * 创建默认的 Position 对象
+             */
+            fun default(): Position {
+                return Position(
+                    index = 0,
+                    href = "",
+                    cfi = "",
+                    displayed = Displayed.default(),
+                    location = 0,
+                    percentage = 0f
+                )
+            }
+        }
+    }
     
     data class Displayed(
         val page: Int,
         val total: Int
-    )
+    ) {
+        companion object {
+            /**
+             * 从 JSON 对象解析 Displayed
+             */
+            fun fromJson(displayedJson: JSONObject?): Displayed {
+                if (displayedJson == null) {
+                    return default()
+                }
+                
+                return Displayed(
+                    page = displayedJson.optInt("page", 1),
+                    total = displayedJson.optInt("total", 1)
+                )
+            }
+            
+            /**
+             * 创建默认的 Displayed 对象
+             */
+            fun default(): Displayed {
+                return Displayed(page = 0, total = 0)
+            }
+        }
+    }
     
     companion object {
+        /**
+         * 从 JSON 字符串解析 EpubLocation
+         */
+        fun fromJson(jsonString: String): EpubLocation {
+            val json = JSONObject(jsonString)
+            
+            val startJson = json.optJSONObject("start")
+            val endJson = json.optJSONObject("end")
+            
+            val startPosition = Position.fromJson(startJson)
+            val endPosition = Position.fromJson(endJson)
+            
+            return EpubLocation(
+                start = startPosition,
+                end = endPosition,
+                rawJson = jsonString
+            )
+        }
+        
         /**
          * 创建默认的 EpubLocation 对象
          */
         fun default(): EpubLocation {
-            val defaultDisplayed = Displayed(page = 0, total = 0)
-            val defaultPosition = Position(
-                index = 0,
-                href = "",
-                cfi = "",
-                displayed = defaultDisplayed,
-                location = 0,
-                percentage = 0f
-            )
+            val defaultPosition = Position.default()
             return EpubLocation(
                 start = defaultPosition,
                 end = defaultPosition
@@ -499,3 +524,42 @@ data class EpubClickInfo(
     val y: Float,
     val href: String
 )
+
+/**
+ * EPUB 搜索结果数据类
+ * 对应 epub.js search 返回的匹配项信息
+ */
+data class EpubSearchResult(
+    val href: String = "",                    // 章节文件路径
+    val sectionIndex: Int = -1,               // 章节索引（在 spine 中的位置）
+    val cfi: String = "",                     // CFI 定位符
+    val excerpt: String = "",                 // 摘要文本
+    val chapterTitle: String = "",            // 章节标题（来自目录）
+    val idref: String = "",                   // 章节 ID 引用
+    val matchIndex: Int = -1,                 // 当前匹配在章节中的索引
+    val sectionBaseCfi: String = "",          // CFI 基础路径
+    val position: Int = -1,                   // 在文本中的位置
+    val query: String = ""                    // 搜索关键词
+) {
+    companion object {
+        /**
+         * 从 JSON 字符串解析 EpubSearchResult
+         */
+        fun fromJson(jsonString: String): EpubSearchResult {
+            val json = JSONObject(jsonString)
+            
+            return EpubSearchResult(
+                href = json.optString("href", ""),
+                sectionIndex = json.optInt("sectionIndex", -1),
+                cfi = json.optString("cfi", ""),
+                excerpt = json.optString("excerpt", ""),
+                chapterTitle = json.optString("chapterTitle", ""),
+                idref = json.optString("idref", ""),
+                matchIndex = json.optInt("matchIndex", -1),
+                sectionBaseCfi = json.optString("sectionBaseCfi", ""),
+                position = json.optInt("position", -1),
+                query = json.optString("query", "")
+            )
+        }
+    }
+}
