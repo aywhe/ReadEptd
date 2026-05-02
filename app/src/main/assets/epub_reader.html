@@ -701,11 +701,16 @@
             navPanel.style.display = 'block';
             document.body.style.overflow = 'hidden'; // 禁止背景滚动
 
-            // 延迟一帧后触发动画
-            requestAnimationFrame(() => {
+            // 使用 setTimeout 确保样式已应用，再触发动画
+            setTimeout(() => {
                 navPanel.style.opacity = '1';
                 navContent.style.transform = 'translateX(0)';
-            });
+            }, 10);
+
+            //requestAnimationFrame(() => {
+            //    navPanel.style.opacity = '1';
+            //    navContent.style.transform = 'translateX(0)';
+            //});
         }
 
         // 关闭导航面板
