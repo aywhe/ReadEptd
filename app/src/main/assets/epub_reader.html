@@ -115,8 +115,12 @@
     <script>
         let book = null;
         let rendition = null;
-        let currentLocation = null;
+
         let isLoaded = false;
+        let isGeneratedLocations = false;
+        let isSearching = false;
+        let handleSearchCompleted = null;
+
         let tableOfContents = []; // 存储目录数据
 
         // 按钮拖动相关变量
@@ -130,7 +134,6 @@
         let currentY = 20;
         let isCollapsed = false; // 是否处于收缩状态
         let isTocButtonVisible = true; // 悬浮按钮是否可见
-        let isSearching = false;
 
         window.onload = function() {
             // 通知 Android js 已经准备好
@@ -214,6 +217,7 @@
                 clearBook();
 
                 isLoaded = false;
+                isGeneratedLocations = false;
 
                 // 显示加载指示器
                 document.getElementById('loading').style.display = 'block';
@@ -261,7 +265,6 @@
 
                 // 监听位置变化（动态获取总页数）
                 rendition.on("relocated", (location) => {
-                    currentLocation = location;
                     console.log('Page relocated:', location);
 
                     // relocated不会每页触发，所以改到scroll中，scroll是每次翻页触发
@@ -317,8 +320,7 @@
                         try{
                             const location = rendition.currentLocation();
                             if(location) {
-                                console.log('Current location:', location);
-                                currentLocation = location;
+                                console.log('Current location:', JSON.stringify(location));
                                 if (Android && Android.onPageChanged) {
                                     Android.onPageChanged(JSON.stringify(location));
                                 }
@@ -355,7 +357,11 @@
                     console.log('Generating locations asynchronously...');
                     return book.locations.generate(1024);
                 }).then(() => {
+                    isGeneratedLocations = true;
                     console.log('Locations generated');
+                    if(isLoaded){
+                        notifyPageChanged();
+                    }
                 }).catch((err) => {
                     console.error('Location generation error:', err);
                 });
@@ -391,10 +397,12 @@
 
                     // 自定义mapping中的字符分割函数
                     hookMappingFunctions();
-
                     // 通知 Android 加载完成
                     if (Android && Android.onLoadComplete) {
                         Android.onLoadComplete();
+                    }
+                    if(isGeneratedLocations){
+                        notifyPageChanged();
                     }
                 }).catch((error) => {
                     console.error('Display error:', error);
@@ -406,6 +414,24 @@
                 console.error('Init error:', error);
                 showError("初始化失败: " + error.message);
                 hideLoading();
+            }
+        }
+
+        function notifyPageChanged() {
+            try {
+                const location = rendition.currentLocation();
+                if (location && location.start && location.end) {
+                    const jsonLocation = JSON.stringify(location);
+                    console.log('Current location available:', jsonLocation);
+                    if (Android && Android.onPageChanged) {
+                        console.log('Notifying Android with location:', jsonLocation);
+                        Android.onPageChanged(jsonLocation);
+                    }
+                } else {
+                    console.warn('No current location available yet');
+                }
+            } catch(err) {
+                console.error('Error getting current location:', err.stack);
             }
         }
 
@@ -576,7 +602,6 @@
         function getCurrentLocation() {
             var location = rendition.currentLocation();
             if (location) {
-                currentLocation = location;
                 console.log('Getting current location:', location);
                 // 直接调用 Android 接口，避免返回值序列化问题
                 if (Android && Android.onLocationRetrieved) {
@@ -1049,9 +1074,6 @@
           // ✅ 取消上一次搜索
           if (isSearching) {
             console.log('正在搜索中...');
-            if(Android && Android.onSearchCompleted) {
-              Android.onSearchCompleted();
-            }
             return;
           }
 
@@ -1064,6 +1086,10 @@
             console.log('spine size: ' + spineItems.length);
 
             for (let i = 0; i < spineItems.length; i++) {
+              if (isSearching === false) {
+                console.log('取消搜索');
+                break;
+              }
               const section = spineItems[i];
               console.log('searching in section href: ' + section.href);
 
@@ -1080,6 +1106,10 @@
                 const matches = section.search(query);
                 console.log('matches size: ' + matches.length);
                 for(let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+                  if (isSearching === false) {
+                    console.log('取消搜索');
+                    break;
+                  }
                   const match = matches[matchIndex];
                   console.log('match info: ', JSON.stringify(match));
                   result = {
@@ -1123,14 +1153,49 @@
             console.error('book ready error:', err.stack);
           } finally {
             console.log('search completed');
-            isSearching = false;
+
+            // ✅ 先保存并清空回调，防止重复调用
+            const callback = handleSearchCompleted;
+            handleSearchCompleted = null;
+
+
+            // ✅ 通知 Android 搜索完成
             if(Android && Android.onSearchCompleted) {
               Android.onSearchCompleted();
+            }
+
+            // ✅ 再重置标志
+            isSearching = false;
+
+            // ✅ 最后执行等待者的回调
+            if (callback) {
+              try {
+                callback();
+              } catch (e) {
+                console.error('Error calling search complete callback:', e);
+              }
             }
           }
         }
 
-        function search(query) {
+        function stopSearchAndWait() {
+          if (isSearching) {
+            console.log('取消当前搜索...');
+            isSearching = false;
+
+            // ✅ 返回一个 Promise，等待搜索真正结束
+            return new Promise((resolve) => {
+              handleSearchCompleted = resolve;
+            });
+          } else {
+            console.log('没有正在进行的搜索');
+            // ✅ 即使没有搜索，也返回已完成的 Promise
+            return Promise.resolve();
+          }
+        }
+
+        async function search(query) {
+          await stopSearchAndWait();
           // 搜索整个书籍
           searchInBook(book, query);
         }
