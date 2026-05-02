@@ -1181,12 +1181,13 @@
         function stopSearchAndWait() {
           if (isSearching) {
             console.log('取消当前搜索...');
-            isSearching = false;
 
             // ✅ 返回一个 Promise，等待搜索真正结束
-            return new Promise((resolve) => {
+            const promise = new Promise((resolve) => {
               handleSearchCompleted = resolve;
             });
+            isSearching = false;
+            return promise;
           } else {
             console.log('没有正在进行的搜索');
             // ✅ 即使没有搜索，也返回已完成的 Promise
