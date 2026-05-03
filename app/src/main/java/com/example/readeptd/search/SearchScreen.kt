@@ -261,10 +261,10 @@ fun SlideInSearchPanel(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.small,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize)
+                textStyle = MaterialTheme.typography.bodySmall
             )
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -307,8 +307,7 @@ fun SlideInSearchPanel(
                         Text(
                             text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = MaterialTheme.typography.labelSmall.fontSize
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(
@@ -407,7 +406,7 @@ fun SearchResultCard(
                     pushStyle(
                         SpanStyle(
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = MaterialTheme.typography.labelSmall.fontWeight,
                             fontSize = MaterialTheme.typography.labelSmall.fontSize
                         )
                     )
@@ -417,7 +416,7 @@ fun SearchResultCard(
                     // 预览内容（普通样式）
                     pushStyle(
                         SpanStyle(
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = MaterialTheme.typography.bodySmall.fontSize
                         )
                     )

@@ -33,6 +33,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -244,8 +246,8 @@ fun TxtScreen(
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
                                 val pageAnnotatedContent =
-                                    if(isShowSearchDialog) Utils.highLightText(pageContent, currentKeyword)
-                                    else Utils.highLightText(pageContent, "")
+                                    if(isShowSearchDialog) highLightText(pageContent, currentKeyword)
+                                    else highLightText(pageContent, "")
                                 PageContent(
                                     pageAnnotatedContent = pageAnnotatedContent,
                                     fontSize = viewModel.currentFontSizeSp,
@@ -323,5 +325,38 @@ fun PageContent(
                 .padding(contentPadding)
 
         )
+    }
+}
+
+
+@Composable
+fun highLightText(content: String, keyword: String): AnnotatedString {
+    return if (keyword.isNotBlank()) {
+        buildAnnotatedString {
+            append(content)
+
+            // 查找所有匹配的关键词并添加高亮样式
+            var startIndex = 0
+            while (startIndex <= content.length - keyword.length) {
+                val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
+                if (matchIndex == -1) break
+
+                // 为匹配的关键词添加黄色背景高亮
+                addStyle(
+                    style = SpanStyle(
+                        background = MaterialTheme.colorScheme.tertiaryContainer,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    ),
+                    start = matchIndex,
+                    end = matchIndex + keyword.length
+                )
+
+                startIndex = matchIndex + keyword.length
+            }
+        }
+    } else {
+        buildAnnotatedString {
+            append(content)
+        }
     }
 }
