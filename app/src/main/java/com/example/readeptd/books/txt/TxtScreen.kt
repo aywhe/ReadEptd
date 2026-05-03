@@ -230,6 +230,52 @@ fun TxtScreen(
                                         }
                                     }
                                 }
+                                ttsModel.setOnRequestNextPageListener {
+                                    if (pagerState.currentPage < viewModel.getPagesCount() - 1) {
+                                        scope.launch {
+                                            pagerState.scrollToPage(pagerState.currentPage + 1)
+                                            val text =
+                                                viewModel.getPageContent(pagerState.currentPage)
+                                            if (text.isNotBlank()) {
+                                                ttsModel.speak(
+                                                    text,
+                                                    "txt_${pagerState.currentPage}"
+                                                )
+                                                val text =
+                                                    viewModel.getPageContent(pagerState.currentPage)
+                                                if (text.isNotBlank()) {
+                                                    ttsModel.speak(
+                                                        text,
+                                                        "txt_${pagerState.currentPage}"
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ttsModel.setOnRequestPreviousPageListener{
+                                    if (pagerState.currentPage > 0) {
+                                        scope.launch {
+                                            pagerState.scrollToPage(pagerState.currentPage - 1)
+                                            val text =
+                                                viewModel.getPageContent(pagerState.currentPage)
+                                            if (text.isNotBlank()) {
+                                                ttsModel.speak(
+                                                    text,
+                                                    "txt_${pagerState.currentPage}"
+                                                )
+                                                val text =
+                                                    viewModel.getPageContent(pagerState.currentPage)
+                                                if (text.isNotBlank()) {
+                                                    ttsModel.speak(
+                                                        text,
+                                                        "txt_${pagerState.currentPage}"
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
 
                                 onDispose {
                                     ttsModel.clearCallbacks()

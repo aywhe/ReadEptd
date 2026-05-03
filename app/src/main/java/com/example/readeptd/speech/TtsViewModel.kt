@@ -1,6 +1,11 @@
 package com.example.readeptd.speech
 
 import android.app.Application
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
@@ -13,11 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-/**
- * TTS ViewModel
- * 管理 TTS 服务的状态和生命周期
- */
-class TtsViewModel(application: Application) : AndroidViewModel(application), TtsService.TtsListener {
+class TtsViewModel(application: Application) : AndroidViewModel(application),
+    TtsService.TtsListener {
 
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
@@ -32,11 +34,14 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     val pitch: StateFlow<Float> = _pitch.asStateFlow()
 
     private var ttsService: TtsService? = null
+    private var serviceBound = false
 
     // 自动朗读回调(当 TTS 开始/完成时触发,用于获取下一页文本)
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
+    private var onRequestNextPageCallback: (() -> Unit)? = null
+    private var onRequestPreviousPageCallback: (() -> Unit)? = null
 
     private var countDownTimer: TtsCountDownTimer? = null
     private var countDownTimerFinishedDelayFlag = false
@@ -44,17 +49,36 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     val remainingMillisTime: StateFlow<Long> = _remainingMillisTime.asStateFlow()
 
 
-    init {
-        initializeTts()
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as TtsService.LocalBinder
+            ttsService = binder.getService()
+            serviceBound = true
+
+            // 注册监听器
+            binder.registerListener(this@TtsViewModel)
+
+            Log.d(TAG, "服务已连接")
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            ttsService = null
+            serviceBound = false
+            _isSpeaking.value = false
+            Log.d(TAG, "服务已断开")
+        }
     }
 
-    /**
-     * 初始化 TTS 服务
-     */
-    private fun initializeTts() {
-        ttsService = TtsService(
-            context = getApplication(),
-            listener = this
+    init {
+        bindTtsService()
+    }
+
+    private fun bindTtsService() {
+        val intent = Intent(getApplication(), TtsService::class.java)
+        getApplication<Application>().bindService(
+            intent,
+            serviceConnection,
+            Context.BIND_AUTO_CREATE
         )
     }
 
@@ -81,6 +105,12 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     override fun onSpeechError(utteranceId: String?) {
         _isSpeaking.value = false
     }
+    override fun onRequestNextPage(){
+        onRequestNextPageCallback?.invoke()
+    }
+    override fun onRequestPreviousPage(){
+        onRequestPreviousPageCallback?.invoke()
+    }
 
     //endregion
 
@@ -88,12 +118,16 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 朗读文本
      */
     fun speak(text: String, utteranceId: String? = null) {
-        if(countDownTimerFinishedDelayFlag){
-            Log.d(TAG,"定时器触发了停止标记还在")
-            return
-        }
-        if (_isInitialized.value) {
-            ttsService?.speak(text, utteranceId)
+        if (serviceBound && ttsService != null) {
+            if (countDownTimerFinishedDelayFlag) {
+                Log.d(TAG, "定时器触发了停止标记还在")
+                return
+            }
+            if (_isInitialized.value) {
+                ttsService?.speak(text, utteranceId)
+            } else {
+                Log.e(TAG, "TTS 服务未绑定,无法朗读")
+            }
         } else {
             Log.e(TAG, "TTS 未初始化,无法朗读")
         }
@@ -103,8 +137,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 停止朗读
      */
     fun stop() {
-        ttsService?.stop()
-        _isSpeaking.value = false  // 立即更新状态
+        if (serviceBound) {
+            ttsService?.stop()
+            _isSpeaking.value = false
+        }
     }
 
     /**
@@ -112,7 +148,9 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun setSpeechRate(rate: Float) {
         _speechRate.value = rate
-        ttsService?.setSpeechRate(rate)
+        if (serviceBound) {
+            ttsService?.setSpeechRate(rate)
+        }
     }
 
     /**
@@ -120,13 +158,16 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      */
     fun setPitch(pitch: Float) {
         _pitch.value = pitch
-        ttsService?.setPitch(pitch)
+        if (serviceBound) {
+            ttsService?.setPitch(pitch)
+        }
     }
 
     /**
      * 设置语言
      */
     fun setLanguage(locale: Locale): Boolean {
+        if (!serviceBound) return false
         val result = ttsService?.setLanguage(locale)
         return result != null && result != TextToSpeech.LANG_MISSING_DATA &&
                 result != TextToSpeech.LANG_NOT_SUPPORTED
@@ -136,21 +177,21 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
      * 获取支持的语言列表
      */
     fun getAvailableLanguages(): Set<Locale>? {
-        return ttsService?.getAvailableLanguages()
+        return if (serviceBound) ttsService?.getAvailableLanguages() else null
     }
 
     /**
      * 检查是否正在朗读
      */
     fun checkIsSpeaking(): Boolean {
-        return ttsService?.isSpeaking() ?: false
+        return if (serviceBound) ttsService?.isSpeaking() ?: false else false
     }
 
     /**
      * 检查 TTS 是否就绪
      */
     fun isReady(): Boolean {
-        return ttsService?.isReady() ?: false
+        return if (serviceBound) ttsService?.isReady() ?: false else false
     }
 
     /**
@@ -173,6 +214,12 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun setOnRequestSpeechStartListener(callback: () -> Unit) {
         onRequestSpeechStartCallback = callback
     }
+    fun setOnRequestNextPageListener(callback: () -> Unit) {
+        onRequestNextPageCallback = callback
+    }
+    fun setOnRequestPreviousPageListener(callback: () -> Unit) {
+        onRequestPreviousPageCallback = callback
+    }
 
     /**
      * 清除回调
@@ -181,6 +228,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
         onSpeechStartCallback = null
         onSpeechDoneCallback = null
         onRequestSpeechStartCallback = null
+        onRequestNextPageCallback = null
+        onRequestPreviousPageCallback = null
     }
 
     /**
@@ -189,13 +238,14 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
     fun onEvent(event: TtsEvent) {
         when (event) {
             is TtsEvent.RequestAutoSpeak -> {
-                if(!_isSpeaking.value) {
+                if (!_isSpeaking.value) {
                     // 请求开始自动朗读,触发回调获取文本并开始朗读
                     onRequestSpeechStartCallback?.invoke()
                 }
             }
+
             is TtsEvent.StartCountDownTimer -> {
-                Log.d(TAG,"开始定时器,剩余时间:${event.millisInFuture/1000f/60f}分钟")
+                Log.d(TAG, "开始定时器,剩余时间:${event.millisInFuture / 1000f / 60f}分钟")
                 countDownTimerFinishedDelayFlag = false
                 countDownTimer?.cancel()
                 countDownTimer = null
@@ -206,7 +256,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                         _remainingMillisTime.value = millisRemainingTime
                     },
                     onFinishCallback = {
-                        Log.d(TAG,"定时器触发了")
+                        Log.d(TAG, "定时器触发了")
                         stop()
                         _remainingMillisTime.value = 0L
                         countDownTimerFinishedDelayFlag = true
@@ -221,6 +271,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
                 )
                 countDownTimer?.start()
             }
+
             is TtsEvent.RemoveCountDownTimer -> {
                 removeCountDownTimer()
             }
@@ -241,8 +292,18 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
         removeCountDownTimer()
         // 清除回调，避免内存泄漏
         clearCallbacks()
-        ttsService?.shutdown()
-        ttsService = null
+
+        // 解绑服务
+        if (serviceBound) {
+            ttsService?.let { service ->
+                val binder = service.binder
+                binder.unregisterListener(this)
+            }
+            getApplication<Application>().unbindService(serviceConnection)
+            serviceBound = false
+        }
+
+        Log.d(TAG, "ViewModel清理，服务已解绑")
     }
 
     companion object {

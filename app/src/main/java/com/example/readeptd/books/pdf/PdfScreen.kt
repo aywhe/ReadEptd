@@ -203,6 +203,28 @@ fun PdfLazyViewer(
                     }
                 }
             }
+            ttsModel.setOnRequestNextPageListener {
+                if (pagerState.currentPage < totalPages - 1) {
+                    scope.launch {
+                        pagerState.scrollToPage(pagerState.currentPage + 1)
+                        val text = viewModel.getPageText(pagerState.currentPage)
+                        if (!text.isNullOrBlank()) {
+                            ttsModel.speak(text, "pdf_${pagerState.currentPage}")
+                        }
+                    }
+                }
+            }
+            ttsModel.setOnRequestPreviousPageListener {
+                if (pagerState.currentPage > 0) {
+                    scope.launch {
+                        pagerState.scrollToPage(pagerState.currentPage - 1)
+                        val text = viewModel.getPageText(pagerState.currentPage)
+                        if (!text.isNullOrBlank()) {
+                            ttsModel.speak(text, "pdf_${pagerState.currentPage}")
+                        }
+                    }
+                }
+            }
 
             onDispose {
             }

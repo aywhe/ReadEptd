@@ -1,9 +1,15 @@
 package com.example.readeptd.utils
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import android.content.Context
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -126,7 +132,34 @@ object Utils {
         return CharsParams(avgCharsPerLine, maxLinesPerPage)
     }
 
-    @Composable
+    /**
+     * 检查并请求通知权限（Android 13+）
+     * @param activity Activity 实例
+     * @return 是否已拥有权限
+     */
+    fun checkAndRequestNotificationPermission(activity: ComponentActivity): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+                Log.d("Utils", "请求通知权限")
+                return false
+            }
+            Log.d("Utils", "已拥有通知权限")
+            return true
+        }
+        // Android 13 以下不需要运行时权限
+        return true
+    }
+
     fun highLightText(content: String, keyword: String): AnnotatedString {
         return if (keyword.isNotBlank()) {
             buildAnnotatedString {

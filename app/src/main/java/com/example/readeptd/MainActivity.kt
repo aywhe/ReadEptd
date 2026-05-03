@@ -41,15 +41,19 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -71,6 +75,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
@@ -273,7 +278,8 @@ fun MainScreen(
 
     if (showSettingDialog){
         SettingsDialog(
-            onDismiss = { showSettingDialog = false }
+            onDismiss = { showSettingDialog = false },
+            mainViewModel = viewModel
         )
     }
 
@@ -695,9 +701,13 @@ fun MainScreenPreview() {
 
 @Composable
 fun SettingsDialog(
+    mainViewModel: MainViewModel,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+
+    val configure by mainViewModel.configureFlow.collectAsStateWithLifecycle()
+    
     AlertDialog(
         onDismissRequest = {onDismiss()},
         title = { Text("设置") },
@@ -706,6 +716,36 @@ fun SettingsDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // TTS 朗读通知开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "显示朗读通知",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Switch(
+                        checked = configure.showTtsNotification,
+                        onCheckedChange = { isChecked ->
+                            mainViewModel.updateConfigure(configure.copy(showTtsNotification = isChecked))
+                        }
+                    )
+                }
+                
+                Text(
+                    text = "开启后，后台朗读时会在通知栏显示当前文本",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier,
+                    thickness = DividerDefaults.Thickness,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+
                 // TTS 设置按钮
                 Button(
                     onClick = {

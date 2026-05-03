@@ -17,6 +17,7 @@ import org.json.JSONObject
  */
 private val Context.fileListDataStore: DataStore<Preferences> by preferencesDataStore(name = "reading_files")
 private val Context.readingStateDataStore: DataStore<Preferences> by preferencesDataStore(name = "reading_states")
+private val Context.configureDataStore: DataStore<Preferences> by preferencesDataStore(name = "configure")
 
 /**
  * 文件数据持久化管理器
@@ -27,6 +28,7 @@ class FileDataStore(private val context: Context) {
     companion object {
         private val READING_FILES_KEY = stringPreferencesKey("reading_files")
         private val READING_STATES_KEY = stringPreferencesKey("reading_states")
+        private val CONFIGURE_KEY = stringPreferencesKey("configure")
     }
     
     /**
@@ -169,6 +171,51 @@ class FileDataStore(private val context: Context) {
         context.readingStateDataStore.edit { preferences ->
             preferences.remove(READING_STATES_KEY)
         }
+    }
+    
+    // ==================== 配置管理 ====================
+    
+    /**
+     * 保存配置
+     */
+    suspend fun saveConfigure(configure: ConfigureData) {
+        context.configureDataStore.edit { preferences ->
+            val json = JSONObject().apply {
+                put("showTtsNotification", configure.showTtsNotification)
+                // 后续添加新配置时，在这里继续添加即可
+                // put("newConfigKey", configure.newConfigValue)
+            }
+            preferences[CONFIGURE_KEY] = json.toString()
+        }
+    }
+    
+    /**
+     * 获取配置
+     */
+    val configureFlow: Flow<ConfigureData> = context.configureDataStore.data.map { preferences ->
+        val jsonString = preferences[CONFIGURE_KEY]
+        if (jsonString != null) {
+            try {
+                val json = JSONObject(jsonString)
+                ConfigureData(
+                    showTtsNotification = json.optBoolean("showTtsNotification", true)
+                    // 后续添加新配置时，在这里继续添加即可
+                    // newConfigValue = json.optXXX("newConfigKey", defaultValue)
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ConfigureData() // 解析失败返回默认值
+            }
+        } else {
+            ConfigureData() // 无配置返回默认值
+        }
+    }
+    
+    /**
+     * 同步获取配置（用于 Service）
+     */
+    suspend fun getConfigure(): ConfigureData {
+        return configureFlow.first()
     }
     
     // ==================== 私有辅助方法 ====================

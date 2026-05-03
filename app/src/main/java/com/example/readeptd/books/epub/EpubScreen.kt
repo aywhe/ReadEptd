@@ -153,6 +153,32 @@ fun EpubScreen(
                                         }
                                     }
                                 }
+                                ttsModel.setOnRequestNextPageListener {
+                                    nextPage{
+                                        getCurrentPageText { text ->
+                                            if (text.isNotBlank()) {
+                                                Log.d("EpubScreen", "获取到下一页文本,开始朗读")
+                                                val cleanedText = text.replace("\\n", " ").trim()
+                                                ttsModel.speak(cleanedText)
+                                            } else {
+                                                Log.w("EpubScreen", "下一页文本为空,停止自动朗读")
+                                            }
+                                        }
+                                    }
+                                }
+                                ttsModel.setOnRequestPreviousPageListener {
+                                    prevPage{
+                                        getCurrentPageText { text ->
+                                            if (text.isNotBlank()) {
+                                                Log.d("EpubScreen", "获取到下一页文本,开始朗读")
+                                                val cleanedText = text.replace("\\n", " ").trim()
+                                                ttsModel.speak(cleanedText)
+                                            } else {
+                                                Log.w("EpubScreen", "下一页文本为空,停止自动朗读")
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             webView = newWebView
                             newWebView
