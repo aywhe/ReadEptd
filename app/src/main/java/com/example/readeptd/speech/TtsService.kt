@@ -204,9 +204,8 @@ class TtsService : Service() {
                 isPlaying = false
                 notifySpeechDone(utteranceId)
                 scope.launch {
-                    // 延迟5秒后重置标记
                     delay(5200)
-                    updateNotification()
+                    hideNotification()
                 }
             }
 
@@ -215,9 +214,8 @@ class TtsService : Service() {
                 isPlaying = false
                 notifySpeechError(utteranceId)
                 scope.launch {
-                    // 延迟5秒后重置标记
                     delay(5200)
-                    updateNotification()
+                    hideNotification()
                 }
             }
         })
@@ -301,6 +299,7 @@ class TtsService : Service() {
      */
     private fun hideNotification() {
         val notificationManager = getSystemService(NotificationManager::class.java)
+        stopForeground(STOP_FOREGROUND_DETACH)
         notificationManager.cancel(NOTIFICATION_ID)
         Log.d(TAG, "已隐藏通知")
     }
@@ -380,25 +379,6 @@ class TtsService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }
-
-    /**
-     * 更新通知
-     */
-    private fun updateNotification() {
-        
-        // 只有在 ContentActivity 不可见且正在播放时才显示/更新通知
-        if (isContentActivityVisible || !isPlaying) {
-            Log.d(TAG, "不更新通知 - visible=$isContentActivityVisible, playing=$isPlaying")
-            // 如果不在播放，确保通知被隐藏
-            if (!isPlaying) {
-                hideNotification()
-            }
-            return
-        }
-        
-        showNotification()
-    }
-
     //region 通知按钮处理
 
     private fun handleTogglePlay() {
