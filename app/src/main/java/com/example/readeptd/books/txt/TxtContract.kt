@@ -42,4 +42,7 @@ sealed interface TxtEvent {
      */
     data class OnLineHeightChanged(val lineHeight: Int) : TxtEvent
 
+    object OnDoubleClickScreen: TxtEvent
+    data  class OnScreenOrientationChanged(val orientation: Int): TxtEvent
+
 }

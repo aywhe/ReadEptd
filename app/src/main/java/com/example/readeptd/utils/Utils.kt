@@ -10,6 +10,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 
 /**
  * URI 工具类
@@ -152,5 +156,36 @@ object Utils {
         }
         // Android 13 以下不需要运行时权限
         return true
+    }
+
+    fun highLightText(content: String, keyword: String): AnnotatedString {
+        return if (keyword.isNotBlank()) {
+            buildAnnotatedString {
+                append(content)
+
+                // 查找所有匹配的关键词并添加高亮样式
+                var startIndex = 0
+                while (startIndex <= content.length - keyword.length) {
+                    val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
+                    if (matchIndex == -1) break
+
+                    // 为匹配的关键词添加黄色背景高亮
+                    addStyle(
+                        style = SpanStyle(
+                            background = Color.Gray,
+                            color = Color.Black
+                        ),
+                        start = matchIndex,
+                        end = matchIndex + keyword.length
+                    )
+
+                    startIndex = matchIndex + keyword.length
+                }
+            }
+        } else {
+            buildAnnotatedString {
+                append(content)
+            }
+        }
     }
 }

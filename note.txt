@@ -4,6 +4,8 @@
 
 - 问题： epub.js的 relocated 事件，左右翻页时，有时候触发有时候不触发，导致保存进度不准确
 方法： 还没找到方法， displayed 事件也不行，它只触发了一次， scrolled事件与relocated同步，也不能用
+过了好久，终于发现，在 flow: "paginated",manager: "continuous",spread: "auto",snap: true 的配置下，
+检查事件 scroll 可以满足翻一页触发一次，可以用它跟踪进度信息
 
 - 问题： epub.js左右翻页的时候，想要提取页面文本，rendition.currentLocation()是最接近的方法，
 但是它返回的CFI定位，级别只到<p>，没有到char级别，导致提取的文本都是整段落的，会提取当前页面同一个段落的没有显示再页面的那些文字
@@ -27,3 +29,46 @@ hook 时需要 rendition 准备好，我是在第一次display().then()中进行
 - 问题： epub.js rendition.next()返回的是Promise，所以要等他执行完成才能提取文本
 方法： rendition.next().then(()=>{Android.onPageActionComplete})
 EpubWebView在调用next的时候绑定一个listener，在onPageActionComplete中执行这个listener
+
+- 问题： 想要实现功能，双击中间区域，可以切换全屏，但是txtScreen中使用了selectContainer会被上层的监测逻辑影响
+方法： 没有找到方法，先不做这个全屏功能
+
+- 问题： epub.js的搜索功能，调用 section.load().then(), 出错，好像是section无法识别正确的路径。
+方法： 改为 section.load(book.load.bind(book))，正确处理路径解析，
+确保了在 Android WebView 中能正确从 EPUB（ZIP）文件中提取章节内容，
+好像是Android的临时文件夹改变了路径。
+
+- 问题： 如果epub页面都是图片，const location = rendition.currentLocation();失败catch error
+方法： 这是epub.js的问题，我无法解决。
+"Error in scroll event: TypeError: Cannot read properties of null (reading 'collapse')
+    at e.a.rangePairToCfiPair (file:///android_asset/js/epub.min.js:1:55335)
+    at e.a.page (file:///android_asset/js/epub.min.js:1:52054)
+    at file:///android_asset/js/epub.min.js:1:48451
+    at Array.map (<anonymous>)
+    at p.paginatedLocation (file:///android_asset/js/epub.min.js:1:48152)
+    at p.currentLocation (file:///android_asset/js/epub.min.js:1:47139)
+    at b.currentLocation (file:///android_asset/js/epub.min.js:1:89317)
+    at p.<anonymous> (file:///android_asset/epub_reader.html:319:56)
+    at p.o (file:///android_asset/js/epub.min.js:1:21276)
+    at p.scrolled (file:///android_asset/js/epub.min.js:1:117080)"
+
+- 学习 Promise：
+const myPromise = new Promise(func)
+const myPromise = new Promise((resolve, reject) => {})
+const myPromise = new Promise((a, b) => {})
+Promise(func)必需接受一个函数作为参数func，func需要接收两个参数，两个参数都是 Promise 给函数，两个函数参数又分别可以接收一个参数
+语义上两个参数习惯取名resolve, reject，
+刚创建时，Promise 处于 pending 状态，直到 Promise 给的两个函数参数其中一个执行，
+如果执行的是第一个，则 Promise 跳转到 fulfilled 状态，
+如果执行的是第二个，则 Promise 跳转到 rejected 状态，
+跳转状态后，Promise 会执行 then() 中的函数，then(resolved,rejected) 接收两个函数参数， 这两个函数需要接收一个参数
+如果是 resolve(p1) 跳转，则执行 then 中的第一个参数函数 resolved(p1)，并且把参数传给它，这里的 p1 是一样的
+如果是 rejected(p2) 跳转，则执行 then 中的第二个参数函数 rejected(p2)，并且把参数传给它，这里的 p2 是一样的
+当你创建了一个 Promise 实例后，Promise(func) 中的 func 立即就开始同步执行，是同步执行，
+需要等 func 执行完毕才能返回 Promise，所以 func 中通常要启动一些异步代码以便快速返回
+
+例子：
+const myPromise = new Promise((resolve, reject) => { 这里调用 resolve 或者 reject 触发状态跳转，或者暴露它们给其他地方调用，调用异步代码，尽快结束当前函数 })
+myPromise.then(func1(p1){},func2(p2){});
+只要在某处调用 resolve('called resolve')， p1 = 'called resolve'， func1(p1) 就会被执行。
+reject 同理。

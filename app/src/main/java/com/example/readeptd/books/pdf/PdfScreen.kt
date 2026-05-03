@@ -1,10 +1,11 @@
 package com.example.readeptd.books.pdf
 
-import android.graphics.Bitmap
+import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,7 +36,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -42,8 +47,11 @@ import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
 import com.example.readeptd.books.BookUiState
+import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
-import com.example.readeptd.viewmodel.ContentViewModel
+import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.search.SearchData
+import com.example.readeptd.search.SlideInSearchPanel
 
 @Composable
 fun PdfScreen(
@@ -118,6 +126,7 @@ fun PdfLazyViewer(
     
     val totalPages by viewModel.totalPages.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
+    val configuration = LocalConfiguration.current
 
     DisposableEffect(filePath) {
         // 初始化 PDF 渲染器
@@ -132,6 +141,7 @@ fun PdfLazyViewer(
         var scale by remember { mutableFloatStateOf(1f) }
         var offset by remember { mutableStateOf(Offset.Zero) }
         var containerSize by remember { mutableStateOf(IntSize.Zero) }
+        var isShowSearchDialog by remember { mutableStateOf(false) }
 
         val initialPage = viewModel.getInitialPage()
         val pagerState = rememberPagerState(
@@ -154,11 +164,14 @@ fun PdfLazyViewer(
                     isShowJumpToPageDialog = true
                 }
             }
+            contentViewModel.setOnClickSearchButtonCallback {
+                isShowSearchDialog = !isShowSearchDialog
+            }
 
             ttsModel.setOnRequestSpeechStartListener {
                 val text = viewModel.getPageText(pagerState.currentPage)
                 if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text, "pdf-${pagerState.currentPage}")
+                    ttsModel.speak(text, "pdf_${pagerState.currentPage}")
                 }
             }
 
@@ -202,14 +215,17 @@ fun PdfLazyViewer(
                     containerSize = coordinates.size
                 }
                 .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { tapOffset ->
+                            Log.d("PdfScreen", "双击屏幕，切换全屏")
+                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.5f, 5f)
-                        val maxXOffset = if (scale > 1f) containerSize.width * (scale - 1) / 2 else 0f
-                        val maxYOffset = if (scale > 1f) containerSize.height * (scale - 1) / 2 else 0f
-                        offset = Offset(
-                            (offset.x + pan.x).coerceIn(-maxXOffset, maxXOffset),
-                            (offset.y + pan.y).coerceIn(-maxYOffset, maxYOffset)
-                        )
+                        scale *= zoom
+                        offset += pan
                     }
                 }
         ) {
@@ -217,9 +233,18 @@ fun PdfLazyViewer(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                Box(
-                    contentAlignment = Alignment.Center,
+                val scrollState = rememberScrollState()
+                var contentAlignment = Alignment.Center
+                var modifier: Modifier? = null
+                if(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE){
+                    modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
+                    contentAlignment = Alignment.TopCenter
+                } else {
                     modifier = Modifier.fillMaxSize()
+                    contentAlignment = Alignment.Center
+                }
+                Box(
+                    contentAlignment = contentAlignment,
                 ) {
                     viewModel.renderPage(currentPage, 1)
                     val bitmap = viewModel.getPageBitmap( page)
@@ -227,12 +252,13 @@ fun PdfLazyViewer(
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "PDF $page ",
-                            modifier = Modifier
+                            contentScale = ContentScale.FillWidth,
+                            modifier = modifier
                                 .graphicsLayer(
                                     scaleX = scale,
                                     scaleY = scale,
                                     translationX = offset.x,
-                                    translationY = offset.y
+                                    translationY = offset.y,
                                 )
                         )
                     } else {
@@ -263,6 +289,23 @@ fun PdfLazyViewer(
                     }
                 )
             }
+            SlideInSearchPanel(
+                initialVisible = isShowSearchDialog,
+                searchExecutor = { query ->
+                    viewModel.search(query)
+                },
+                getCurrentPosition = {
+                    pagerState.currentPage
+                },
+                onResultClick = { result ->
+                    scope.launch {
+                        pagerState.scrollToPage((result as SearchData.PdfSearchResult).pageIndex)
+                    }
+                },
+                onClose = {
+                    isShowSearchDialog = false
+                }
+            )
         }
     } else {
         Column(

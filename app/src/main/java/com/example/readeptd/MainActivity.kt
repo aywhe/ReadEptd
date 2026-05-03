@@ -3,6 +3,7 @@ package com.example.readeptd
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,13 +72,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.activity.MainUiEvent
+import com.example.readeptd.activity.MainUiState
+import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.FileInfo.Companion.toBundle
-import com.example.readeptd.contract.MainUiEvent
-import com.example.readeptd.contract.MainUiState
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
-import com.example.readeptd.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -89,11 +91,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReadEptdTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainScreen(
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                MainScreen()
             }
         }
     }
@@ -144,8 +142,8 @@ fun MainScreen(
                     context.contentResolver.query(
                         uri,
                         arrayOf(
-                            android.provider.OpenableColumns.DISPLAY_NAME,
-                            android.provider.OpenableColumns.SIZE
+                            OpenableColumns.DISPLAY_NAME,
+                            OpenableColumns.SIZE
                         ),
                         null,
                         null,
@@ -153,13 +151,13 @@ fun MainScreen(
                     )?.use { cursor ->
                         if (cursor.moveToFirst()) {
                             val nameIndex =
-                                cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                             if (nameIndex != -1) {
                                 fileName = cursor.getString(nameIndex)
                             }
 
                             val sizeIndex =
-                                cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                                cursor.getColumnIndex(OpenableColumns.SIZE)
                             if (sizeIndex != -1) {
                                 fileSize = cursor.getLong(sizeIndex)
                             }
@@ -295,7 +293,7 @@ fun MainScreen(
                         ReadEptd - 智能听书助手 v$versionName
                         
                         主要功能：
-                        • 支持 TXT、DOCX、PDF、EPUB 格式
+                        • 支持 TXT、PDF、EPUB 格式
                         • 文字转语音朗读
                         • 定时关闭功能
                         • 自动保存阅读进度
@@ -392,7 +390,8 @@ fun ContentScreen(
     
     Box(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (files.isEmpty()) {
                 Text(
@@ -545,7 +544,7 @@ fun FileItemCard(
         if (isDragging) {
             showDeleteButton = true
         } else {
-            kotlinx.coroutines.delay(5000)
+            delay(5000)
             showDeleteButton = false
         }
     }
@@ -689,7 +688,7 @@ fun FileItemCard(
 fun MainScreenPreview() {
     ReadEptdTheme {
         ContentScreen(
-            viewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            viewModel = viewModel()
         )
     }
 }

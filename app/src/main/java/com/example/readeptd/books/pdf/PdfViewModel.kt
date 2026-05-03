@@ -9,9 +9,14 @@ import androidx.core.graphics.createBitmap
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
+import com.example.readeptd.search.SearchData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -228,6 +233,128 @@ class PdfViewModel(
         )
         saveProgress(state)
     }
+
+    /**
+     * 搜索 PDF 文本内容（双向交替搜索）
+     * @param keyword 搜索关键词
+     * @param startPage 起始页码（从当前页开始）
+     * @param previewCharsNeighborLeft 预览上下文左侧字符数
+     * @param previewCharsNeighborRight 预览上下文右侧字符数
+     * @param maxCountOnePage 每页最多返回的结果数
+     * @param searchSwitchStep 搜索方向切换步长
+     * @return Flow<SearchData.PdfSearchResult> 搜索结果流
+     */
+    fun search(
+        keyword: String,
+        startPage: Int = 0,
+        previewCharsNeighborLeft: Int = 25,
+        previewCharsNeighborRight: Int = 25,
+        maxCountOnePage: Int = 10,
+        searchSwitchStep: Int = 20
+    ): Flow<SearchData.PdfSearchResult> = flow {
+        if (keyword.isEmpty()) {
+            return@flow
+        }
+
+        val renderer = pdfRenderer
+        if (renderer == null) {
+            Log.e(TAG, "PDF 渲染器未初始化")
+            return@flow
+        }
+
+        Log.d(TAG, "开始搜索关键词: '$keyword', 起始页: $startPage, 切换步长: $searchSwitchStep")
+        var allCount = 0
+
+        val totalPages = renderer.pageCount
+        if (totalPages == 0) return@flow
+
+        // ✅ 双向交替搜索策略
+        var forwardIndex = startPage  // 向前搜索的索引
+        var backwardIndex = startPage - 1  // 向后搜索的索引（从 startPage-1 开始）
+        var isForwardTurn = true  // 当前是否轮到向前搜索
+        var stepCount = 0  // 当前方向已搜索的页数
+
+        // ✅ 记录已搜索的页面，避免重复
+        val searchedPages = mutableSetOf<Int>()
+
+        while (forwardIndex < totalPages || backwardIndex >= 0) {
+            val currentPageIndex = if (isForwardTurn) {
+                // 向前搜索
+                if (forwardIndex >= totalPages) {
+                    // 向前已到末尾，切换到向后
+                    isForwardTurn = false
+                    stepCount = 0
+                    continue
+                }
+                forwardIndex++
+            } else {
+                // 向后搜索
+                if (backwardIndex < 0) {
+                    // 向后已到开头，切换到向前
+                    isForwardTurn = true
+                    stepCount = 0
+                    continue
+                }
+                backwardIndex--
+            }
+
+            // 检查是否已搜索过（理论上不会，但保险起见）
+            if (currentPageIndex in searchedPages) continue
+            searchedPages.add(currentPageIndex)
+
+            // ✅ 获取当前页文本并搜索
+            try {
+                val pageText = getPageText(currentPageIndex)
+                if (!pageText.isNullOrBlank()) {
+                    var startIndex = 0
+                    var count = 0
+
+                    // 在当前页中查找所有匹配
+                    while (true) {
+                        val matchIndex = pageText.indexOf(keyword, startIndex, ignoreCase = true)
+                        if (matchIndex == -1) break
+
+                        // ✅ 提取上下文预览
+                        val contextStart = (matchIndex - previewCharsNeighborLeft).coerceAtLeast(0)
+                        val contextEnd =
+                            (matchIndex + keyword.length + previewCharsNeighborRight).coerceAtMost(
+                                pageText.length
+                            )
+                        val previewContent = pageText.substring(contextStart, contextEnd)
+
+                        emit(
+                            SearchData.PdfSearchResult(
+                                keyword = keyword,
+                                previewContent = previewContent,
+                                pageIndex = currentPageIndex
+                            )
+                        )
+
+                        startIndex = matchIndex + keyword.length
+                        count++
+                        allCount++
+
+                        // 每页最多 maxCountOnePage 个结果
+                        if (count >= maxCountOnePage) {
+                            break
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "搜索第 $currentPageIndex 页时出错", e)
+            }
+
+            // ✅ 检查是否需要切换方向
+            stepCount++
+            if (stepCount >= searchSwitchStep) {
+                isForwardTurn = !isForwardTurn
+                stepCount = 0
+                Log.d(TAG, "搜索方向切换，已找到 $allCount 个结果")
+            }
+        }
+
+        Log.d(TAG, "搜索完成，找到 $allCount 个结果")
+    }.flowOn(Dispatchers.Default)  // ✅ 确保在后台线程执行
 
     override fun onCleared() {
         super.onCleared()

@@ -1,12 +1,10 @@
-package com.example.readeptd.viewmodel
+package com.example.readeptd.activity
 
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.example.readeptd.contract.ContentUiEvent
-import com.example.readeptd.contract.ContentUiState
 import com.example.readeptd.data.FileInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +21,9 @@ class ContentViewModel(
     private val _progressText = MutableStateFlow("")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
+    private var _onClickSearchButtonCallback: (() -> Unit)? = null
+    private val _isFullScreen = MutableStateFlow(false)
+    val isFullScreen: StateFlow<Boolean> = _isFullScreen.asStateFlow()
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -33,6 +34,7 @@ class ContentViewModel(
     override fun onCleared() {
         super.onCleared()
         _onClickProgressInfoCallback = null
+        _onClickSearchButtonCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
 
@@ -42,11 +44,24 @@ class ContentViewModel(
             is ContentUiEvent.OnClickProgressInfo -> {
                 _onClickProgressInfoCallback?.invoke(event.progressText)
             }
+            is ContentUiEvent.OnClickSearchButton -> {
+                _onClickSearchButtonCallback?.invoke()
+            }
+            is ContentUiEvent.OnDoubleClickScreen -> {
+                _isFullScreen.value = !_isFullScreen.value
+            }
+            is ContentUiEvent.OnScreenOrientationChanged ->{
+                _isFullScreen.value = false
+            }
         }
     }
 
     fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onClickProgressInfoCallback = callback
+    }
+
+    fun setOnClickSearchButtonCallback(callback: (() -> Unit)?) {
+        _onClickSearchButtonCallback = callback
     }
 
     /**

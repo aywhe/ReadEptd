@@ -1,9 +1,8 @@
 package com.example.readeptd
 
-import android.app.Application
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,17 +36,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.readeptd.contract.ContentUiEvent
-import com.example.readeptd.contract.ContentUiState
+import com.example.readeptd.activity.ContentUiEvent
+import com.example.readeptd.activity.ContentUiState
+import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
-import com.example.readeptd.viewmodel.ContentViewModel
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
@@ -84,105 +88,169 @@ fun ContentScreen(
     ttsModel: TtsViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
+    val configuration = LocalConfiguration.current
 
     // 在首次组合或 fileInfo 变化时加载文件信息
     // 使用 fileInfo?.uri 作为 key，确保不同文件能正确触发
     LaunchedEffect(fileInfo?.uri) {
         viewModel.onEvent(ContentUiEvent.Initialize(fileInfo))
     }
+    // 监听屏幕旋转，恢复重新分页功能
+    LaunchedEffect(configuration.orientation) {
+        Log.d("ContentActivity", "屏幕方向变化: ${configuration.orientation}")
+        viewModel.onEvent(ContentUiEvent.OnScreenOrientationChanged(configuration.orientation))
+    }
 
     val uiState by viewModel.uiState.collectAsState()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsState()
+    val isFullScreen by viewModel.isFullScreen.collectAsState()
+
+    // 控制状态栏显示/隐藏
+    LaunchedEffect(isFullScreen) {
+        val window = (context as? ComponentActivity)?.window
+        if (window != null) {
+            if (isFullScreen) {
+                // 隐藏状态栏（无动画）
+                WindowInsetsControllerCompat(window, view).apply {
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    hide(WindowInsetsCompat.Type.statusBars())
+                }
+                // 强制立即应用，禁用动画
+                window.decorView.post {
+                    window.setFlags(
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN
+                    )
+                }
+            } else {
+                // 显示状态栏（无动画）
+                WindowInsetsControllerCompat(window, view).show(WindowInsetsCompat.Type.statusBars())
+                // 强制立即应用，禁用动画
+                window.decorView.post {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                }
+            }
+        }
+    }
+
 
     Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (val state = uiState) {
-                            is ContentUiState.Success -> state.fileInfo.fileName
-                            else -> "阅读"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (context is ComponentActivity) {
-                            context.finish()
-                        }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+            if(!isFullScreen) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = when (val state = uiState) {
+                                is ContentUiState.Success -> state.fileInfo.fileName
+                                else -> "阅读"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    }
-                },
-                actions = {
-                    if(progressText.isNotBlank()) {
-                        TextButton(
-                            onClick = { viewModel.onEvent(ContentUiEvent.OnClickProgressInfo(progressText)) }
-                        ) {
-                            Text(
-                                text = progressText,
-                                style = MaterialTheme.typography.titleMedium
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            if (context is ComponentActivity) {
+                                context.finish()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回"
                             )
                         }
-                    }
-                    if (ttsInitialized) {
-                        var isShowTimerDialog by remember { mutableStateOf(false) }
-                        Box(contentAlignment = Alignment.Center,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onTap = {
-                                            if (isSpeaking) {
-                                                Log.d("ContentActivity", "停止朗读按钮被点击")
-                                                ttsModel.onEvent(TtsEvent.StopSpeaking)
-                                            } else {
-                                                Log.d("ContentActivity", "请求开始自动朗读")
-                                                ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
-                                            }
-                                        },
-                                        onLongPress = {
-                                            Log.d("ContentActivity", "长按按钮被点击")
-                                            isShowTimerDialog = true
-                                        }
+                    },
+                    actions = {
+                        if (progressText.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.onEvent(
+                                        ContentUiEvent.OnClickProgressInfo(
+                                            progressText
+                                        )
                                     )
                                 }
-                        ) {
-                            Icon(
-                                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
-                                contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                            ) {
+                                Text(
+                                    text = progressText,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
                         }
-                        if(isShowTimerDialog){
-                            val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
-                            TimerDialog(
-                                currentRemainingMillis = remainingTimeMillis,
-                                onDismiss = {
-                                    isShowTimerDialog = false
-                                },
-                                onConfirm = { millis ->
-                                    ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
-                                    isShowTimerDialog = false
-                                },
-                                onStopTimer = {
-                                    ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
-                                    isShowTimerDialog = false
-                                },
-                            )
+                        if (ttsInitialized) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "搜索",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            var isShowTimerDialog by remember { mutableStateOf(false) }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(start = 4.dp,end = 16.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                if (isSpeaking) {
+                                                    Log.d("ContentActivity", "停止朗读按钮被点击")
+                                                    ttsModel.stop()
+                                                } else {
+                                                    Log.d("ContentActivity", "请求开始自动朗读")
+                                                    ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
+                                                }
+                                            },
+                                            onLongPress = {
+                                                Log.d("ContentActivity", "长按按钮被点击")
+                                                isShowTimerDialog = true
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Icon(
+                                    imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                                    contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            if (isShowTimerDialog) {
+                                val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
+                                TimerDialog(
+                                    currentRemainingMillis = remainingTimeMillis,
+                                    onDismiss = {
+                                        isShowTimerDialog = false
+                                    },
+                                    onConfirm = { millis ->
+                                        ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
+                                        isShowTimerDialog = false
+                                    },
+                                    onStopTimer = {
+                                        ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
+                                        isShowTimerDialog = false
+                                    },
+                                )
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         when (val state = uiState) {

@@ -1,6 +1,10 @@
 package com.example.readeptd.books.txt
 
+import android.os.SystemClock
 import android.util.Log
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,17 +28,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
+import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
-import com.example.readeptd.viewmodel.ContentViewModel
+import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.search.SearchData
+import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.launch
 
 @Composable
@@ -48,9 +59,12 @@ fun TxtScreen(
     val uiState by viewModel.uiState.collectAsState()
     val initialPage by viewModel.initialPage.collectAsState()
     val isPagesReady by viewModel.isPagesReady.collectAsState()
+    val isFullScreen by contentViewModel.isFullScreen.collectAsState()
+    val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowSearchDialog by remember { mutableStateOf(false) }
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -68,7 +82,11 @@ fun TxtScreen(
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
     }
-
+    // 监听屏幕旋转，恢复重新分页功能
+    LaunchedEffect(configuration.orientation) {
+        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
+        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
+    }
     Column(
         modifier = modifier.fillMaxSize()
     ) {
@@ -90,19 +108,39 @@ fun TxtScreen(
             }
 
             is BookUiState.Ready -> {
+                var lastClickTime by remember { mutableStateOf(0L)}
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .onSizeChanged { size ->
-                            viewModel.onEvent(
-                                TxtEvent.OnViewMetricsChanged(
-                                    size = size,
-                                    leftPaddingDp = leftPaddingDp,
-                                    rightPaddingDp = rightPaddingDp,
-                                    topPaddingDp = topPaddingDp,
-                                    bottomPaddingDp = bottomPaddingDp
+                            if(!isFullScreen){
+                                viewModel.onEvent(
+                                    TxtEvent.OnViewMetricsChanged(
+                                        size = size,
+                                        leftPaddingDp = leftPaddingDp,
+                                        rightPaddingDp = rightPaddingDp,
+                                        topPaddingDp = topPaddingDp,
+                                        bottomPaddingDp = bottomPaddingDp
+                                    )
                                 )
-                            )
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val up = waitForUpOrCancellation()
+                                if (up != null) {
+                                    val clickTime = SystemClock.uptimeMillis()
+                                    val timeDiff = clickTime - lastClickTime
+                                    lastClickTime = clickTime
+                                    val isDoubleClick = timeDiff <= 300
+                                    if (isDoubleClick) {
+                                        Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
+                                        contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                        viewModel.onEvent(TxtEvent.OnDoubleClickScreen)
+                                    }
+                                }
+                            }
                         }
                 ) {
                     if (!isPagesReady) {
@@ -139,6 +177,9 @@ fun TxtScreen(
                             LaunchedEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
+                                }
+                                contentViewModel.setOnClickSearchButtonCallback {
+                                    isShowSearchDialog = !isShowSearchDialog
                                 }
                             }
 
@@ -180,7 +221,7 @@ fun TxtScreen(
                                             if (targetPage != currentPage) {
                                                 pagerState.scrollToPage(targetPage)
                                             }
-                                            
+
                                             // 朗读目标页
                                             val text = viewModel.getPageContent(targetPage)
                                             if (text.isNotBlank()) {
@@ -194,8 +235,7 @@ fun TxtScreen(
                                     ttsModel.clearCallbacks()
                                 }
                             }
-
-
+                            var currentKeyword by remember { mutableStateOf("") }
                             HorizontalPager(
                                 state = pagerState,
                                 modifier = Modifier.fillMaxSize(),
@@ -203,8 +243,11 @@ fun TxtScreen(
                             ) { page ->
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
+                                val pageAnnotatedContent =
+                                    if(isShowSearchDialog) Utils.highLightText(pageContent, currentKeyword)
+                                    else Utils.highLightText(pageContent, "")
                                 PageContent(
-                                    pageContent = pageContent,
+                                    pageAnnotatedContent = pageAnnotatedContent,
                                     fontSize = viewModel.currentFontSizeSp,
                                     lineHeight = viewModel.currentLineHeightSp,
                                     contentPadding = contentPadding
@@ -225,6 +268,22 @@ fun TxtScreen(
                                     }
                                 )
                             }
+                            SlideInSearchPanel(
+                                initialVisible = isShowSearchDialog,
+                                onClose =  {isShowSearchDialog =  false},
+                                getCurrentPosition = {pagerState.currentPage},
+                                onResultClick = {
+                                    scope.launch {
+                                        try{
+                                            pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
+                                        } catch (e: Exception){
+                                            Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                                        }
+                                    }
+                                },
+                                onKeywordChange = {currentKeyword = it},
+                                searchExecutor = {keyword -> viewModel.search(keyword) }
+                            )
                         }
                     }
                 }
@@ -250,17 +309,19 @@ fun TxtScreen(
 
 @Composable
 fun PageContent(
-    pageContent: String,
+    pageAnnotatedContent: AnnotatedString,
     fontSize: Int,
     lineHeight: Int,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    SelectionContainer() {
+    SelectionContainer {
         Text(
-            text = pageContent,
+            text = pageAnnotatedContent,
             fontSize = fontSize.sp,
             lineHeight = lineHeight.sp,
-            modifier = Modifier.padding(contentPadding)
+            modifier = Modifier
+                .padding(contentPadding)
+
         )
     }
 }

@@ -11,11 +11,17 @@ import com.example.readeptd.data.ReadingState
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.parser.TextSplitter
 import com.example.readeptd.parser.TxtExtractor
+import com.example.readeptd.search.SearchData
 import com.example.readeptd.utils.Utils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,6 +53,10 @@ class TxtViewModel(
 
     // 缓存上一次的分页参数，用于判断是否需要重新分页
     private var lastCharsParams: Utils.CharsParams? = null
+
+    // 控制是否允许重新分页（全屏切换时暂时禁用）
+    private var allowRePagination: Boolean = true
+    private var jobSetAllowRePagination: Job? = null
 
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -80,9 +90,22 @@ class TxtViewModel(
                 event.topPaddingDp,
                 event.bottomPaddingDp
             )
+
             is TxtEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
+            is TxtEvent.OnDoubleClickScreen -> {
+                allowRePagination = false
+                jobSetAllowRePagination?.cancel()
+                jobSetAllowRePagination = viewModelScope.launch {
+                    delay(5000)
+                    allowRePagination = true
+                }
+            }
+
+            is TxtEvent.OnScreenOrientationChanged -> {
+                allowRePagination = true
+            }
         }
     }
 
@@ -98,13 +121,16 @@ class TxtViewModel(
     ) {
         val sizeChanged = viewSize != size
         val paddingChanged = this.leftPaddingDp != leftPaddingDp ||
-                            this.rightPaddingDp != rightPaddingDp ||
-                            this.topPaddingDp != topPaddingDp ||
-                            this.bottomPaddingDp != bottomPaddingDp
+                this.rightPaddingDp != rightPaddingDp ||
+                this.topPaddingDp != topPaddingDp ||
+                this.bottomPaddingDp != bottomPaddingDp
 
         if (!sizeChanged && !paddingChanged) return
 
-        Log.d(TAG, "视图指标变化: size=${size.width}x${size.height}, padding=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)")
+        Log.d(
+            TAG,
+            "视图指标变化: size=${size.width}x${size.height}, padding=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)"
+        )
 
         viewSize = size
         this.leftPaddingDp = leftPaddingDp
@@ -112,8 +138,12 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "全屏切换中，跳过重新分页")
         }
     }
 
@@ -202,7 +232,8 @@ class TxtViewModel(
         // 如果分页参数没有变化，不需要重新分页
         if (lastCharsParams != null &&
             lastCharsParams?.avgCharsPerLine == newCharsParams.avgCharsPerLine &&
-            lastCharsParams?.maxLinesPerPage == newCharsParams.maxLinesPerPage) {
+            lastCharsParams?.maxLinesPerPage == newCharsParams.maxLinesPerPage
+        ) {
             Log.d(TAG, "分页参数未变化，跳过重新分页: $newCharsParams")
             return
         }
@@ -242,7 +273,10 @@ class TxtViewModel(
             try {
                 val charsParams = this.calculatePageCharsParams()
 
-                Log.d(TAG, "开始分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
+                Log.d(
+                    TAG,
+                    "开始分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符"
+                )
 
                 // 使用临时可变列表
                 val tempPages = mutableListOf<TextChunk>()
@@ -331,7 +365,10 @@ class TxtViewModel(
      */
     fun getPageContent(pageIndex: Int): String {
         return if (pageIndex in _pages.value.indices) {
-            Log.d(TAG, "获取页码 $pageIndex 的内容: ${_pages.value[pageIndex].content.take(50)} ...")
+            Log.d(
+                TAG,
+                "获取页码 $pageIndex 的内容: ${_pages.value[pageIndex].content.take(50)} ..."
+            )
             _pages.value[pageIndex].content
         } else ""
     }
@@ -339,7 +376,7 @@ class TxtViewModel(
     /**
      * 获取分页数量
      */
-    fun getPagesCount(): Int{
+    fun getPagesCount(): Int {
         return _pages.value.size
     }
 
@@ -350,7 +387,8 @@ class TxtViewModel(
         uri: String,
         pageIndex: Int
     ) {
-        val progress = if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
+        val progress =
+            if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
         val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
         val state = ReadingState.Txt(
@@ -362,8 +400,124 @@ class TxtViewModel(
         saveProgress(state)
     }
 
+    fun search(
+        keyword: String,
+        startPage: Int = 0,
+        previewCharsNeighborLeft: Int = 25,
+        previewCharsNeighborRight: Int = 25,
+        maxCountOnePage: Int = 10,
+        searchSwitchStep: Int = 20
+    ): Flow<SearchData.TxtSearchResult> = flow {
+        if (keyword.isEmpty()) {
+            return@flow
+        }
+
+        Log.d(TAG, "开始搜索关键词: $keyword, 起始页: $startPage, 切换步长: $searchSwitchStep")
+        var allCount = 0
+        
+        val totalPages = _pages.value.size
+        if (totalPages == 0) return@flow
+        
+        // ✅ 双向交替搜索策略
+        var forwardIndex = startPage  // 向前搜索的索引
+        var backwardIndex = startPage - 1  // 向后搜索的索引（从 startPage-1 开始）
+        var isForwardTurn = true  // 当前是否轮到向前搜索
+        var stepCount = 0  // 当前方向已搜索的页数
+        
+        // ✅ 记录已搜索的页面，避免重复
+        val searchedPages = mutableSetOf<Int>()
+        
+        while (forwardIndex < totalPages || backwardIndex >= 0) {
+            val currentPageIndex = if (isForwardTurn) {
+                // 向前搜索
+                if (forwardIndex >= totalPages) {
+                    // 向前已到末尾，切换到向后
+                    isForwardTurn = false
+                    stepCount = 0
+                    continue
+                }
+                forwardIndex++
+            } else {
+                // 向后搜索
+                if (backwardIndex < 0) {
+                    // 向后已到开头，切换到向前
+                    isForwardTurn = true
+                    stepCount = 0
+                    continue
+                }
+                backwardIndex--
+            }
+            
+            // 检查是否已搜索过（理论上不会，但保险起见）
+            if (currentPageIndex in searchedPages) continue
+            searchedPages.add(currentPageIndex)
+            
+            // ✅ 搜索当前页
+            val page = _pages.value[currentPageIndex]
+            val pageContent = page.content
+            var startIndex = 0
+            var count = 0
+            
+            while (true) {
+                val matchIndex = pageContent.indexOf(keyword, startIndex, ignoreCase = true)
+                if (matchIndex == -1) break
+
+                // ✅ 提取上下文预览
+                val contextStart = (matchIndex - previewCharsNeighborLeft).coerceAtLeast(0)
+                val contextEnd =
+                    (matchIndex + keyword.length + previewCharsNeighborRight).coerceAtMost(
+                        pageContent.length
+                    )
+                val previewContent = pageContent.substring(contextStart, contextEnd)
+
+                // ✅ 计算字符偏移量
+                val charOffset = page.startPos + matchIndex
+
+                emit(
+                    SearchData.TxtSearchResult(
+                        keyword = keyword,
+                        previewContent = previewContent,
+                        pageIndex = currentPageIndex,
+                        charOffset = charOffset,
+                        charOffsetInPage = matchIndex
+                    )
+                )
+
+                startIndex = matchIndex + keyword.length
+                count++
+                allCount++
+
+                // 每页最多 maxCountOnePage 个结果
+                if (count >= maxCountOnePage) {
+                    break
+                }
+            }
+            
+            // ✅ 检查是否需要切换方向
+            stepCount++
+            if (stepCount >= searchSwitchStep) {
+                isForwardTurn = !isForwardTurn
+                stepCount = 0
+                Log.d(TAG, "搜索方向切换，已找到 $allCount 个结果")
+            }
+        }
+        
+        Log.d(TAG, "搜索完成，找到 $allCount 个结果")
+    }.flowOn(Dispatchers.Default)  // ✅ 确保在后台线程执行
+
     override fun getViewModelName(): String {
         return "TxtViewModel"
+    }
+
+    /**
+     * 清理资源
+     */
+    override fun onCleared() {
+        super.onCleared()
+        jobSetAllowRePagination?.cancel()
+        jobSetAllowRePagination = null
+        currentPageJob?.cancel()
+        currentPageJob = null
     }
 
     companion object {
