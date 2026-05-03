@@ -159,36 +159,4 @@ object Utils {
         // Android 13 以下不需要运行时权限
         return true
     }
-
-    @Composable
-    fun highLightText(content: String, keyword: String): AnnotatedString {
-        return if (keyword.isNotBlank()) {
-            buildAnnotatedString {
-                append(content)
-
-                // 查找所有匹配的关键词并添加高亮样式
-                var startIndex = 0
-                while (startIndex <= content.length - keyword.length) {
-                    val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
-                    if (matchIndex == -1) break
-
-                    // 为匹配的关键词添加黄色背景高亮
-                    addStyle(
-                        style = SpanStyle(
-                            background = MaterialTheme.colorScheme.primaryContainer,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        start = matchIndex,
-                        end = matchIndex + keyword.length
-                    )
-
-                    startIndex = matchIndex + keyword.length
-                }
-            }
-        } else {
-            buildAnnotatedString {
-                append(content)
-            }
-        }
-    }
 }

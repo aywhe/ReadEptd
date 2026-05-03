@@ -494,7 +494,7 @@ fun DraggableFloatingButton(
         FloatingActionButton(
             onClick = onClick,
             containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .offset { offset }
