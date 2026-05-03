@@ -4,6 +4,8 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.net.toUri
 import android.content.Context
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -122,36 +124,5 @@ object Utils {
         // 2. 计算每页最大行数（像素相除，结果无单位）
         val maxLinesPerPage = (effectiveHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
         return CharsParams(avgCharsPerLine, maxLinesPerPage)
-    }
-
-    fun highLightText(content: String, keyword: String): AnnotatedString {
-        return if (keyword.isNotBlank()) {
-            buildAnnotatedString {
-                append(content)
-
-                // 查找所有匹配的关键词并添加高亮样式
-                var startIndex = 0
-                while (startIndex <= content.length - keyword.length) {
-                    val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
-                    if (matchIndex == -1) break
-
-                    // 为匹配的关键词添加黄色背景高亮
-                    addStyle(
-                        style = SpanStyle(
-                            background = Color.Gray,
-                            color = Color.Black
-                        ),
-                        start = matchIndex,
-                        end = matchIndex + keyword.length
-                    )
-
-                    startIndex = matchIndex + keyword.length
-                }
-            }
-        } else {
-            buildAnnotatedString {
-                append(content)
-            }
-        }
     }
 }

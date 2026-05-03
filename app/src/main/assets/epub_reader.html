@@ -53,8 +53,8 @@
         }
         
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border: 4px solid #FFF3ED;
+            border-top: 4px solid #9A4500;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -75,7 +75,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #e74c3c;
+            color: #BA1A1A;
             padding: 20px;
         }
     </style>
@@ -95,12 +95,12 @@
 
     <!-- 导航面板（目录） -->
     <div id="nav-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s ease;">
-        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #f5f5f5; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);">
-            <div style="padding: 20px; border-bottom: 1px solid #eee;">
-                <h2 style="margin: 0; font-size: 20px; color: #333;">目录</h2>
-                <button id="toc-toggle-btn" onclick="toggleTocButton()" style="position: absolute; right: 60px; top: 20px; background: none; border: none; font-size: 14px; cursor: pointer; color: #1976d2; padding: 8px 12px; border-radius: 4px; transition: background 0.2s;">隐藏悬浮按钮</button>
+        <div id="nav-content" style="position: absolute; right: 0; top: 0; width: 80%; max-width: 400px; height: 100%; background: #FFFBFF; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.3); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);">
+            <div style="padding: 20px; border-bottom: 1px solid #D7C2B9;">
+                <h2 style="margin: 0; font-size: 20px; color: #201A18;">目录</h2>
+                <button id="toc-toggle-btn" onclick="toggleTocButton()" style="position: absolute; right: 60px; top: 20px; background: none; border: none; font-size: 14px; cursor: pointer; color: #9A4500; padding: 8px 12px; border-radius: 4px; transition: background 0.2s;">隐藏悬浮按钮</button>
 <!--                <button id="toc-toggle-btn" onclick="toggleTocButton()" style="position: absolute; right: 60px; top: 20px; background: #e3f2fd; border: 1px solid #90caf9; font-size: 13px; cursor: pointer; color: #1976d2; padding: 6px 12px; border-radius: 16px; transition: all 0.2s; font-weight: 500;" onmouseover="this.style.background='#bbdefb'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'" onmouseout="this.style.background='#e3f2fd'; this.style.boxShadow='none'">隐藏悬浮按钮</button>-->
-                <button onclick="closeNavPanel()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                <button onclick="closeNavPanel()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #52443D;">&times;</button>
             </div>
             <hr>
             <div id="toc-container" style="padding: 10px 20px;">
@@ -110,7 +110,7 @@
     </div>
 
     <!-- 打开目录按钮 -->
-    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(0, 163, 204,0.7); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 2px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none; transition: all 0.3s ease; -webkit-tap-highlight-color: transparent; outline: none;">☰</button>
+    <button id="toc-btn" onclick="handleTocBtnClick()" style="position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(154, 69, 0, 0.7); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; box-shadow: 0 2px 2px rgba(0,0,0,0.2); display: none; touch-action: none; user-select: none; transition: all 0.3s ease; -webkit-tap-highlight-color: transparent; outline: none; color: white;">☰</button>
 
     <script>
         let book = null;
@@ -640,7 +640,7 @@
                            data-href="${href}"
                            onclick="jumpToChapter('${href}'); return false;"
                            style="display: block; padding: 12px 18px; padding-left: ${12 + indent}px;
-                                  text-decoration: none; color: #333; font-size: ${fontSize}px;
+                                  text-decoration: none; color: #201A18; font-size: ${fontSize}px;
                                   border-radius: 5px; transition: background 0.2s;"
                         >
                            ${label}
@@ -664,7 +664,7 @@
         function generateTOC(toc) {
             const container = document.getElementById('toc-container');
             if (!container || !toc || toc.length === 0) {
-                container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无目录</p>';
+                container.innerHTML = '<p style="color: #85736B; text-align: center; padding: 20px;">暂无目录</p>';
                 return;
             }
             let html = generateTocHtml(toc, 0)
@@ -784,8 +784,8 @@
 
                 if (isMatch) {
                     link.classList.add('active');
-                    link.style.background = '#3498db';
-                    link.style.color = '#fff';
+                    link.style.background = '#9A4500';
+                    link.style.color = '#FFFFFF';
                     link.style.fontWeight = 'bold';
                     console.log('Highlighted link:', linkHref);
                     // 滚动到可见区域
@@ -1213,15 +1213,15 @@
                 console.log('remove highlight: ' + cfi);
                 rendition.annotations.remove(cfi,"highlight");
               } else {
-                // 添加高亮
+                // 添加高亮 - 使用橙色活力风主题色
                 console.log('add highlight: ' + cfi);
                 rendition.annotations.highlight(
                   cfi,  // CFI 范围
-                  { color: "gray" },              // 附加数据
+                  { color: "#9A4500" },              // 附加数据 - 主色调橙色
                   null,
                   "my-highlight",                   // CSS 类名（可选）
                   {                                  // 自定义样式（可选）
-                    "fill": "rgb(72, 72, 72)",
+                    "fill": "rgba(154, 69, 0, 0.7)",  // 半透明橙色背景（50%透明度，更深）
                     "mix-blend-mode": "multiply"
                   }
                 );

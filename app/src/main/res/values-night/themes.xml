@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.ReadEptd" parent="android:Theme.Material.NoActionBar">
+        <!-- Material Design 3 深色主题属性 -->
+        <item name="android:colorPrimary">@color/md_primary_dark</item>
+        <item name="android:colorPrimaryDark">@color/md_primary_container_dark</item>
+        <item name="android:colorAccent">@color/md_secondary_dark</item>
+        <item name="android:windowBackground">@color/md_background_dark</item>
+    </style>
+</resources>
