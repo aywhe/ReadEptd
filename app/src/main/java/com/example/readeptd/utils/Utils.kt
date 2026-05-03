@@ -38,7 +38,7 @@ object Utils {
             false
         }
     }
-    
+
     /**
      * 格式化文件大小
      * @param size 文件大小（字节）
@@ -52,7 +52,7 @@ object Utils {
             else -> "${size / (1024 * 1024 * 1024)} GB"
         }
     }
-    
+
     /**
      * 获取 URI 的持久化读取权限
      * @param context 上下文
@@ -70,7 +70,7 @@ object Utils {
             Log.e("Utils", "获取 URI 持久化权限失败: $uri", e)
         }
     }
-    
+
     /**
      * 释放 URI 的持久化读取权限
      * @param context 上下文
@@ -93,6 +93,7 @@ object Utils {
         val avgCharsPerLine: Int = 0,
         val maxLinesPerPage: Int = 0
     )
+
     /**
      * 计算页面字符参数，注意单位统一
      * @param pageWidth 页面宽度（像素）
