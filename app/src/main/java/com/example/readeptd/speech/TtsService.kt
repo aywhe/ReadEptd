@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -18,7 +17,6 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.viewModelScope
 import com.example.readeptd.ContentActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -63,13 +61,15 @@ class TtsService : Service() {
     // ContentActivity 是否可见
     private var isContentActivityVisible = false
 
+    private var speakQueueManager = SpeakTextSplitManager()
+
     // 通知管理器（提取为成员变量，避免重复获取）
     private val notificationManager by lazy {
         getSystemService(NotificationManager::class.java)
     }
 
     private val scope: CoroutineScope = MainScope()
-    
+
     // Activity 生命周期回调
     private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -98,7 +98,7 @@ class TtsService : Service() {
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
         override fun onActivityDestroyed(activity: Activity) {}
     }
-    
+
     // 广播接收器（处理通知栏按钮点击）
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -113,14 +113,14 @@ class TtsService : Service() {
 
     inner class LocalBinder : Binder() {
         fun getService(): TtsService = this@TtsService
-        
+
         // 注册监听器
         fun registerListener(listener: TtsListener) {
             if (!listeners.contains(listener)) {
                 listeners.add(listener)
             }
         }
-        
+
         // 注销监听器
         fun unregisterListener(listener: TtsListener) {
             listeners.remove(listener)
@@ -236,7 +236,7 @@ class TtsService : Service() {
             description = "TTS朗读服务通知"
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
-        
+
         notificationManager.createNotificationChannel(channel)
     }
 
@@ -281,7 +281,7 @@ class TtsService : Service() {
      */
     private fun buildNotification(): android.app.Notification {
         Log.d(TAG, "构建通知，isPlaying=$isPlaying")
-        
+
         // 点击通知打开应用
         val contentIntent = PendingIntent.getActivity(
             this,
@@ -308,19 +308,18 @@ class TtsService : Service() {
         // 上一章按钮
         val previousAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_media_previous,
-            "上一章",
+            "上一页",
             createPendingIntent(ACTION_PREVIOUS)
         ).build()
 
         // 下一章按钮
         val nextAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_media_next,
-            "下一章",
+            "下一页",
             createPendingIntent(ACTION_NEXT)
         ).build()
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("TTS朗读")
             .setContentText(currentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(contentIntent)
@@ -332,7 +331,7 @@ class TtsService : Service() {
             .addAction(nextAction)
             .setAutoCancel(true)
             .build()
-        
+
         Log.d(TAG, "通知构建完成，包含上一章、播放/暂停、下一章按钮")
         return notification
     }
@@ -386,12 +385,20 @@ class TtsService : Service() {
         listeners.forEach { it.onSpeechError("NEXT") }
     }
 
-    //endregion
-
+    fun speak(text: String, utteranceId: String? = null) {
+        if (text.isBlank()) {
+            return
+        }
+        speakQueueManager.reset(text, utteranceId)
+        val item = speakQueueManager.getNextText()
+        if(item != null) {
+            _speak(item.text, item.utteranceId)
+        }
+    }
     /**
      * 朗读文本
      */
-    fun speak(text: String, utteranceId: String? = null) {
+    private fun _speak(text: String, utteranceId: String? = null) {
         if (!isInitialized) {
             Log.e(TAG, "TTS 未初始化")
             return
@@ -404,13 +411,16 @@ class TtsService : Service() {
 
         currentText = text
         currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
-        
+
         textToSpeech?.speak(
             text,
             TextToSpeech.QUEUE_FLUSH,
             null,
             currentUtteranceId
         )
+        if(!isContentActivityVisible){
+            showNotification()
+        }
 
         Log.d(TAG, "开始朗读文本: ${text.take(50)}...")
     }
@@ -504,6 +514,17 @@ class TtsService : Service() {
     }
 
     private fun notifySpeechDone(utteranceId: String?) {
+        if (utteranceId != null && !speakQueueManager.isLast(utteranceId)) {
+            val item = speakQueueManager.getNextText()
+            if(item != null) {
+                _speak(item.text, item.utteranceId)
+            }
+        } else {
+            _notifySpeechDone(speakQueueManager.getOriginalUtteranceId())
+        }
+    }
+
+    private fun _notifySpeechDone(utteranceId: String?) {
         listeners.forEach { it.onSpeechDone(utteranceId) }
     }
 
@@ -511,5 +532,70 @@ class TtsService : Service() {
         listeners.forEach { it.onSpeechError(utteranceId) }
     }
 
-    //endregion
+}
+
+class SpeakTextSplitManager(){
+    
+    data class QueueItem(val text: String, val utteranceId: String?)
+    private var originalText: String = ""
+    private var baseUtteranceId: String? = null
+    private val queue: MutableList<QueueItem> = mutableListOf()
+    private var currentIndex: Int = -1
+    
+    fun reset(text: String, utteranceId: String? = null){
+        originalText = text
+        baseUtteranceId = utteranceId
+        queue.clear()
+        currentIndex = -1
+        splitText()
+    }
+    
+    private fun splitText(){
+        val sentences = mutableListOf<String>()
+        val regex = Regex("[.。!！?？;；,，、]")
+        
+        var start = 0
+        for (match in regex.findAll(originalText)) {
+            val end = match.range.last + 1
+            val sentence = originalText.substring(start, end).trim()
+            if (sentence.isNotEmpty()) {
+                sentences.add(sentence)
+            }
+            start = end
+        }
+        
+        // 处理剩余部分
+        if (start < originalText.length) {
+            val remaining = originalText.substring(start).trim()
+            if (remaining.isNotEmpty()) {
+                sentences.add(remaining)
+            }
+        }
+        
+        // 如果分割结果为空，使用原文本
+        val finalSentences = if (sentences.isEmpty()) listOf(originalText) else sentences
+        
+        // 构建队列
+        finalSentences.forEachIndexed { index, sentence ->
+            val utteranceId = "${baseUtteranceId}_part_${index}"
+            queue.add(QueueItem(sentence, utteranceId))
+        }
+    }
+    
+    fun getNextText(): QueueItem?{
+        currentIndex++
+        if (currentIndex < queue.size){
+            return queue[currentIndex]
+        }
+        return null
+    }
+    
+    fun getOriginalUtteranceId(): String?{
+        return baseUtteranceId
+    }
+    
+    fun isLast(utteranceId: String): Boolean{
+        return utteranceId == queue.lastOrNull()?.utteranceId
+    }
+    
 }
