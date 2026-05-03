@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
+import com.example.readeptd.data.ConfigureData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,10 +22,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
     val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
+    
+    private val _configure = MutableStateFlow(ConfigureData())
+    val configureFlow: StateFlow<ConfigureData> = _configure.asStateFlow()
 
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
+        loadConfigure()
     }
     
     override fun onCleared() {
@@ -68,6 +73,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * 加载配置
+     */
+    private fun loadConfigure() {
+        viewModelScope.launch {
+            fileDataStore.configureFlow.collect { configure ->
+                _configure.value = configure
+                Log.d("MainViewModel", "加载配置: showTtsNotification=${configure.showTtsNotification}")
+            }
+        }
+    }
+    
+    /**
+     * 更新配置
+     */
+    fun updateConfigure(configure: ConfigureData) {
+        viewModelScope.launch {
+            fileDataStore.saveConfigure(configure)
+            Log.d("MainViewModel", "保存配置: showTtsNotification=${configure.showTtsNotification}")
+        }
+    }
+
     private fun handleFilesSelected(files: List<FileInfo>) {
         viewModelScope.launch {
             Log.d("MainViewModel", "收到 ${files.size} 个文件")

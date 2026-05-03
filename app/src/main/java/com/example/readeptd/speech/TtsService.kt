@@ -18,10 +18,12 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.readeptd.ContentActivity
+import com.example.readeptd.data.FileDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class TtsService : Service() {
 
@@ -62,6 +64,9 @@ class TtsService : Service() {
     
     // ContentActivity 是否可见
     private var isContentActivityVisible = true
+    
+    // 是否显示通知（从配置读取）
+    private var showTtsNotification: Boolean = true
 
     private var speakQueueManager = SpeakTextSplitManager()
 
@@ -134,6 +139,8 @@ class TtsService : Service() {
         initializeTts()
         createNotificationChannel()
         registerNotificationReceiver()
+        // 加载配置
+        loadConfigure()
         // 注册 Activity 生命周期监听
         (application as Application).registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
     }
@@ -191,6 +198,23 @@ class TtsService : Service() {
             } else {
                 Log.e(TAG, "TTS 初始化失败，错误码: $status")
                 notifyInitFailure(status)
+            }
+        }
+    }
+    
+    /**
+     * 加载配置
+     */
+    private fun loadConfigure() {
+        scope.launch {
+            try {
+                val dataStore = FileDataStore(applicationContext)
+                val configure = dataStore.getConfigure()
+                showTtsNotification = configure.showTtsNotification
+                Log.d(TAG, "加载配置: showTtsNotification=$showTtsNotification")
+            } catch (e: Exception) {
+                Log.e(TAG, "加载配置失败: ${e.message}")
+                showTtsNotification = true // 默认值
             }
         }
     }
@@ -271,7 +295,7 @@ class TtsService : Service() {
      * 显示通知（如果已经在运行则更新）
      */
     private fun showNotification() {
-        if(isContentActivityVisible){return}
+        if(isContentActivityVisible || !showTtsNotification){return}
         val notification = buildNotification()
         notificationManager.notify(NOTIFICATION_ID, notification)
         Log.d(TAG, "已显示/更新通知")
