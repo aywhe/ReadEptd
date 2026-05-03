@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -62,6 +63,11 @@ class TtsService : Service() {
     // ContentActivity 是否可见
     private var isContentActivityVisible = false
 
+    // 通知管理器（提取为成员变量，避免重复获取）
+    private val notificationManager by lazy {
+        getSystemService(NotificationManager::class.java)
+    }
+
     private val scope: CoroutineScope = MainScope()
     
     // Activity 生命周期回调
@@ -82,8 +88,7 @@ class TtsService : Service() {
                 isContentActivityVisible = false
                 // 用户离开 ContentActivity 且正在播放时，才显示通知
                 if (isPlaying) {
-                    startForegroundNotification()
-                    //showNotification()
+                    showNotification()
                 } else {
                     Log.d(TAG, "ContentActivity 不可见但未播放，不显示通知")
                 }
@@ -157,7 +162,8 @@ class TtsService : Service() {
         // 注销 Activity 生命周期监听
         (application as Application).unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
         shutdown()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        // 清理通知
+        notificationManager.cancel(NOTIFICATION_ID)
     }
 
     /**
@@ -203,21 +209,19 @@ class TtsService : Service() {
                 Log.d(TAG, "朗读完成: $utteranceId")
                 isPlaying = false
                 notifySpeechDone(utteranceId)
-                scope.launch {
-                    delay(5200)
-                    hideNotification()
-                }
             }
 
             override fun onError(utteranceId: String?) {
                 Log.e(TAG, "朗读错误: $utteranceId")
                 isPlaying = false
                 notifySpeechError(utteranceId)
+                // 延迟后隐藏通知
                 scope.launch {
-                    delay(5200)
+                    delay(2000)
                     hideNotification()
                 }
             }
+
         })
     }
 
@@ -234,7 +238,6 @@ class TtsService : Service() {
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
         
-        val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)
     }
 
@@ -258,20 +261,6 @@ class TtsService : Service() {
     }
 
     /**
-     * 启动前台服务并显示通知
-     */
-    private fun startForegroundNotification() {
-        // 只有在 ContentActivity 不可见且正在播放时才显示通知
-        if (isContentActivityVisible) {
-            Log.d(TAG, "不显示通知 - visible=$isContentActivityVisible, playing=$isPlaying")
-            return
-        }
-        val notification = buildNotification()
-        startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "已启动前台服务并显示通知")
-    }
-
-    /**
      * 显示通知（如果已经在运行则更新）
      */
     private fun showNotification() {
@@ -281,25 +270,15 @@ class TtsService : Service() {
             return
         }
         
-        // 检查是否已经在前台状态
         val notification = buildNotification()
-        try {
-            startForeground(NOTIFICATION_ID, notification)
-            Log.d(TAG, "已显示通知")
-        } catch (e: Exception) {
-            // 如果已经在前台状态，使用 notify 更新
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.notify(NOTIFICATION_ID, notification)
-            Log.d(TAG, "已更新通知")
-        }
+        notificationManager.notify(NOTIFICATION_ID, notification)
+        Log.d(TAG, "已显示/更新通知")
     }
 
     /**
      * 隐藏通知
      */
     private fun hideNotification() {
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        stopForeground(STOP_FOREGROUND_DETACH)
         notificationManager.cancel(NOTIFICATION_ID)
         Log.d(TAG, "已隐藏通知")
     }
@@ -397,7 +376,7 @@ class TtsService : Service() {
     private fun handleStop() {
         Log.d(TAG, "通知栏：停止")
         stop()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        notificationManager.cancel(NOTIFICATION_ID)
         stopSelf()
     }
 
@@ -432,9 +411,6 @@ class TtsService : Service() {
         currentText = text
         currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
         
-        // 标记为正在播放（实际状态会在 onStart 回调中设置）
-        // 注意：这里不立即调用 startForegroundNotification，等待 onStart 回调
-
         textToSpeech?.speak(
             text,
             TextToSpeech.QUEUE_FLUSH,
