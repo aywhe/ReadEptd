@@ -203,13 +203,19 @@ class TtsService : Service() {
             override fun onStart(utteranceId: String?) {
                 Log.d(TAG, "开始朗读: $utteranceId")
                 isPlaying = true
+                currentText = speakQueueManager.getText(utteranceId?: "")?: ""
+                currentUtteranceId = utteranceId
                 notifySpeechStart(utteranceId)
+                showNotification()
             }
 
             override fun onDone(utteranceId: String?) {
                 Log.d(TAG, "朗读完成: $utteranceId")
                 isPlaying = false
-                notifySpeechDone(utteranceId)
+                if (utteranceId == null || speakQueueManager.isLast(utteranceId)) {
+                    notifySpeechDone(speakQueueManager.getOriginalUtteranceId())
+                }
+                //notifySpeechDone(utteranceId)
             }
 
             override fun onError(utteranceId: String?) {
@@ -265,6 +271,7 @@ class TtsService : Service() {
      * 显示通知（如果已经在运行则更新）
      */
     private fun showNotification() {
+        if(isContentActivityVisible){return}
         val notification = buildNotification()
         notificationManager.notify(NOTIFICATION_ID, notification)
         Log.d(TAG, "已显示/更新通知")
@@ -359,13 +366,13 @@ class TtsService : Service() {
         if (isPlaying) {
             // 当前正在播放，执行暂停
             stop()
+            showNotification()
         } else {
             // 当前未播放，执行播放
-            if (currentText.isNotEmpty()) {
-                speak(currentText, currentUtteranceId)
+            if (currentUtteranceId?.isNotEmpty()?: false) {
+                speakQueue(currentUtteranceId)
             }
         }
-        showNotification()
     }
 
     private fun handleStop() {
@@ -386,44 +393,38 @@ class TtsService : Service() {
     }
 
     fun speak(text: String, utteranceId: String? = null) {
-        if (text.isBlank()) {
-            return
-        }
-        stop()
-        speakQueueManager.reset(text, utteranceId)
-        val item = speakQueueManager.getNextText()
-        if(item != null) {
-            _speak(item.text, item.utteranceId)
-        }
-    }
-    /**
-     * 朗读文本
-     */
-    private fun _speak(text: String, utteranceId: String? = null) {
         if (!isInitialized) {
             Log.e(TAG, "TTS 未初始化")
             return
         }
-
         if (text.isBlank()) {
-            Log.w(TAG, "文本为空")
             return
         }
-
-        currentText = text
-        currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
-
-        textToSpeech?.speak(
-            text,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            currentUtteranceId
-        )
-        if(!isContentActivityVisible){
-            showNotification()
-        }
-
+        stop()
+        val baseCurrentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
+        val baseCurrentText = text
+        speakQueueManager.reset(baseCurrentText, baseCurrentUtteranceId)
         Log.d(TAG, "开始朗读文本: ${text.take(50)}...")
+        speakQueue()
+    }
+    private fun speakQueue(startFromUtteranceId: String? = null) {
+        if (!isInitialized) {
+            Log.e(TAG, "TTS 未初始化")
+            return
+        }
+        // 从指定 utteranceId 开始往后读
+        val startIndex = if(startFromUtteranceId != null) speakQueueManager.indexOfFirst { it.utteranceId == startFromUtteranceId } else 0
+        for (i in startIndex until speakQueueManager.size) {
+            val item = speakQueueManager[i]
+            //currentText = item.text
+            //currentUtteranceId = item.utteranceId
+            textToSpeech?.speak(
+                item.text,
+                TextToSpeech.QUEUE_ADD,
+                null,
+                item.utteranceId
+            )
+        }
     }
 
     /**
@@ -515,17 +516,6 @@ class TtsService : Service() {
     }
 
     private fun notifySpeechDone(utteranceId: String?) {
-        if (utteranceId != null && !speakQueueManager.isLast(utteranceId)) {
-            val item = speakQueueManager.getNextText()
-            if(item != null) {
-                _speak(item.text, item.utteranceId)
-            }
-        } else {
-            _notifySpeechDone(speakQueueManager.getOriginalUtteranceId())
-        }
-    }
-
-    private fun _notifySpeechDone(utteranceId: String?) {
         listeners.forEach { it.onSpeechDone(utteranceId) }
     }
 
@@ -535,19 +525,16 @@ class TtsService : Service() {
 
 }
 
-class SpeakTextSplitManager(){
-    
-    data class QueueItem(val text: String, val utteranceId: String?)
+data class QueueItem(val text: String, val utteranceId: String?)
+
+class SpeakTextSplitManager() : MutableList<QueueItem> by mutableListOf() {
     private var originalText: String = ""
     private var baseUtteranceId: String? = null
-    private val queue: MutableList<QueueItem> = mutableListOf()
-    private var currentIndex: Int = -1
     
     fun reset(text: String, utteranceId: String? = null){
+        clear()
         originalText = text
         baseUtteranceId = utteranceId
-        queue.clear()
-        currentIndex = -1
         splitText()
     }
     
@@ -579,24 +566,20 @@ class SpeakTextSplitManager(){
         // 构建队列
         finalSentences.forEachIndexed { index, sentence ->
             val utteranceId = "${baseUtteranceId}_part_${index}"
-            queue.add(QueueItem(sentence, utteranceId))
+            add(QueueItem(sentence, utteranceId))
         }
     }
-    
-    fun getNextText(): QueueItem?{
-        currentIndex++
-        if (currentIndex < queue.size){
-            return queue[currentIndex]
-        }
-        return null
-    }
-    
+        
     fun getOriginalUtteranceId(): String?{
         return baseUtteranceId
     }
     
+    fun getText(utteranceId: String): String?{
+        return firstOrNull { it.utteranceId == utteranceId }?.text
+    }
+    
     fun isLast(utteranceId: String): Boolean{
-        return utteranceId == queue.lastOrNull()?.utteranceId
+        return utteranceId == lastOrNull()?.utteranceId
     }
     
 }
