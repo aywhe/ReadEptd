@@ -129,7 +129,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
                 Log.e(TAG, "TTS 服务未绑定,无法朗读")
             }
         } else {
-            Log.e(TAG, "TTS 服务未绑定,无法朗读")
+            Log.e(TAG, "TTS 未初始化,无法朗读")
         }
     }
 

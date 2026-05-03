@@ -42,7 +42,7 @@ class TtsService : Service() {
         private const val NOTIFICATION_ID = 5981
         private const val CHANNEL_ID = "tts_service_channel"
         private const val CHANNEL_NAME = "TTS朗读服务"
-        
+
         // Action 常量
         const val ACTION_TOGGLE_PLAY = "com.example.readeptd.ACTION_TOGGLE_PLAY"
         const val ACTION_STOP = "com.example.readeptd.ACTION_STOP"
@@ -54,17 +54,17 @@ class TtsService : Service() {
     private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
     private var currentUtteranceId: String? = null
-    
+
     // 回调监听器列表（支持多个监听器）
     private val listeners = mutableListOf<TtsListener>()
-    
+
     // 当前播放状态
     private var isPlaying = false
     private var currentText: String = ""
-    
+
     // ContentActivity 是否可见
     private var isContentActivityVisible = true
-    
+
     // 是否显示通知（从配置读取）
     private var showTtsNotification: Boolean = true
 
@@ -201,7 +201,7 @@ class TtsService : Service() {
             }
         }
     }
-    
+
     /**
      * 加载配置
      */
@@ -554,18 +554,18 @@ data class QueueItem(val text: String, val utteranceId: String?)
 class SpeakTextSplitManager() : MutableList<QueueItem> by mutableListOf() {
     private var originalText: String = ""
     private var baseUtteranceId: String? = null
-    
+
     fun reset(text: String, utteranceId: String? = null){
         clear()
         originalText = text
         baseUtteranceId = utteranceId
         splitText()
     }
-    
+
     private fun splitText(){
         val sentences = mutableListOf<String>()
         val regex = Regex("[.。!！?？;；,，、]")
-        
+
         var start = 0
         for (match in regex.findAll(originalText)) {
             val end = match.range.last + 1
@@ -575,7 +575,7 @@ class SpeakTextSplitManager() : MutableList<QueueItem> by mutableListOf() {
             }
             start = end
         }
-        
+
         // 处理剩余部分
         if (start < originalText.length) {
             val remaining = originalText.substring(start).trim()
@@ -583,27 +583,27 @@ class SpeakTextSplitManager() : MutableList<QueueItem> by mutableListOf() {
                 sentences.add(remaining)
             }
         }
-        
+
         // 如果分割结果为空，使用原文本
         val finalSentences = if (sentences.isEmpty()) listOf(originalText) else sentences
-        
+
         // 构建队列
         finalSentences.forEachIndexed { index, sentence ->
             val utteranceId = "${baseUtteranceId}_part_${index}"
             add(QueueItem(sentence, utteranceId))
         }
     }
-        
+
     fun getOriginalUtteranceId(): String?{
         return baseUtteranceId
     }
-    
+
     fun getText(utteranceId: String): String?{
         return firstOrNull { it.utteranceId == utteranceId }?.text
     }
-    
+
     fun isLast(utteranceId: String): Boolean{
         return utteranceId == lastOrNull()?.utteranceId
     }
-    
+
 }
