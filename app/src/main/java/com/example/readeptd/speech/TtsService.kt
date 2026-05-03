@@ -17,7 +17,12 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.viewModelScope
 import com.example.readeptd.ContentActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class TtsService : Service() {
 
@@ -56,6 +61,8 @@ class TtsService : Service() {
     
     // ContentActivity 是否可见
     private var isContentActivityVisible = false
+
+    private val scope: CoroutineScope = MainScope()
     
     // Activity 生命周期回调
     private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
@@ -75,7 +82,8 @@ class TtsService : Service() {
                 isContentActivityVisible = false
                 // 用户离开 ContentActivity 且正在播放时，才显示通知
                 if (isPlaying) {
-                    showNotification()
+                    startForegroundNotification()
+                    //showNotification()
                 } else {
                     Log.d(TAG, "ContentActivity 不可见但未播放，不显示通知")
                 }
@@ -140,7 +148,12 @@ class TtsService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(notificationReceiver)
+        try {
+            unregisterReceiver(notificationReceiver)
+        } catch (e: IllegalArgumentException) {
+            // 接收器未注册
+        }
+
         // 注销 Activity 生命周期监听
         (application as Application).unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
         shutdown()
@@ -184,21 +197,28 @@ class TtsService : Service() {
                 Log.d(TAG, "开始朗读: $utteranceId")
                 isPlaying = true
                 notifySpeechStart(utteranceId)
-                updateNotification()
             }
 
             override fun onDone(utteranceId: String?) {
                 Log.d(TAG, "朗读完成: $utteranceId")
                 isPlaying = false
                 notifySpeechDone(utteranceId)
-                updateNotification()
+                scope.launch {
+                    // 延迟5秒后重置标记
+                    delay(5200)
+                    updateNotification()
+                }
             }
 
             override fun onError(utteranceId: String?) {
                 Log.e(TAG, "朗读错误: $utteranceId")
                 isPlaying = false
                 notifySpeechError(utteranceId)
-                updateNotification()
+                scope.launch {
+                    // 延迟5秒后重置标记
+                    delay(5200)
+                    updateNotification()
+                }
             }
         })
     }
@@ -244,7 +264,7 @@ class TtsService : Service() {
      */
     private fun startForegroundNotification() {
         // 只有在 ContentActivity 不可见且正在播放时才显示通知
-        if (isContentActivityVisible || !isPlaying) {
+        if (isContentActivityVisible) {
             Log.d(TAG, "不显示通知 - visible=$isContentActivityVisible, playing=$isPlaying")
             return
         }
@@ -334,7 +354,7 @@ class TtsService : Service() {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(contentIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
+            .setOngoing(false)
             .setShowWhen(false)
             .addAction(previousAction)
             .addAction(playPauseAction)
@@ -350,10 +370,10 @@ class TtsService : Service() {
      * 创建 PendingIntent
      */
     private fun createPendingIntent(action: String): PendingIntent {
-        val intent = Intent(this, TtsService::class.java).apply {
-            this.action = action
+        val intent = Intent(action).apply {
+            setPackage(packageName)
         }
-        return PendingIntent.getService(
+        return PendingIntent.getBroadcast(
             this,
             action.hashCode(),
             intent,
@@ -365,7 +385,6 @@ class TtsService : Service() {
      * 更新通知
      */
     private fun updateNotification() {
-        this.isPlaying = isPlaying
         
         // 只有在 ContentActivity 不可见且正在播放时才显示/更新通知
         if (isContentActivityVisible || !isPlaying) {
@@ -387,8 +406,6 @@ class TtsService : Service() {
         if (isPlaying) {
             // 当前正在播放，执行暂停
             stop()
-            // 暂停后隐藏通知
-            hideNotification()
         } else {
             // 当前未播放，执行播放
             if (currentText.isNotEmpty()) {
