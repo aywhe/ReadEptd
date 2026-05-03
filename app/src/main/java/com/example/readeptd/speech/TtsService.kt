@@ -61,7 +61,7 @@ class TtsService : Service() {
     private var currentText: String = ""
     
     // ContentActivity 是否可见
-    private var isContentActivityVisible = false
+    private var isContentActivityVisible = true
 
     private var speakQueueManager = SpeakTextSplitManager()
 
@@ -389,6 +389,7 @@ class TtsService : Service() {
         if (text.isBlank()) {
             return
         }
+        stop()
         speakQueueManager.reset(text, utteranceId)
         val item = speakQueueManager.getNextText()
         if(item != null) {
