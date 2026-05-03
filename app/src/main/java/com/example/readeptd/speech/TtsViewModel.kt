@@ -3,7 +3,6 @@ package com.example.readeptd.speech
 import android.app.Application
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay

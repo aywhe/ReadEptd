@@ -47,7 +47,6 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
-import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.launch
 
 @Composable
