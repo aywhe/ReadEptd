@@ -307,7 +307,7 @@ fun SlideInSearchPanel(
                         Text(
                             text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     IconButton(
