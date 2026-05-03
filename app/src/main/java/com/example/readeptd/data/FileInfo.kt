@@ -1,7 +1,6 @@
 package com.example.readeptd.data
 
 import android.os.Bundle
-import androidx.core.net.toUri
 
 /**
  * 文件信息数据类
