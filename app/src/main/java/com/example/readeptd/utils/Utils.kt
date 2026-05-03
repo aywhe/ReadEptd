@@ -160,6 +160,7 @@ object Utils {
         return true
     }
 
+    @Composable
     fun highLightText(content: String, keyword: String): AnnotatedString {
         return if (keyword.isNotBlank()) {
             buildAnnotatedString {
