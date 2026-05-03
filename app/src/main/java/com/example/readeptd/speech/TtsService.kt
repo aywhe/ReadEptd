@@ -1,5 +1,7 @@
 package com.example.readeptd.speech
 
+import android.app.Activity
+import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,12 +11,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Binder
+import android.os.Bundle
 import android.os.IBinder
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.example.readeptd.R
+import com.example.readeptd.ContentActivity
 
 class TtsService : Service() {
 
@@ -28,13 +31,12 @@ class TtsService : Service() {
 
     companion object {
         private const val TAG = "TtsService"
-        private const val NOTIFICATION_ID = 1001
+        private const val NOTIFICATION_ID = 5981
         private const val CHANNEL_ID = "tts_service_channel"
         private const val CHANNEL_NAME = "TTS朗读服务"
         
         // Action 常量
-        const val ACTION_PLAY = "com.example.readeptd.ACTION_PLAY"
-        const val ACTION_PAUSE = "com.example.readeptd.ACTION_PAUSE"
+        const val ACTION_TOGGLE_PLAY = "com.example.readeptd.ACTION_TOGGLE_PLAY"
         const val ACTION_STOP = "com.example.readeptd.ACTION_STOP"
         const val ACTION_PREVIOUS = "com.example.readeptd.ACTION_PREVIOUS"
         const val ACTION_NEXT = "com.example.readeptd.ACTION_NEXT"
@@ -52,12 +54,43 @@ class TtsService : Service() {
     private var isPlaying = false
     private var currentText: String = ""
     
+    // ContentActivity 是否可见
+    private var isContentActivityVisible = false
+    
+    // Activity 生命周期回调
+    private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+        override fun onActivityStarted(activity: Activity) {}
+        override fun onActivityResumed(activity: Activity) {
+            if (activity is ContentActivity) {
+                Log.d(TAG, "ContentActivity 恢复可见")
+                isContentActivityVisible = true
+                // 用户在 ContentActivity 界面时，隐藏通知
+                hideNotification()
+            }
+        }
+        override fun onActivityPaused(activity: Activity) {
+            if (activity is ContentActivity) {
+                Log.d(TAG, "ContentActivity 暂停，变为不可见")
+                isContentActivityVisible = false
+                // 用户离开 ContentActivity 且正在播放时，才显示通知
+                if (isPlaying) {
+                    showNotification()
+                } else {
+                    Log.d(TAG, "ContentActivity 不可见但未播放，不显示通知")
+                }
+            }
+        }
+        override fun onActivityStopped(activity: Activity) {}
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
+    
     // 广播接收器（处理通知栏按钮点击）
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                ACTION_PLAY -> handlePlay()
-                ACTION_PAUSE -> handlePause()
+                ACTION_TOGGLE_PLAY -> handleTogglePlay()
                 ACTION_STOP -> handleStop()
                 ACTION_PREVIOUS -> handlePrevious()
                 ACTION_NEXT -> handleNext()
@@ -86,6 +119,8 @@ class TtsService : Service() {
         initializeTts()
         createNotificationChannel()
         registerNotificationReceiver()
+        // 注册 Activity 生命周期监听
+        (application as Application).registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
     }
 
     override fun onBind(intent: Intent?): IBinder {
@@ -95,9 +130,10 @@ class TtsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // 处理从通知栏传来的动作
         when (intent?.action) {
-            ACTION_PLAY -> handlePlay()
-            ACTION_PAUSE -> handlePause()
+            ACTION_TOGGLE_PLAY -> handleTogglePlay()
             ACTION_STOP -> handleStop()
+            ACTION_PREVIOUS -> handlePrevious()
+            ACTION_NEXT -> handleNext()
         }
         return START_STICKY
     }
@@ -105,6 +141,8 @@ class TtsService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(notificationReceiver)
+        // 注销 Activity 生命周期监听
+        (application as Application).unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
         shutdown()
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
@@ -146,21 +184,21 @@ class TtsService : Service() {
                 Log.d(TAG, "开始朗读: $utteranceId")
                 isPlaying = true
                 notifySpeechStart(utteranceId)
-                updateNotification(true)
+                updateNotification()
             }
 
             override fun onDone(utteranceId: String?) {
                 Log.d(TAG, "朗读完成: $utteranceId")
                 isPlaying = false
                 notifySpeechDone(utteranceId)
-                updateNotification(false)
+                updateNotification()
             }
 
             override fun onError(utteranceId: String?) {
                 Log.e(TAG, "朗读错误: $utteranceId")
                 isPlaying = false
                 notifySpeechError(utteranceId)
-                updateNotification(false)
+                updateNotification()
             }
         })
     }
@@ -188,8 +226,7 @@ class TtsService : Service() {
     @Suppress("UnspecifiedRegisterReceiverFlag")
     private fun registerNotificationReceiver() {
         val filter = IntentFilter().apply {
-            addAction(ACTION_PLAY)
-            addAction(ACTION_PAUSE)
+            addAction(ACTION_TOGGLE_PLAY)
             addAction(ACTION_STOP)
             addAction(ACTION_PREVIOUS)
             addAction(ACTION_NEXT)
@@ -206,14 +243,52 @@ class TtsService : Service() {
      * 启动前台服务并显示通知
      */
     private fun startForegroundNotification() {
-        val notification = buildNotification(isPlaying = false)
+        // 只有在 ContentActivity 不可见且正在播放时才显示通知
+        if (isContentActivityVisible || !isPlaying) {
+            Log.d(TAG, "不显示通知 - visible=$isContentActivityVisible, playing=$isPlaying")
+            return
+        }
+        val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
+        Log.d(TAG, "已启动前台服务并显示通知")
+    }
+
+    /**
+     * 显示通知（如果已经在运行则更新）
+     */
+    private fun showNotification() {
+        // 只有在 ContentActivity 不可见且正在播放时才显示通知
+        if (isContentActivityVisible || !isPlaying) {
+            Log.d(TAG, "不显示通知 - visible=$isContentActivityVisible, playing=$isPlaying")
+            return
+        }
+        
+        // 检查是否已经在前台状态
+        val notification = buildNotification()
+        try {
+            startForeground(NOTIFICATION_ID, notification)
+            Log.d(TAG, "已显示通知")
+        } catch (e: Exception) {
+            // 如果已经在前台状态，使用 notify 更新
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.notify(NOTIFICATION_ID, notification)
+            Log.d(TAG, "已更新通知")
+        }
+    }
+
+    /**
+     * 隐藏通知
+     */
+    private fun hideNotification() {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.cancel(NOTIFICATION_ID)
+        Log.d(TAG, "已隐藏通知")
     }
 
     /**
      * 构建通知
      */
-    private fun buildNotification(isPlaying: Boolean): android.app.Notification {
+    private fun buildNotification(): android.app.Notification {
         Log.d(TAG, "构建通知，isPlaying=$isPlaying")
         
         // 点击通知打开应用
@@ -224,26 +299,33 @@ class TtsService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // 播放/暂停按钮
+        // 播放/暂停按钮（同一个按钮，根据状态显示不同图标和文字）
         val playPauseAction = if (isPlaying) {
             NotificationCompat.Action.Builder(
                 android.R.drawable.ic_media_pause,
                 "暂停",
-                createPendingIntent(ACTION_PAUSE)
+                createPendingIntent(ACTION_TOGGLE_PLAY)
             ).build()
         } else {
             NotificationCompat.Action.Builder(
                 android.R.drawable.ic_media_play,
                 "播放",
-                createPendingIntent(ACTION_PLAY)
+                createPendingIntent(ACTION_TOGGLE_PLAY)
             ).build()
         }
 
-        // 停止按钮
-        val stopAction = NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_close_clear_cancel,
-            "停止",
-            createPendingIntent(ACTION_STOP)
+        // 上一章按钮
+        val previousAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_media_previous,
+            "上一章",
+            createPendingIntent(ACTION_PREVIOUS)
+        ).build()
+
+        // 下一章按钮
+        val nextAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_media_next,
+            "下一章",
+            createPendingIntent(ACTION_NEXT)
         ).build()
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -254,15 +336,13 @@ class TtsService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setShowWhen(false)
+            .addAction(previousAction)
             .addAction(playPauseAction)
-            .addAction(stopAction)
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setShowActionsInCompactView(0, 1)  // 在紧凑视图中显示所有按钮
-            )
+            .addAction(nextAction)
+            .setAutoCancel(true)
             .build()
         
-        Log.d(TAG, "通知构建完成，包含播放/暂停和停止按钮")
+        Log.d(TAG, "通知构建完成，包含上一章、播放/暂停、下一章按钮")
         return notification
     }
 
@@ -284,24 +364,37 @@ class TtsService : Service() {
     /**
      * 更新通知
      */
-    private fun updateNotification(isPlaying: Boolean) {
-        val notification = buildNotification(isPlaying)
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.notify(NOTIFICATION_ID, notification)
+    private fun updateNotification() {
+        this.isPlaying = isPlaying
+        
+        // 只有在 ContentActivity 不可见且正在播放时才显示/更新通知
+        if (isContentActivityVisible || !isPlaying) {
+            Log.d(TAG, "不更新通知 - visible=$isContentActivityVisible, playing=$isPlaying")
+            // 如果不在播放，确保通知被隐藏
+            if (!isPlaying) {
+                hideNotification()
+            }
+            return
+        }
+        
+        showNotification()
     }
 
     //region 通知按钮处理
 
-    private fun handlePlay() {
-        Log.d(TAG, "通知栏：播放")
-        if (currentText.isNotEmpty()) {
-            speak(currentText, currentUtteranceId)
+    private fun handleTogglePlay() {
+        Log.d(TAG, "通知栏：播放/暂停切换")
+        if (isPlaying) {
+            // 当前正在播放，执行暂停
+            stop()
+            // 暂停后隐藏通知
+            hideNotification()
+        } else {
+            // 当前未播放，执行播放
+            if (currentText.isNotEmpty()) {
+                speak(currentText, currentUtteranceId)
+            }
         }
-    }
-
-    private fun handlePause() {
-        Log.d(TAG, "通知栏：暂停")
-        stop()
     }
 
     private fun handleStop() {
@@ -342,8 +435,8 @@ class TtsService : Service() {
         currentText = text
         currentUtteranceId = utteranceId ?: System.currentTimeMillis().toString()
         
-        // 启动前台服务
-        startForegroundNotification()
+        // 标记为正在播放（实际状态会在 onStart 回调中设置）
+        // 注意：这里不立即调用 startForegroundNotification，等待 onStart 回调
 
         textToSpeech?.speak(
             text,
