@@ -31,6 +31,8 @@ class TtsService : Service() {
         fun onSpeechStart(utteranceId: String?)
         fun onSpeechDone(utteranceId: String?)
         fun onSpeechError(utteranceId: String?)
+        fun onRequestNextPage()
+        fun onRequestPreviousPage()
     }
 
     companion object {
@@ -374,15 +376,13 @@ class TtsService : Service() {
     }
 
     private fun handlePrevious() {
-        Log.d(TAG, "通知栏：上一章")
-        // TODO: 实现上一章逻辑，通过回调通知ViewModel
-        listeners.forEach { it.onSpeechError("PREVIOUS") }
+        Log.d(TAG, "通知栏：上一页")
+        listeners.forEach { it.onRequestPreviousPage() }
     }
 
     private fun handleNext() {
-        Log.d(TAG, "通知栏：下一章")
-        // TODO: 实现下一章逻辑，通过回调通知ViewModel
-        listeners.forEach { it.onSpeechError("NEXT") }
+        Log.d(TAG, "通知栏：下一页")
+        listeners.forEach { it.onRequestNextPage() }
     }
 
     fun speak(text: String, utteranceId: String? = null) {

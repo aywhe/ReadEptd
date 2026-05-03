@@ -40,6 +40,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
+    private var onRequestNextPageCallback: (() -> Unit)? = null
+    private var onRequestPreviousPageCallback: (() -> Unit)? = null
 
     private var countDownTimer: TtsCountDownTimer? = null
     private var countDownTimerFinishedDelayFlag = false
@@ -102,6 +104,12 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     override fun onSpeechError(utteranceId: String?) {
         _isSpeaking.value = false
+    }
+    override fun onRequestNextPage(){
+        onRequestNextPageCallback?.invoke()
+    }
+    override fun onRequestPreviousPage(){
+        onRequestPreviousPageCallback?.invoke()
     }
 
     //endregion
@@ -206,6 +214,12 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     fun setOnRequestSpeechStartListener(callback: () -> Unit) {
         onRequestSpeechStartCallback = callback
     }
+    fun setOnRequestNextPageListener(callback: () -> Unit) {
+        onRequestNextPageCallback = callback
+    }
+    fun setOnRequestPreviousPageListener(callback: () -> Unit) {
+        onRequestPreviousPageCallback = callback
+    }
 
     /**
      * 清除回调
@@ -214,6 +228,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
         onSpeechStartCallback = null
         onSpeechDoneCallback = null
         onRequestSpeechStartCallback = null
+        onRequestNextPageCallback = null
+        onRequestPreviousPageCallback = null
     }
 
     /**
