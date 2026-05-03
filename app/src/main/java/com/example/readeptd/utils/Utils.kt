@@ -10,6 +10,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -158,6 +160,7 @@ object Utils {
         return true
     }
 
+    @Composable
     fun highLightText(content: String, keyword: String): AnnotatedString {
         return if (keyword.isNotBlank()) {
             buildAnnotatedString {
@@ -172,8 +175,8 @@ object Utils {
                     // 为匹配的关键词添加黄色背景高亮
                     addStyle(
                         style = SpanStyle(
-                            background = Color.Gray,
-                            color = Color.Black
+                            background = MaterialTheme.colorScheme.primaryContainer,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         start = matchIndex,
                         end = matchIndex + keyword.length
