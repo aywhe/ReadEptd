@@ -32,7 +32,17 @@ class PdfViewModel(
 
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
-    private val pageBitmaps = mutableMapOf<Int, Bitmap>()
+    // ✅ 使用 LinkedHashMap 实现 LRU 缓存,最多保留10页
+    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(10, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
+            if (size > 10) {
+                eldest?.value?.recycle()  // 回收被移除的 Bitmap
+                Log.d(TAG, "LRU缓存已满,回收页面 ${eldest?.key} 的Bitmap")
+                return true
+            }
+            return false
+        }
+    }
 
     // 用于保护页面缓存的互斥锁，避免并发访问导致的问题
     private val pageCacheMutex = Mutex()

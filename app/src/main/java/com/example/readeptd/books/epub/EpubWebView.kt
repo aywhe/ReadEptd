@@ -51,6 +51,17 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         // ✅ 取消所有协程，避免内存泄漏
         scope.cancel()
         
+        // ✅ 清理所有回调引用
+        onPageChangedListener = null
+        onLoadCompleteListener = null
+        onErrorListener = null
+        onDoubleClickListener = null
+        pageActionPendingCallback = null
+        locationRetrievedCallback = null
+        currentPageTextCallback = null
+        onSearchingResultCallback = null
+        onSearchCompletedCallback = null
+        
         super.destroy()
     }
     

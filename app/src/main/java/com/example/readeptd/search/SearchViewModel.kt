@@ -33,8 +33,12 @@ class SearchViewModel(
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
 
-    // ✅ 3. 搜索结果缓存：关键词 -> 结果列表
-    private val searchCache = mutableMapOf<String, List<SearchData.SearchResult>>()
+    // ✅ 3. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
+    private val searchCache = object : LinkedHashMap<String, List<SearchData.SearchResult>>(5, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchData.SearchResult>>?): Boolean {
+            return size > 5  // 超过5个就移除最久未使用的
+        }
+    }
 
     /**
      * 执行搜索
