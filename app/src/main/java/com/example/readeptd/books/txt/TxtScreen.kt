@@ -47,7 +47,6 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
-import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.launch
 
 @Composable
@@ -343,8 +342,8 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
                 // 为匹配的关键词添加黄色背景高亮
                 addStyle(
                     style = SpanStyle(
-                        background = MaterialTheme.colorScheme.tertiaryContainer,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                        background = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     start = matchIndex,
                     end = matchIndex + keyword.length
