@@ -104,9 +104,9 @@ abstract class BookViewModel<T : ReadingState>(
     }
 
     /**
-     * 清理临时文件
+     * 清空临时文件引用（不删除文件）
      */
-    protected fun cleanupTempFile() {
+    protected fun clearTempFileReference() {
         currentTempFile = null
     }
 
@@ -204,12 +204,12 @@ abstract class BookViewModel<T : ReadingState>(
 
     override fun onCleared() {
         super.onCleared()
-        Log.d(getViewModelName(), "ViewModel 清除，清理临时文件")
+        Log.d(getViewModelName(), "ViewModel 清除")
         
         // 退出前立即保存最后一次状态
         saveProgressImmediately()
         
-        cleanupTempFile()
+        clearTempFileReference()
     }
 
     /**
