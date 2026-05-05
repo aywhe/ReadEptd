@@ -288,7 +288,23 @@
                     // 获取当前视图的 contents 对象
                     const contents = view.contents;
                     if (contents && contents.window) {
-                        // 监听双击事件
+                        const styleElement = contents.window.document.createElement('style');
+                        styleElement.textContent = `
+                            ::selection {
+                                background-color: rgba(154, 69, 0, 0.3) !important;
+                                color: inherit !important;
+                            }
+                            ::-moz-selection {
+                                background-color: rgba(154, 69, 0, 0.3) !important;
+                                color: inherit !important;
+                            }
+                            ::-webkit-selection {
+                                background-color: rgba(154, 69, 0, 0.3) !important;
+                                color: inherit !important;
+                            }
+                        `;
+                        contents.window.document.head.appendChild(styleElement);
+
                         contents.window.addEventListener('dblclick', (e) => {
                             console.log('Double click detected!', e);
                             console.log('Click position:', { x: e.clientX, y: e.clientY });
