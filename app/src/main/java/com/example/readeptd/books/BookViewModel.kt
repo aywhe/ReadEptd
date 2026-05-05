@@ -7,7 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.utils.Utils
+import com.example.readeptd.data.TempFileManager
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.io.File
-import java.io.FileOutputStream
 
 /**
  * 书籍阅读器 UI 状态基类
@@ -70,23 +69,11 @@ abstract class BookViewModel<T : ReadingState>(
                 Log.d(getViewModelName(), "开始准备文件: $fileName")
                 _uiState.value = BookUiState.Loading
 
-                val tempFileName = Utils.generateTempFileName(uriString, fileName)
-
-                val tempFile = File(
-                    getApplication<Application>().cacheDir,
-                    tempFileName
-                )
-
-                if (!tempFile.exists()) {
-                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(tempFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    } ?: throw IllegalStateException("无法打开文件输入流")
-                    Log.d(getViewModelName(), "临时文件创建成功: ${tempFile.absolutePath}")
-                } else {
-                    Log.d(getViewModelName(), "临时文件已存在，复用: ${tempFile.absolutePath}")
-                }
+                val tempFile = TempFileManager.createOrGetTempFile(
+                    getApplication(),
+                    uri,
+                    fileName
+                ) ?: throw IllegalStateException("无法创建临时文件")
 
                 currentTempFile = tempFile
                 processedUri = uriString
