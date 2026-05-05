@@ -1,6 +1,7 @@
 package com.example.readeptd.activity
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import com.example.readeptd.utils.Utils
+import androidx.core.net.toUri
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -30,6 +35,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         Log.d("MainViewModel", "ViewModel 清除: ${this.hashCode()}")
+        cleanupOrphanedTempFiles(emptyList())
     }
     
     fun onEvent(event: MainUiEvent) {
@@ -55,6 +61,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = MainUiState.Success(
                     readingFiles = savedFiles
                 )
+                
+                cleanupOrphanedTempFiles(savedFiles)
             }
         }
     }
@@ -125,6 +133,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     fileDataStore.deleteReadingState(removedFile.uri)
                     Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
+                    
+                    deleteTempFileForRemovedFile(removedFile)
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }
@@ -165,6 +175,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d("MainViewModel", "成功保存 ${files.size} 个文件到 DataStore")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "保存文件失败", e)
+            }
+        }
+    }
+
+    private fun deleteTempFileForRemovedFile(fileInfo: FileInfo) {
+        viewModelScope.launch {
+            try {
+                val tempFileName = Utils.generateTempFileName(fileInfo.uri, fileInfo.fileName)
+                
+                val tempFile = File(
+                    getApplication<Application>().cacheDir,
+                    tempFileName
+                )
+                
+                if (tempFile.exists()) {
+                    tempFile.delete()
+                    Log.d("MainViewModel", "已删除临时文件: ${fileInfo.fileName}")
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "删除临时文件失败: ${fileInfo.fileName}", e)
+            }
+        }
+    }
+    
+    private fun cleanupOrphanedTempFiles(currentFiles: List<FileInfo>) {
+        viewModelScope.launch {
+            try {
+                val cacheDir = getApplication<Application>().cacheDir
+                val tempFiles = cacheDir.listFiles { file ->
+                    file.name.startsWith("book_")
+                }
+                
+                val validFileNames = currentFiles.map { fileInfo ->
+                    Utils.generateTempFileName(fileInfo.uri, fileInfo.fileName)
+                }.toSet()
+                
+                tempFiles?.forEach { file ->
+                    if (file.name !in validFileNames) {
+                        file.delete()
+                        Log.d("MainViewModel", "清理孤儿临时文件: ${file.name}")
+                    }
+                }
+                
+                Log.d("MainViewModel", "孤儿文件清理完成")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "清理孤儿文件失败", e)
             }
         }
     }

@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
+import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,11 +55,10 @@ abstract class BookViewModel<T : ReadingState>(
     /**
      * 准备书籍文件：将 content URI 复制到临时文件，并加载阅读状态
      */
-    fun prepareBookFile(uri: Uri, fileName: String, filePrefix: String = "book") {
+    fun prepareBookFile(uri: Uri, fileName: String) {
         val uriString = uri.toString()
         currentFileUri = uriString
         
-        // 如果已经处理过同一个 URI，且临时文件仍存在，则跳过
         if (processedUri == uriString && currentTempFile?.exists() == true) {
             Log.d(getViewModelName(), "文件已准备，跳过: $fileName")
             _uiState.value = BookUiState.Ready(currentTempFile!!.absolutePath)
@@ -70,33 +70,28 @@ abstract class BookViewModel<T : ReadingState>(
                 Log.d(getViewModelName(), "开始准备文件: $fileName")
                 _uiState.value = BookUiState.Loading
 
-                // 清理旧的临时文件
-                cleanupTempFile()
+                val tempFileName = Utils.generateTempFileName(uriString, fileName)
 
-                // 创建临时文件（使用 URI 哈希值作为文件名，确保同一文件只有一个临时副本）
-                val uriHash = uriString.hashCode().toString().replace("-", "_")
-                val fileExtension = fileName.substringAfterLast(".", "")
-                val baseName = fileName.substringBeforeLast(".")
-                val tempFileName = "${filePrefix}_${uriHash}_${baseName}.${fileExtension}"
-                
                 val tempFile = File(
                     getApplication<Application>().cacheDir,
                     tempFileName
                 )
 
-                // 复制文件内容
-                getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(tempFile).use { output ->
-                        input.copyTo(output)
-                    }
-                } ?: throw IllegalStateException("无法打开文件输入流")
+                if (!tempFile.exists()) {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    } ?: throw IllegalStateException("无法打开文件输入流")
+                    Log.d(getViewModelName(), "临时文件创建成功: ${tempFile.absolutePath}")
+                } else {
+                    Log.d(getViewModelName(), "临时文件已存在，复用: ${tempFile.absolutePath}")
+                }
 
                 currentTempFile = tempFile
                 processedUri = uriString
-                Log.d(getViewModelName(), "临时文件创建成功: ${tempFile.absolutePath}")
                 Log.d(getViewModelName(), "文件大小: ${tempFile.length()} bytes")
                 
-                // 加载上次的阅读状态
                 loadLastReadingState(uriString)
 
                 _uiState.value = BookUiState.Ready(tempFile.absolutePath)
@@ -112,16 +107,6 @@ abstract class BookViewModel<T : ReadingState>(
      * 清理临时文件
      */
     protected fun cleanupTempFile() {
-        currentTempFile?.let { file ->
-            try {
-                if (file.exists()) {
-                    file.delete()
-                    Log.d(getViewModelName(), "旧临时文件已删除: ${file.absolutePath}")
-                }
-            } catch (e: Exception) {
-                Log.e(getViewModelName(), "删除临时文件失败", e)
-            }
-        }
         currentTempFile = null
     }
 
@@ -129,7 +114,6 @@ abstract class BookViewModel<T : ReadingState>(
      * 重置状态（用于重新加载）
      */
     fun reset() {
-        cleanupTempFile()
         currentReadingState = null
         _uiState.value = BookUiState.Loading
     }

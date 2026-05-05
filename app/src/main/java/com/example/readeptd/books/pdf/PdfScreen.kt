@@ -65,7 +65,7 @@ fun PdfScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "pdf")
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
     Column(modifier = modifier.fillMaxSize()) {

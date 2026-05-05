@@ -43,7 +43,7 @@ fun EpubScreen(
     val uiState by viewModel.uiState.collectAsState()
     // 准备 EPUB 文件
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
     Column(modifier = modifier.fillMaxSize()) {

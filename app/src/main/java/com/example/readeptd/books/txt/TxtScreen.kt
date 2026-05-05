@@ -81,7 +81,7 @@ fun TxtScreen(
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "txt")
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
     // 监听屏幕旋转，恢复重新分页功能
     LaunchedEffect(configuration.orientation) {
