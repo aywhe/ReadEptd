@@ -72,3 +72,13 @@ const myPromise = new Promise((resolve, reject) => { 这里调用 resolve 或者
 myPromise.then(func1(p1){},func2(p2){});
 只要在某处调用 resolve('called resolve')， p1 = 'called resolve'， func1(p1) 就会被执行。
 reject 同理。
+
+- 问题： 现象：
+      配置：manager: "continuous", flow: "paginated", snap: true
+      操作：长按选择文本，拖动小耳朵（选择手柄）
+      结果：页面突然跳转到前一页，选区变得很长
+      关键观察：
+      ✅ 只有向前跨页的段落才有问题（当前页 ← 前一页）
+      ✅ 不跨页或向后跨页没问题
+      git上也有相关问题，https://github.com/futurepress/epub.js/issues/1343
+方法： 没有找到方法
