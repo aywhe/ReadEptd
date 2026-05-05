@@ -73,10 +73,15 @@ abstract class BookViewModel<T : ReadingState>(
                 // 清理旧的临时文件
                 cleanupTempFile()
 
-                // 创建临时文件
+                // 创建临时文件（使用 URI 哈希值作为文件名，确保同一文件只有一个临时副本）
+                val uriHash = uriString.hashCode().toString().replace("-", "_")
+                val fileExtension = fileName.substringAfterLast(".", "")
+                val baseName = fileName.substringBeforeLast(".")
+                val tempFileName = "${filePrefix}_${uriHash}_${baseName}.${fileExtension}"
+                
                 val tempFile = File(
                     getApplication<Application>().cacheDir,
-                    "${filePrefix}_${System.currentTimeMillis()}_${fileName}"
+                    tempFileName
                 )
 
                 // 复制文件内容
