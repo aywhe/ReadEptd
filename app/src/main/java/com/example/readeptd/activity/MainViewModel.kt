@@ -31,6 +31,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         Log.d("MainViewModel", "ViewModel 清除: ${this.hashCode()}")
+        // 如果真的能正常退出应用的话，就删除所有临时文件，避免占用空间
+        cleanupOrphanedTempFiles(emptyList())
     }
     
     fun onEvent(event: MainUiEvent) {

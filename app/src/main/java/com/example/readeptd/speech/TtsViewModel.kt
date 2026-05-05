@@ -242,6 +242,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
         clearCallbacks()
         ttsService?.shutdown()
         ttsService = null
+        Log.d(TAG,"清理资源")
     }
 
     companion object {
