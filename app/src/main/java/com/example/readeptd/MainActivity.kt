@@ -463,8 +463,8 @@ fun ContentScreen(
                             
                             FileItemCard(
                                 fileInfo = files[index],
-                                onClick = {
-                                    goToContentActivity(files[index])
+                                onClick = {fileInfo ->
+                                    goToContentActivity(fileInfo)
                                 },
                                 onRemove = { 
                                     Utils.releasePersistableUriPermission(context, files[index].uri)
@@ -561,7 +561,7 @@ fun DraggableFloatingButton(
 @Composable
 fun FileItemCard(
     fileInfo: FileInfo,
-    onClick: () -> Unit,
+    onClick: (FileInfo) -> Unit,
     onRemove: () -> Unit,
     isDragging: Boolean = false,
     progress: Float? = null,
@@ -591,7 +591,7 @@ fun FileItemCard(
     Card(
         onClick = {
             if (isFileAccessible == true && !isDragging) {
-                onClick()
+                onClick(fileInfo)
             }
         },
         enabled = isFileAccessible == true,
