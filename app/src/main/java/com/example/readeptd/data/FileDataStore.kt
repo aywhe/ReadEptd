@@ -27,6 +27,7 @@ class FileDataStore(private val context: Context) {
     companion object {
         private val READING_FILES_KEY = stringPreferencesKey("reading_files")
         private val READING_STATES_KEY = stringPreferencesKey("reading_states")
+        private val LAST_READING_FILE_KEY = stringPreferencesKey("last_reading_file")
     }
     
     /**
@@ -36,13 +37,7 @@ class FileDataStore(private val context: Context) {
         context.fileListDataStore.edit { preferences ->
             val jsonArray = JSONArray()
             files.forEach { file ->
-                val jsonObject = JSONObject().apply {
-                    put("uri", file.uri)
-                    put("fileName", file.fileName)
-                    put("fileSize", file.fileSize)
-                    put("mimeType", file.mimeType)
-                }
-                jsonArray.put(jsonObject)
+                jsonArray.put(file.toJson())
             }
             preferences[READING_FILES_KEY] = jsonArray.toString()
         }
@@ -59,14 +54,7 @@ class FileDataStore(private val context: Context) {
                 val files = mutableListOf<FileInfo>()
                 
                 for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    val fileInfo = FileInfo(
-                        uri = jsonObject.getString("uri"),
-                        fileName = jsonObject.getString("fileName"),
-                        fileSize = jsonObject.getLong("fileSize"),
-                        mimeType = jsonObject.getString("mimeType"),
-                    )
-                    files.add(fileInfo)
+                    files.add(FileInfo.fromJson(jsonArray.getString(i)))
                 }
                 
                 files
@@ -88,6 +76,36 @@ class FileDataStore(private val context: Context) {
         }
     }
     
+    // ==================== 上次阅读文件管理 ====================
+    
+    /**
+     * 保存上次打开的文件
+     */
+    suspend fun saveLastReadingFile(fileInfo: FileInfo?) {
+        context.fileListDataStore.edit { preferences ->
+            if (fileInfo != null) {
+                preferences[LAST_READING_FILE_KEY] = fileInfo.toJson()
+            } else {
+                preferences.remove(LAST_READING_FILE_KEY)
+            }
+        }
+    }
+    
+    /**
+     * 获取上次打开的文件
+     */
+    suspend fun getLastReadingFile(): FileInfo? {
+        val preferences = context.fileListDataStore.data.first()
+        val jsonString = preferences[LAST_READING_FILE_KEY] ?: return null
+        
+        return try {
+            FileInfo.fromJson(jsonString)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
     // ==================== 阅读状态管理 ====================
     
     /**
@@ -98,9 +116,8 @@ class FileDataStore(private val context: Context) {
             val statesJson = preferences[READING_STATES_KEY] ?: "{}"
             val statesMap = parseStatesMap(statesJson)
             
-            // 序列化并保存状态
-            val stateJson = serializeReadingState(state)
-            statesMap[state.uri] = stateJson
+            // 使用 ReadingState 自身的序列化方法
+            statesMap[state.uri] = state.toJson()
             
             preferences[READING_STATES_KEY] = JSONObject(statesMap).toString()
         }
@@ -116,7 +133,7 @@ class FileDataStore(private val context: Context) {
         return try {
             val statesMap = parseStatesMap(statesJson)
             val stateJson = statesMap[uri] ?: return null
-            deserializeReadingState(stateJson)
+            ReadingState.fromJson(stateJson)
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -134,7 +151,7 @@ class FileDataStore(private val context: Context) {
                 val statesMap = parseStatesMap(statesJson)
                 statesMap.mapValues { (_, stateJson) ->
                     try {
-                        deserializeReadingState(stateJson)
+                        ReadingState.fromJson(stateJson)
                     } catch (e: Exception) {
                         null
                     }
@@ -186,76 +203,6 @@ class FileDataStore(private val context: Context) {
             map
         } catch (e: Exception) {
             emptyMap<String, String>().toMutableMap()
-        }
-    }
-    
-    /**
-     * 序列化阅读状态为 JSON 字符串
-     */
-    private fun serializeReadingState(state: ReadingState): String {
-        return JSONObject().apply {
-            put("mimeType", state.mimeType)
-            put("uri", state.uri)
-            put("lastReadTime", state.lastReadTime)
-            put("progress", state.progress)
-            
-            when (state) {
-                is ReadingState.Epub -> {
-                    if (state.cfi != null) put("cfi", state.cfi)
-                    if (state.page != null) put("page", state.page)
-                    if (state.totalPages != null) put("totalPages", state.totalPages)
-                }
-                is ReadingState.Pdf -> {
-                    put("page", state.page)
-                    put("totalPages", state.totalPages)
-                }
-                is ReadingState.Txt -> {
-                    put("charOffset", state.charOffset)
-                }
-                is ReadingState.Unknown -> {
-                    // 无额外字段
-                }
-            }
-        }.toString()
-    }
-    
-    /**
-     * 从 JSON 字符串反序列化为阅读状态
-     */
-    private fun deserializeReadingState(jsonString: String): ReadingState {
-        val jsonObject = JSONObject(jsonString)
-        val mimeType = jsonObject.optString("mimeType", "application/octet-stream")
-        val uri = jsonObject.getString("uri")
-        val lastReadTime = jsonObject.optLong("lastReadTime", System.currentTimeMillis())
-        val progress = jsonObject.optDouble("progress", 0.0).toFloat()
-        
-        return when {
-            mimeType == "application/epub+zip" || mimeType.contains("epub") -> ReadingState.Epub(
-                uri = uri,
-                cfi = if (jsonObject.has("cfi")) jsonObject.getString("cfi") else null,
-                page = if (jsonObject.has("page")) jsonObject.getInt("page") else null,
-                totalPages = if (jsonObject.has("totalPages")) jsonObject.getInt("totalPages") else null,
-                progress = progress,
-                lastReadTime = lastReadTime
-            )
-            mimeType == "application/pdf" -> ReadingState.Pdf(
-                uri = uri,
-                page = jsonObject.optInt("page", 1),
-                totalPages = jsonObject.optInt("totalPages", 1),
-                progress = progress,
-                lastReadTime = lastReadTime
-            )
-            mimeType == "text/plain" -> ReadingState.Txt(
-                uri = uri,
-                charOffset = jsonObject.optLong("charOffset", 0),
-                progress = progress,
-                lastReadTime = lastReadTime
-            )
-            else -> ReadingState.Unknown(
-                uri = uri,
-                progress = progress,
-                lastReadTime = lastReadTime
-            )
         }
     }
 }

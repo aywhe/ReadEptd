@@ -23,9 +23,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
     val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
 
+    private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
+    val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
+
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
+        loadLastReadingFile()
     }
     
     override fun onCleared() {
@@ -40,6 +44,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
             is MainUiEvent.RemoveFile -> removeFile(event.index)
             is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
+            is MainUiEvent.GoToContentActivity -> {
+                _lastReadingFile.value = event.fileInfo
+                saveLastReadingFile(event.fileInfo)
+            }
         }
     }
     
@@ -202,4 +210,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Log.d("MainViewModel", "孤儿文件清理完成，共清理 $cleanedCount 个文件")
         }
     }
+    
+    /**
+     * 加载上次打开的文件
+     */
+    private fun loadLastReadingFile() {
+        viewModelScope.launch {
+            try {
+                val lastFile = fileDataStore.getLastReadingFile()
+                _lastReadingFile.value = lastFile
+                Log.d("MainViewModel", "加载上次阅读文件: ${lastFile?.fileName}")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "加载上次阅读文件失败", e)
+            }
+        }
+    }
+    
+    /**
+     * 保存上次打开的文件
+     */
+    private fun saveLastReadingFile(fileInfo: FileInfo?) {
+        viewModelScope.launch {
+            try {
+                fileDataStore.saveLastReadingFile(fileInfo)
+                Log.d("MainViewModel", "保存上次阅读文件: ${fileInfo?.fileName}")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "保存上次阅读文件失败", e)
+            }
+        }
+    }
+
 }

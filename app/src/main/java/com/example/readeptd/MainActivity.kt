@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,7 +77,6 @@ import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.data.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.delay
@@ -381,10 +381,37 @@ fun ContentScreen(
             }
         }
     }
+
+    val lastReadingFile by viewModel.lastReadingFile.collectAsState()
     
-    Box(modifier = modifier.fillMaxSize()) {
+    fun goToContentActivity(fileInfo: FileInfo?) {
+        if (fileInfo == null) {
+            return
+        }
+        val intent = Intent(context, ContentActivity::class.java)
+        intent.putExtra("file_uri", fileInfo.uri)
+        viewModel.onEvent(MainUiEvent.GoToContentActivity(fileInfo))
+        context.startActivity(intent)
+    }
+
+    Box(modifier =
+        modifier
+            .fillMaxSize()
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            // 只响应向左滑动且滑动距离超过阈值
+                            if (dragAmount < -50f) {
+                                goToContentActivity(lastReadingFile)
+                                change.consume()
+                            }
+                        }
+                    )
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (files.isEmpty()) {
@@ -422,6 +449,9 @@ fun ContentScreen(
                             
                             FileItemCard(
                                 fileInfo = files[index],
+                                onClick = {
+                                    goToContentActivity(files[index])
+                                },
                                 onRemove = { 
                                     Utils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
@@ -517,6 +547,7 @@ fun DraggableFloatingButton(
 @Composable
 fun FileItemCard(
     fileInfo: FileInfo,
+    onClick: () -> Unit,
     onRemove: () -> Unit,
     isDragging: Boolean = false,
     progress: Float? = null,
@@ -546,10 +577,7 @@ fun FileItemCard(
     Card(
         onClick = {
             if (isFileAccessible == true && !isDragging) {
-                val intent = Intent(context, ContentActivity::class.java).apply {
-                    putExtra("file_info", fileInfo.toBundle())
-                }
-                context.startActivity(intent)
+                onClick()
             }
         },
         enabled = isFileAccessible == true,

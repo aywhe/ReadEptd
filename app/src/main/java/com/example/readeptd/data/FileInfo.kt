@@ -1,6 +1,7 @@
 package com.example.readeptd.data
 
 import android.os.Bundle
+import org.json.JSONObject
 
 /**
  * 文件信息数据类
@@ -13,6 +14,30 @@ data class FileInfo(
     val mimeType: String = ""
 ) {
     
+    /**
+     * 将 FileInfo 转换为 JSON 字符串
+     */
+    fun toJson(): String {
+        return JSONObject().apply {
+            put(KEY_URI, uri)
+            put(KEY_FILE_NAME, fileName)
+            put(KEY_FILE_SIZE, fileSize)
+            put(KEY_MIME_TYPE, mimeType)
+        }.toString()
+    }
+    
+    /**
+     * 将 FileInfo 转换为 Bundle
+     */
+    fun toBundle(): Bundle {
+        return Bundle().apply {
+            putString(KEY_URI, uri)
+            putString(KEY_FILE_NAME, fileName)
+            putLong(KEY_FILE_SIZE, fileSize)
+            putString(KEY_MIME_TYPE, mimeType)
+        }
+    }
+    
     companion object {
         private const val KEY_URI = "uri"
         private const val KEY_FILE_NAME = "file_name"
@@ -20,15 +45,16 @@ data class FileInfo(
         private const val KEY_MIME_TYPE = "mime_type"
         
         /**
-         * 将 FileInfo 转换为 Bundle，用于 Activity 间传递
+         * 从 JSON 字符串恢复 FileInfo
          */
-        fun FileInfo.toBundle(): Bundle {
-            return Bundle().apply {
-                putString(KEY_URI, uri)
-                putString(KEY_FILE_NAME, fileName)
-                putLong(KEY_FILE_SIZE, fileSize)
-                putString(KEY_MIME_TYPE, mimeType)
-            }
+        fun fromJson(jsonString: String): FileInfo {
+            val jsonObject = JSONObject(jsonString)
+            return FileInfo(
+                uri = jsonObject.getString(KEY_URI),
+                fileName = jsonObject.getString(KEY_FILE_NAME),
+                fileSize = jsonObject.getLong(KEY_FILE_SIZE),
+                mimeType = jsonObject.getString(KEY_MIME_TYPE)
+            )
         }
         
         /**
