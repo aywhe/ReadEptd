@@ -62,6 +62,9 @@ class ContentActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // 保持屏幕常亮，防止阅读时自动息屏
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         val fileInfo = intent.getBundleExtra("file_info")?.let {
             FileInfo.fromBundle(it)
         }
@@ -73,6 +76,12 @@ class ContentActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 清除屏幕常亮标志
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 }
 
