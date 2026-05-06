@@ -389,8 +389,9 @@ fun ContentScreen(
             return
         }
         val intent = Intent(context, ContentActivity::class.java)
-        intent.putExtra("file_uri", fileInfo.uri)
+        intent.putExtra("file_info", fileInfo.toBundle())
         viewModel.onEvent(MainUiEvent.GoToContentActivity(fileInfo))
+        Log.d("MainActivity", "go to content activity: ${fileInfo.fileName}")
         context.startActivity(intent)
     }
 
@@ -401,16 +402,29 @@ fun ContentScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            // 只响应向左滑动且滑动距离超过阈值
-                            if (dragAmount < -50f) {
-                                goToContentActivity(lastReadingFile)
+                .pointerInput(lastReadingFile) {
+                    // 只有存在上次阅读文件时才启用手势
+                    if (lastReadingFile != null) {
+                        var totalDragAmount = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                totalDragAmount = 0f
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                totalDragAmount += dragAmount
                                 change.consume()
+                            },
+                            onDragEnd = {
+                                // 在手势结束时判断总滑动距离是否达到阈值
+                                if (totalDragAmount < -50f) {
+                                    goToContentActivity(lastReadingFile)
+                                }
+                            },
+                            onDragCancel = {
+                                totalDragAmount = 0f
                             }
-                        }
-                    )
+                        )
+                    }
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

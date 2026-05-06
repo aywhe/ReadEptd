@@ -125,6 +125,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (index in currentState.readingFiles.indices) {
                     val removedFile = currentState.readingFiles[index]
                     
+                    // 如果删除的是上次阅读的文件，清空 lastReadingFile
+                    if (_lastReadingFile.value?.uri == removedFile.uri) {
+                        _lastReadingFile.value = null
+                        saveLastReadingFile(null)
+                        Log.d("MainViewModel", "已清空上次阅读文件")
+                    }
+                    
                     val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
