@@ -106,12 +106,6 @@ fun MainScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    Log.d("MainActivity", "MainScreen 重组, UI状态: ${uiState::class.simpleName}")
-    if (uiState is MainUiState.Success) {
-        val successState = uiState as MainUiState.Success
-        Log.d("MainActivity", "当前选中文件数: ${successState.readingFiles.size}")
-    }
-
     // 创建文件选择器 Launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -320,8 +314,8 @@ fun MainScreen(
 private fun getAllowedMimeTypes(): Array<String> {
     return arrayOf(
         "text/plain",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        //"application/msword",
+        //"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/pdf",
         "application/epub+zip"
     )

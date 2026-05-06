@@ -119,15 +119,4 @@ object Utils {
         val maxLinesPerPage = (effectiveHeight.toFloat() / lineHeight).toInt().coerceIn(10, 35) - 1
         return CharsParams(avgCharsPerLine, maxLinesPerPage)
     }
-
-    /**
-     * 生成临时文件名
-     */
-    fun generateTempFileName(uri: String, fileName: String): String {
-        val uriHash = uri.hashCode().toString().replace("-", "_")
-        val fileExtension = fileName.substringAfterLast(".", "")
-        val baseName = fileName.substringBeforeLast(".")
-        return "book_${uriHash}_${baseName}.${fileExtension}"
-    }
-
 }

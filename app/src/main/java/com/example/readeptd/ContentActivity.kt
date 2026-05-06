@@ -142,9 +142,6 @@ fun ContentScreen(
         }
     }
 
-
-    Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
-
     Scaffold(
         topBar = {
             if(!isFullScreen) {

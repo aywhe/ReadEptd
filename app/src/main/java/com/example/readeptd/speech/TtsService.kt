@@ -41,13 +41,13 @@ class TtsService(
     private fun initializeTts() {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                // 设置语言为中文
-                val result = textToSpeech?.setLanguage(Locale.CHINESE)
+                // ✅ 使用系统默认语言,而不是硬编码中文
+                val result = textToSpeech?.setLanguage(Locale.getDefault())
 
                 if (result == TextToSpeech.LANG_MISSING_DATA ||
                     result == TextToSpeech.LANG_NOT_SUPPORTED
                 ) {
-                    Log.e(TAG, "不支持的语言")
+                    Log.e(TAG, "不支持的语言: ${Locale.getDefault()}")
                     listener?.onInitFailure(result ?: -1)
                 } else {
                     isInitialized = true
