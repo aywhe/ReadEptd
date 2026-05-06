@@ -41,7 +41,8 @@ fun EpubScreen(
     viewModel: EpubViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    // 准备 EPUB 文件
+    val currentLocation by viewModel.currentLocation.collectAsState()
+    
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
@@ -70,7 +71,6 @@ fun EpubScreen(
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
-                var location by remember { mutableStateOf(EpubLocation.default()) }
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
 
@@ -90,7 +90,7 @@ fun EpubScreen(
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->
-                                    location = epubLocation
+                                    viewModel.updateLocation(epubLocation)
                                     contentViewModel.updateProgressText("${(epubLocation.start.percentage * 100).toInt()}%")
                                     Log.d("EpubScreen", "保存进度: $epubLocation")
                                     // 并保存进度
@@ -162,6 +162,7 @@ fun EpubScreen(
                         },
                         onRelease = { webView ->
                             Log.d("EpubScreen", "AndroidView 销毁")
+                            ttsModel.clearCallbacks()
                             webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
@@ -169,7 +170,7 @@ fun EpubScreen(
                     
                     if (isShowJumpToProgressDialog) {
                         JumpToProgressDialog(
-                            progress = location.start.percentage,
+                            progress = currentLocation.start.percentage,
                             onDismiss = {
                                 isShowJumpToProgressDialog = false
                             },

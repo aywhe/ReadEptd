@@ -180,6 +180,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application), Tt
         onSpeechStartCallback = null
         onSpeechDoneCallback = null
         onRequestSpeechStartCallback = null
+        Log.d(TAG,"清除回调")
     }
 
     /**

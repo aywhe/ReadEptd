@@ -7,6 +7,9 @@ import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import java.util.ArrayDeque
 import java.util.Queue
@@ -19,6 +22,13 @@ import kotlin.String
 class EpubViewModel(
     application: Application
 ) : BookViewModel<ReadingState.Epub>(application, ReadingState.Epub::class.java) {
+
+    private val _currentLocation = MutableStateFlow(EpubLocation.default())
+    val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
+
+    fun updateLocation(location: EpubLocation) {
+        _currentLocation.value = location
+    }
 
     /**
      * 保存 EPUB 阅读进度

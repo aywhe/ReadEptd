@@ -205,6 +205,7 @@ fun PdfLazyViewer(
             }
 
             onDispose {
+                ttsModel.clearCallbacks()
             }
         }
         Box(
