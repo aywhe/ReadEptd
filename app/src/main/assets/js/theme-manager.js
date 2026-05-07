@@ -27,6 +27,8 @@ const ThemeManager = {
             // 默认使用浅色主题
             this.loadTheme('light');
         }
+        
+        console.log('ThemeManager initialized. Current theme:', this.currentTheme);
     },
     
     /**

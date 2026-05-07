@@ -1,0 +1,226 @@
+/* ============================================
+   EPUB Reader - 基础布局样式
+   （不包含颜色定义，颜色由主题文件提供）
+   ============================================ */
+
+/* ============================================
+   全局尺寸和动画变量
+   ============================================ */
+:root {
+    /* 尺寸 */
+    --button-size: 50px;
+    --button-size-collapsed: 16px;
+    --nav-panel-width: 80%;
+    --nav-panel-max-width: 400px;
+    
+    /* 动画 */
+    --transition-fast: 0.2s;
+    --transition-normal: 0.3s;
+    --transition-slow: 0.5s;
+}
+
+/* ============================================
+   基础样式重置
+   ============================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ============================================
+   阅读器容器
+   ============================================ */
+#viewer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.epub-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* ============================================
+   加载指示器
+   ============================================ */
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+#loading[style*="display: block"] {
+    pointer-events: auto;
+}
+
+.spinner {
+    border: 4px solid var(--color-background-light);
+    border-top: 4px solid var(--color-primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============================================
+   错误提示
+   ============================================ */
+#error {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--color-error);
+    padding: 20px;
+}
+
+/* ============================================
+   导航面板（目录）
+   ============================================ */
+#nav-panel {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--color-background-overlay);
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity var(--transition-normal) ease;
+}
+
+#nav-content {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: var(--nav-panel-width);
+    max-width: var(--nav-panel-max-width);
+    height: 100%;
+    background: var(--color-background);
+    overflow-y: auto;
+    box-shadow: var(--shadow-panel);
+    transform: translateX(100%);
+    transition: transform var(--transition-normal) cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+#nav-content .header {
+    padding: 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+#nav-content .header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--color-text-primary);
+}
+
+/* 目录列表样式 */
+#toc-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#toc-container li {
+    margin: 5px 0;
+}
+
+#toc-container a {
+    display: block;
+    text-decoration: none;
+    color: var(--color-text-primary);
+    border-radius: 5px;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+#toc-container a:hover {
+    background: var(--color-background-light);
+}
+
+#toc-container a.active {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: bold;
+}
+
+/* ============================================
+   悬浮按钮
+   ============================================ */
+#toc-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 100;
+    background: var(--color-toc-button, rgba(0, 163, 204, 0.7)); /* 使用变量，带降级值 */
+    border: none;
+    border-radius: 50%;
+    width: var(--button-size);
+    height: var(--button-size);
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: var(--shadow-button);
+    display: none;
+    touch-action: none;
+    user-select: none;
+    transition: all var(--transition-normal) ease;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+
+#toc-btn.collapsed {
+    width: var(--button-size-collapsed);
+    border-radius: 0 12.5px 12.5px 0;
+}
+
+/* 目录面板内的控制按钮 */
+.nav-control-btn {
+    position: absolute;
+    right: 60px;
+    top: 20px;
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--color-primary-dark);
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background var(--transition-fast);
+}
+
+.nav-control-btn:hover {
+    background: var(--color-primary-light);
+}
+
+.nav-close-btn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}

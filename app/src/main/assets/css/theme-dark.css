@@ -31,4 +31,7 @@
     /* 阴影 */
     --shadow-panel: -2px 0 10px rgba(0, 0, 0, 0.8);
     --shadow-button: 0 2px 4px rgba(0, 0, 0, 0.5);
+    
+    /* 特殊元素颜色 */
+    --color-toc-button: rgba(187, 134, 252, 0.7);
 }
