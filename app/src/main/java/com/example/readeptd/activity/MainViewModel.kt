@@ -257,8 +257,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateConfig(update: ConfigureData.() -> ConfigureData) {
         viewModelScope.launch {
             try {
-                fileDataStore.updateConfig(update)
-                Log.d("MainViewModel", "配置已更新")
+                val currentConfig = fileDataStore.getConfig()
+                Log.d("MainViewModel", "当前配置: isNightMode=${currentConfig.isNightMode}, isDynamicColor=${currentConfig.isDynamicColor}")
+                val newConfig = currentConfig.update()
+                Log.d("MainViewModel", "新配置: isNightMode=${newConfig.isNightMode}, isDynamicColor=${newConfig.isDynamicColor}")
+                fileDataStore.saveConfig(newConfig)
+                Log.d("MainViewModel", "配置已更新并保存")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "更新配置失败", e)
             }

@@ -1,6 +1,7 @@
 package com.example.readeptd.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -206,14 +207,19 @@ class FileDataStore(private val context: Context) {
      */
     val configFlow: Flow<ConfigureData> = context.configDataStore.data.map { preferences ->
         val jsonString = preferences[CONFIG_DATA_KEY]
+        Log.d("FileDataStore", "加载配置 - jsonString: $jsonString")
         if (jsonString != null) {
             try {
-                ConfigureData.fromJson(jsonString)
+                val config = ConfigureData.fromJson(jsonString)
+                Log.d("FileDataStore", "从存储加载配置成功: isNightMode=${config.isNightMode}, isDynamicColor=${config.isDynamicColor}")
+                config
             } catch (e: Exception) {
                 e.printStackTrace()
+                Log.e("FileDataStore", "解析配置失败，使用默认配置", e)
                 ConfigureData()
             }
         } else {
+            Log.d("FileDataStore", "未找到配置数据，使用默认配置")
             ConfigureData()
         }
     }
@@ -223,14 +229,6 @@ class FileDataStore(private val context: Context) {
      */
     suspend fun getConfig(): ConfigureData {
         return configFlow.first()
-    }
-    
-    /**
-     * 更新部分配置
-     */
-    suspend fun updateConfig(update: ConfigureData.() -> ConfigureData) {
-        val currentConfig = getConfig()
-        saveConfig(currentConfig.update())
     }
     
     // ==================== 私有辅助方法 ====================
