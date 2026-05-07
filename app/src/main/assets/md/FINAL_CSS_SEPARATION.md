@@ -270,9 +270,9 @@ epub_reader.html → no-cache
 
 ```html
 <!-- 浏览器可以并行加载这些资源 -->
-<link href="css/base.css">
-<script src="js/theme-manager.js">
-<script src="js/epub_reader.core.js">
+<link href="../css/base.css">
+<script src="../js/theme-manager.js">
+    <script src="js/epub_reader.core.js">
 ```
 
 ## 📝 代码质量指标

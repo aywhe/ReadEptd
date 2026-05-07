@@ -94,9 +94,10 @@ assets/
 ```
 
 **现在的做法**：
+
 ```html
 <!-- ✅ 正确 - 只引用外部 CSS -->
-<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="../css/base.css">
 <link id="dynamic-theme-style" rel="stylesheet">
 ```
 
