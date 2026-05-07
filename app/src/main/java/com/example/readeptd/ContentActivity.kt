@@ -122,11 +122,11 @@ fun ContentScreen(
         viewModel.onEvent(ContentUiEvent.OnScreenOrientationChanged(configuration.orientation))
     }
 
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
-    val progressText by viewModel.progressText.collectAsState()
-    val isFullScreen by viewModel.isFullScreen.collectAsState()
+    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    val isFullScreen by viewModel.isFullScreen.collectAsStateWithLifecycle()
 
     // 控制状态栏显示/隐藏
     LaunchedEffect(isFullScreen) {

@@ -354,8 +354,8 @@ fun ContentScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val readingStates by viewModel.readingStates.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val readingStates by viewModel.readingStates.collectAsStateWithLifecycle()
     val context = LocalContext.current
     
     val files = if (uiState is MainUiState.Success) {
@@ -397,7 +397,7 @@ fun ContentScreen(
         }
     }
 
-    val lastReadingFile by viewModel.lastReadingFile.collectAsState()
+    val lastReadingFile by viewModel.lastReadingFile.collectAsStateWithLifecycle()
     
     fun goToContentActivity(fileInfo: FileInfo?) {
         if (fileInfo == null) {

@@ -42,7 +42,7 @@ fun EpubScreen(
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentLocation by viewModel.currentLocation.collectAsState()
     
     LaunchedEffect(fileInfo.uri) {

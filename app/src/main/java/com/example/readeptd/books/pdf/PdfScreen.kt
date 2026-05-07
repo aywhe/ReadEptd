@@ -66,7 +66,7 @@ fun PdfScreen(
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
@@ -129,7 +129,7 @@ fun PdfLazyViewer(
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     
-    val totalPages by viewModel.totalPages.collectAsState()
+    val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
     

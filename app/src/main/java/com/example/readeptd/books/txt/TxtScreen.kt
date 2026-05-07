@@ -38,6 +38,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
@@ -57,10 +58,10 @@ fun TxtScreen(
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val initialPage by viewModel.initialPage.collectAsState()
-    val isPagesReady by viewModel.isPagesReady.collectAsState()
-    val isFullScreen by contentViewModel.isFullScreen.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val initialPage by viewModel.initialPage.collectAsStateWithLifecycle()
+    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
+    val isFullScreen by contentViewModel.isFullScreen.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
