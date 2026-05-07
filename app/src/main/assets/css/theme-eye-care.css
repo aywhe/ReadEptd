@@ -35,6 +35,6 @@
     /* 特殊元素颜色 */
     --color-toc-button: rgba(212, 163, 115, 0.7);
 
-    /* 高亮颜色（护眼模式使用暖色调） */
-    --color-highlight: rgb(139, 115, 85);
+    /* 高亮颜色（护眼模式使用温暖的橙黄色，配合 multiply 混合模式） */
+    --color-highlight: rgb(255, 152, 0);
 }
