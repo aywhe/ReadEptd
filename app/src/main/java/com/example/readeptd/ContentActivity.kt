@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,6 +48,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -70,9 +72,18 @@ class ContentActivity : ComponentActivity() {
         }
 
         setContent {
-            ReadEptdTheme {
+            val viewModel: ContentViewModel = viewModel()
+            val config by viewModel.configFlow.collectAsStateWithLifecycle(
+                initialValue = ConfigureData()
+            )
+            
+            ReadEptdTheme(
+                darkTheme = config.isNightMode,
+                dynamicColor = config.isDynamicColor
+            ) {
                 ContentScreen(
-                    fileInfo = fileInfo
+                    fileInfo = fileInfo,
+                    viewModel = viewModel
                 )
             }
         }

@@ -3,8 +3,8 @@ package com.example.readeptd.activity
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,9 +12,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ContentViewModel(
-    application: Application,
-    private val savedStateHandle: SavedStateHandle
+    application: Application
 ) : AndroidViewModel(application) {
+
+    private val fileDataStore = FileDataStore(application)
+    
+    // 应用配置 Flow
+    val configFlow = fileDataStore.configFlow
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()

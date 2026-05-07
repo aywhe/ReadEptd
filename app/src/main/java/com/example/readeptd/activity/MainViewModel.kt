@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
@@ -25,6 +26,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
     val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
+
+    // 应用配置 Flow
+    val configFlow = fileDataStore.configFlow
 
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -243,6 +247,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d("MainViewModel", "保存上次阅读文件: ${fileInfo?.fileName}")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "保存上次阅读文件失败", e)
+            }
+        }
+    }
+
+    /**
+     * 更新应用配置
+     */
+    fun updateConfig(update: ConfigureData.() -> ConfigureData) {
+        viewModelScope.launch {
+            try {
+                fileDataStore.updateConfig(update)
+                Log.d("MainViewModel", "配置已更新")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "更新配置失败", e)
             }
         }
     }

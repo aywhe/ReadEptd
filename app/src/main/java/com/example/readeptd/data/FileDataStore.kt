@@ -211,10 +211,10 @@ class FileDataStore(private val context: Context) {
                 ConfigureData.fromJson(jsonString)
             } catch (e: Exception) {
                 e.printStackTrace()
-                ConfigureData.default()
+                ConfigureData()
             }
         } else {
-            ConfigureData.default()
+            ConfigureData()
         }
     }
     

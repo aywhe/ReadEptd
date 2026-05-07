@@ -11,9 +11,8 @@ data class ConfigureData(
     val isDynamicColor: Boolean = true,
     val autoNightMode: Boolean = false,
     val autoNightStartTime: String = "20:00",
-    val autoNightEndTime: String = "06:00",
+    val autoNightEndTime: String = "06:00"
 ) {
-    
     /**
      * 将配置转换为 JSON 字符串
      */
@@ -26,14 +25,14 @@ data class ConfigureData(
             put(KEY_AUTO_NIGHT_END_TIME, autoNightEndTime)
         }.toString()
     }
-    
+
     companion object {
         private const val KEY_IS_NIGHT_MODE = "is_night_mode"
         private const val KEY_IS_DYNAMIC_COLOR = "is_dynamic_color"
         private const val KEY_AUTO_NIGHT_MODE = "auto_night_mode"
         private const val KEY_AUTO_NIGHT_START_TIME = "auto_night_start_time"
         private const val KEY_AUTO_NIGHT_END_TIME = "auto_night_end_time"
-        
+
         /**
          * 从 JSON 字符串恢复配置
          */
@@ -46,13 +45,6 @@ data class ConfigureData(
                 autoNightStartTime = jsonObject.optString(KEY_AUTO_NIGHT_START_TIME, "20:00"),
                 autoNightEndTime = jsonObject.optString(KEY_AUTO_NIGHT_END_TIME, "06:00")
             )
-        }
-        
-        /**
-         * 默认配置
-         */
-        fun default(): ConfigureData {
-            return ConfigureData()
         }
     }
 }
