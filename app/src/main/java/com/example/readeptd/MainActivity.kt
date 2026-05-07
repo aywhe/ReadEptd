@@ -267,7 +267,8 @@ fun MainScreen(
 
     if (showSettingDialog){
         SettingsDialog(
-            onDismiss = { showSettingDialog = false }
+            onDismiss = { showSettingDialog = false },
+            viewModel = viewModel
         )
     }
 
@@ -731,17 +732,52 @@ fun MainScreenPreview() {
 
 @Composable
 fun SettingsDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: MainViewModel
 ) {
     val context = LocalContext.current
+    val config by viewModel.configFlow.collectAsStateWithLifecycle()
+
     AlertDialog(
-        onDismissRequest = {onDismiss()},
+        onDismissRequest = { onDismiss() },
         title = { Text("设置") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 夜间模式开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("夜间模式")
+                    Switch(
+                        checked = config.isNightMode,
+                        onCheckedChange = { 
+                            viewModel.updateConfig { copy(isNightMode = it) }
+                        }
+                    )
+                }
+
+                // 动态颜色开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("跟随系统主题色")
+                    Switch(
+                        checked = config.isDynamicColor,
+                        onCheckedChange = { 
+                            viewModel.updateConfig { copy(isDynamicColor = it) }
+                        }
+                    )
+                }
+
+                Divider()
+
                 // TTS 设置按钮
                 Button(
                     onClick = {
@@ -752,7 +788,8 @@ fun SettingsDialog(
                             Log.d("MainActivity", "已打开 TTS 设置页面")
                         } catch (e: Exception) {
                             Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
-                        } },
+                        } 
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("设置 TTS")
@@ -767,10 +804,11 @@ fun SettingsDialog(
         },
         confirmButton = {
             Button(
-                onClick = {onDismiss()},
+                onClick = { onDismiss() },
             ) {
                 Text("关闭")
             }
         }
     )
+
 }

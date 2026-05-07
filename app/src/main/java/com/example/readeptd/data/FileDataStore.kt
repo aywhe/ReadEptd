@@ -17,6 +17,7 @@ import org.json.JSONObject
  */
 private val Context.fileListDataStore: DataStore<Preferences> by preferencesDataStore(name = "reading_files")
 private val Context.readingStateDataStore: DataStore<Preferences> by preferencesDataStore(name = "reading_states")
+private val Context.configDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_config")
 
 /**
  * 文件数据持久化管理器
@@ -28,6 +29,7 @@ class FileDataStore(private val context: Context) {
         private val READING_FILES_KEY = stringPreferencesKey("reading_files")
         private val READING_STATES_KEY = stringPreferencesKey("reading_states")
         private val LAST_READING_FILE_KEY = stringPreferencesKey("last_reading_file")
+        private val CONFIG_DATA_KEY = stringPreferencesKey("config_data")
     }
     
     /**
@@ -186,6 +188,49 @@ class FileDataStore(private val context: Context) {
         context.readingStateDataStore.edit { preferences ->
             preferences.remove(READING_STATES_KEY)
         }
+    }
+    
+    // ==================== 应用配置管理 ====================
+    
+    /**
+     * 保存应用配置
+     */
+    suspend fun saveConfig(config: ConfigureData) {
+        context.configDataStore.edit { preferences ->
+            preferences[CONFIG_DATA_KEY] = config.toJson()
+        }
+    }
+    
+    /**
+     * 获取应用配置（Flow 形式，自动响应变化）
+     */
+    val configFlow: Flow<ConfigureData> = context.configDataStore.data.map { preferences ->
+        val jsonString = preferences[CONFIG_DATA_KEY]
+        if (jsonString != null) {
+            try {
+                ConfigureData.fromJson(jsonString)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ConfigureData.default()
+            }
+        } else {
+            ConfigureData.default()
+        }
+    }
+    
+    /**
+     * 获取应用配置（一次性读取）
+     */
+    suspend fun getConfig(): ConfigureData {
+        return configFlow.first()
+    }
+    
+    /**
+     * 更新部分配置
+     */
+    suspend fun updateConfig(update: ConfigureData.() -> ConfigureData) {
+        val currentConfig = getConfig()
+        saveConfig(currentConfig.update())
     }
     
     // ==================== 私有辅助方法 ====================
