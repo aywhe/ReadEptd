@@ -76,20 +76,6 @@ const ThemeManager = {
     },
 
     /**
-     * 从 CSS 文件中动态加载主题颜色
-     */
-    loadCurrentThemeColors() {
-        // ✅ 直接从当前页面读取 CSS 变量值（CSS 已通过 <link> 加载）
-        const computedStyle = getComputedStyle(document.documentElement);
-        const colors = {
-            background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
-            textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
-            primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db'
-        };
-        return colors;
-    },
-
-    /**
      * 从 CSS 文本中提取变量值
      * @param {string} cssText - CSS 文本
      * @returns {Object} 变量名到值的映射

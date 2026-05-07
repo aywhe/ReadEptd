@@ -583,11 +583,12 @@ const ReaderCore = {
             }
 
             // ✅ 从 CSS 文件中动态读取颜色值
-            const colors = ThemeManager.loadCurrentThemeColors();
-            if (!colors) {
-                console.error('Failed to load theme colors');
-                return;
-            }
+            const computedStyle = getComputedStyle(document.documentElement);
+            const colors = {
+                background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
+                textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
+                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db'
+            };
 
             // ✅ 方式二：传入规则对象（符合官方文档）
             const rules = {
@@ -1025,10 +1026,11 @@ const HighlightManager = {
 
                 // ✅ 从 CSS 变量动态获取高亮颜色
                 const highlightColor = this.getHighlightColor();
+                console.log('Using highlight color:', highlightColor);
 
                 AppState.rendition.annotations.highlight(
                     cfi,
-                    { color: "gray" },
+                    {},  // ✅ 移除错误的参数
                     null,
                     "my-highlight",
                     {
