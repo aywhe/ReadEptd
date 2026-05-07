@@ -607,7 +607,7 @@ const ReaderCore = {
                     'background-color': 'transparent !important'
                 }
             };
-            const themeName = ThemeManager.getCurrentTheme();
+            const themeName = "my-theme";
             AppState.rendition.themes.register(themeName, rules);
             AppState.rendition.themes.select(themeName);
 
@@ -854,14 +854,21 @@ const PageOperations = {
     },
 
     getCurrentLocation() {
-        const location = AppState.rendition.currentLocation();
-        if (location) {
-            console.log('Getting current location:', location);
-            if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
-                AndroidBridge.onLocationRetrieved(JSON.stringify(location));
+        try{
+            const location = AppState.rendition.currentLocation();
+            if (location) {
+                console.log('Getting current location:', location);
+                if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
+                    AndroidBridge.onLocationRetrieved(JSON.stringify(location));
+                }
+            } else {
+                console.warn('No current location available');
+                if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
+                    AndroidBridge.onLocationRetrieved('{}');
+                }
             }
-        } else {
-            console.warn('No current location available');
+        } catch (err) {
+            console.error('Error in getCurrentLocation:', err);
             if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
                 AndroidBridge.onLocationRetrieved('{}');
             }
