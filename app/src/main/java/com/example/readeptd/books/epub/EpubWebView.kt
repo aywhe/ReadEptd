@@ -77,6 +77,10 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
         
+        // ✅ 关键修复：设置 WebView 背景色为透明，避免与 HTML 背景色冲突导致闪烁
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        setBackgroundResource(0)
+        
         // 关键：禁用滚动条，让 epub.js 处理滚动
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
