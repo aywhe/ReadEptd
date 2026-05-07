@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
@@ -29,6 +30,7 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 
@@ -73,6 +75,7 @@ fun EpubScreen(
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
+                val config by contentViewModel.configFlow.collectAsStateWithLifecycle(ConfigureData())
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
@@ -111,6 +114,13 @@ fun EpubScreen(
                                         isShowSearchDialog = !isShowSearchDialog
                                     }
                                     Log.d("EpubScreen", "加载完成")
+                                    if(config.isNightMode){
+                                        Log.d("EpubScreen", "应用夜间模式")
+                                        setTheme(EpubTheme.Night)
+                                    } else {
+                                        Log.d("EpubScreen", "应用日间模式")
+                                        setTheme(EpubTheme.Light)
+                                    }
                                 }
 
                                 setOnDoubleClickListener {

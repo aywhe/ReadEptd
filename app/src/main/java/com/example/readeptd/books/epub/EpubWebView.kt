@@ -164,6 +164,20 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
     }
+
+    /**
+     * 设置主题
+     * @param epubTheme 主题名称
+     */
+    fun setTheme(epubTheme: EpubTheme) {
+        val theme = when (epubTheme) {
+            EpubTheme.Night -> "dark"
+            EpubTheme.Light -> "light"
+            EpubTheme.EyesCare -> "eyes-care"
+        }
+        Log.d(TAG, "执行 JavaScript 设置主题...")
+        executeJs("window.EpubReader.setTheme('$theme')")
+    }
     
     /**
      * 跳转到指定位置

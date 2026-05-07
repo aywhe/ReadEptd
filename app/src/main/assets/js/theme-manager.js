@@ -160,8 +160,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================
 // 暴露给 Android 的接口
 // ============================================
-if (typeof window.EpubReader !== 'undefined') {
-    window.EpubReader.setTheme = ThemeManager.setThemeFromAndroid.bind(ThemeManager);
-    window.EpubReader.toggleTheme = ThemeManager.toggleTheme.bind(ThemeManager);
-    window.EpubReader.getCurrentTheme = ThemeManager.getCurrentTheme.bind(ThemeManager);
-}
+// ✅ 使用 window.onload 确保 EpubReader 已经定义
+window.addEventListener('load', function() {
+    if (typeof window.EpubReader !== 'undefined') {
+        window.EpubReader.setTheme = ThemeManager.setThemeFromAndroid.bind(ThemeManager);
+        window.EpubReader.toggleTheme = ThemeManager.toggleTheme.bind(ThemeManager);
+        window.EpubReader.getCurrentTheme = ThemeManager.getCurrentTheme.bind(ThemeManager);
+        console.log('Theme interfaces exposed to Android');
+    } else {
+        console.error('window.EpubReader not found! Make sure epub_reader.core.js is loaded.');
+    }
+});

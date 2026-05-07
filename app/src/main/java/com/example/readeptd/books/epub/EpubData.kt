@@ -162,3 +162,9 @@ data class EpubSearchResult(
         }
     }
 }
+
+sealed interface EpubTheme {
+    object Light : EpubTheme
+    object Night : EpubTheme
+    object EyesCare: EpubTheme
+}
