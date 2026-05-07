@@ -27,13 +27,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
     val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
 
-    // 应用配置 Flow
-    val configFlow = fileDataStore.configFlow
+    // ✅ 配置数据缓存（类似 readingStates）
+    private val _configData = MutableStateFlow<ConfigureData>(ConfigureData())
+    val configData: StateFlow<ConfigureData> = _configData.asStateFlow()
 
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
         loadLastReadingFile()
+        loadConfigData()  // ✅ 新增：加载配置数据
     }
     
     override fun onCleared() {
@@ -81,6 +83,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             fileDataStore.allReadingStatesFlow.collect { states ->
                 _readingStates.value = states
                 Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
+            }
+        }
+    }
+    
+    /**
+     * ✅ 加载配置数据（持续监听 DataStore 变化）
+     */
+    private fun loadConfigData() {
+        viewModelScope.launch {
+            fileDataStore.configFlow.collect { config ->
+                _configData.value = config
+                Log.d("MainViewModel", "配置已更新: isNightMode=${config.isNightMode}, isDynamicColor=${config.isDynamicColor}")
             }
         }
     }
@@ -252,19 +266,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 更新应用配置
+     * ✅ 更新应用配置（立即更新缓存，异步保存）
      */
     fun updateConfig(update: ConfigureData.() -> ConfigureData) {
+        // ✅ 先立即更新内存（UI 立即响应）
+        val currentConfig = _configData.value
+        val newConfig = currentConfig.update()
+        _configData.value = newConfig
+        
+        Log.d("MainViewModel", "配置已更新（内存）: isNightMode=${newConfig.isNightMode}, isDynamicColor=${newConfig.isDynamicColor}")
+        
+        // ✅ 再异步保存到磁盘
         viewModelScope.launch {
             try {
-                val currentConfig = fileDataStore.getConfig()
-                Log.d("MainViewModel", "当前配置: isNightMode=${currentConfig.isNightMode}, isDynamicColor=${currentConfig.isDynamicColor}")
-                val newConfig = currentConfig.update()
-                Log.d("MainViewModel", "新配置: isNightMode=${newConfig.isNightMode}, isDynamicColor=${newConfig.isDynamicColor}")
                 fileDataStore.saveConfig(newConfig)
-                Log.d("MainViewModel", "配置已更新并保存")
+                Log.d("MainViewModel", "配置已保存到磁盘")
             } catch (e: Exception) {
-                Log.e("MainViewModel", "更新配置失败", e)
+                Log.e("MainViewModel", "保存配置失败，回滚", e)
+                // 如果保存失败，回滚配置
+                _configData.value = currentConfig
             }
         }
     }

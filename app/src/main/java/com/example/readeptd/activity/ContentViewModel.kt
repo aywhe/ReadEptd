@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +18,9 @@ class ContentViewModel(
 
     private val fileDataStore = FileDataStore(application)
     
-    // 应用配置 Flow
-    val configFlow = fileDataStore.configFlow
+    // ✅ 应用配置缓存（类似 MainViewModel）
+    private val _configData = MutableStateFlow(ConfigureData())
+    val configData: StateFlow<ConfigureData> = _configData.asStateFlow()
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()
@@ -31,8 +33,22 @@ class ContentViewModel(
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
+        // ✅ 启动配置监听
+        loadConfigData()
         // 注意：数据需要通过外部传入，而不是从 SavedStateHandle 获取
         // 因为我们是使用 Intent 传递的数据
+    }
+
+    /**
+     * ✅ 加载配置数据（持续监听 DataStore 变化）
+     */
+    private fun loadConfigData() {
+        viewModelScope.launch {
+            fileDataStore.configFlow.collect { config ->
+                _configData.value = config
+                Log.d("ContentViewModel", "配置已更新: isNightMode=${config.isNightMode}, isDynamicColor=${config.isDynamicColor}")
+            }
+        }
     }
 
     override fun onCleared() {

@@ -94,9 +94,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val viewModel: MainViewModel = viewModel()
-            val config by viewModel.configFlow.collectAsStateWithLifecycle(
-                initialValue = ConfigureData()
-            )
+            val config by viewModel.configData.collectAsStateWithLifecycle()
             
             ReadEptdTheme(
                 darkTheme = config.isNightMode,
@@ -747,9 +745,7 @@ fun SettingsDialog(
     viewModel: MainViewModel
 ) {
     val context = LocalContext.current
-    val config by viewModel.configFlow.collectAsStateWithLifecycle(
-        initialValue = ConfigureData()
-    )
+    val config by viewModel.configData.collectAsStateWithLifecycle()
 
     AlertDialog(
         onDismissRequest = { onDismiss() },

@@ -73,9 +73,7 @@ class ContentActivity : ComponentActivity() {
 
         setContent {
             val viewModel: ContentViewModel = viewModel()
-            val config by viewModel.configFlow.collectAsStateWithLifecycle(
-                initialValue = ConfigureData()
-            )
+            val config by viewModel.configData.collectAsStateWithLifecycle()
             
             ReadEptdTheme(
                 darkTheme = config.isNightMode,

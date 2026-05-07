@@ -28,7 +28,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
-    
+    private var currentTheme: EpubTheme = EpubTheme.Light
+
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
     private var locationRetrievedCallback: ((EpubLocation) -> Unit)? = null
@@ -169,7 +170,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * 设置主题
      * @param epubTheme 主题名称
      */
-    fun setTheme(epubTheme: EpubTheme) {
+    fun initTheme(epubTheme: EpubTheme) {
+        currentTheme = epubTheme
+        Log.d(TAG, "设置主题: $epubTheme")
+    }
+
+    private fun setTheme(epubTheme: EpubTheme) {
+        currentTheme = epubTheme
         val theme = when (epubTheme) {
             EpubTheme.Night -> "dark"
             EpubTheme.Light -> "light"
@@ -400,6 +407,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
+            setTheme(currentTheme) // 设置当前主题
             loadEpub(epubFilePath)
         }
 

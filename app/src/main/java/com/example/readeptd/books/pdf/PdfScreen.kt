@@ -134,9 +134,7 @@ fun PdfLazyViewer(
     val configuration = LocalConfiguration.current
     
     // 收集配置信息，获取夜间模式状态
-    val config by contentViewModel.configFlow.collectAsStateWithLifecycle(
-        initialValue = ConfigureData()
-    )
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
     DisposableEffect(filePath) {
         // 初始化 PDF 渲染器
@@ -262,7 +260,7 @@ fun PdfLazyViewer(
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "PDF $page ",
+                            contentDescription = "PDF_Page_$page",
                             contentScale = ContentScale.FillWidth,
                             colorFilter = if (config.isNightMode) {
                                 ColorFilter.colorMatrix(

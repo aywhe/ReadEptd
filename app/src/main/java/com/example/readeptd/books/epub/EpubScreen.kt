@@ -75,7 +75,7 @@ fun EpubScreen(
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
-                val config by contentViewModel.configFlow.collectAsStateWithLifecycle(ConfigureData())
+                val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
@@ -90,6 +90,12 @@ fun EpubScreen(
 
                                 // 设置起始位置 CFI
                                 setStartCfi(savedCfi)
+                                initTheme(
+                                    when(config.isNightMode) {
+                                        true -> EpubTheme.Night
+                                        false -> EpubTheme.Light
+                                    }
+                                )
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->
@@ -114,13 +120,6 @@ fun EpubScreen(
                                         isShowSearchDialog = !isShowSearchDialog
                                     }
                                     Log.d("EpubScreen", "加载完成")
-                                    if(config.isNightMode){
-                                        Log.d("EpubScreen", "应用夜间模式")
-                                        setTheme(EpubTheme.Night)
-                                    } else {
-                                        Log.d("EpubScreen", "应用日间模式")
-                                        setTheme(EpubTheme.Light)
-                                    }
                                 }
 
                                 setOnDoubleClickListener {
