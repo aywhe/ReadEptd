@@ -46,7 +46,7 @@ const ThemeManager = {
         // 移除旧的主题样式
         this.removeCurrentTheme();
         
-        // 创建新的 link 标签加载主题 CSS
+        // 创建新的 link 标签加载主题 CSS（仅用于主页面 UI）
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.type = 'text/css';
@@ -55,11 +55,11 @@ const ThemeManager = {
         
         // 监听加载完成
         link.onload = () => {
-            console.log(`Theme "${themeName}" loaded successfully`);
+            console.log(`Theme "${themeName}" loaded successfully for main UI`);
             this.currentTheme = themeName;
             this.saveTheme(themeName);
             
-            // 通知 Android 主题已切换（可选）
+            // ✅ 只通知 Android，不在这里应用主题到 EPUB
             if (window.Android && window.Android.onThemeChanged) {
                 window.Android.onThemeChanged(themeName);
             }
@@ -74,7 +74,38 @@ const ThemeManager = {
         
         return true;
     },
-    
+
+    /**
+     * 从 CSS 文件中动态加载主题颜色
+     */
+    loadCurrentThemeColors() {
+        // ✅ 直接从当前页面读取 CSS 变量值（CSS 已通过 <link> 加载）
+        const computedStyle = getComputedStyle(document.documentElement);
+        const colors = {
+            background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
+            textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
+            primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db'
+        };
+        return colors;
+    },
+
+    /**
+     * 从 CSS 文本中提取变量值
+     * @param {string} cssText - CSS 文本
+     * @returns {Object} 变量名到值的映射
+     */
+    extractVariablesFromCss(cssText) {
+        const variables = {};
+        const regex = /--([\w-]+):\s*([^;]+);/g;
+        let match;
+
+        while ((match = regex.exec(cssText)) !== null) {
+            variables[`--${match[1]}`] = match[2].trim();
+        }
+
+        return variables;
+    },
+
     /**
      * 移除当前主题样式
      */

@@ -571,9 +571,50 @@ const ReaderCore = {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
             this.setupDoubleClickHandler(view);
+            this.applyThemeToEpub();
         });
     },
 
+    applyThemeToEpub() {
+        try {
+            if (!AppState.rendition || !AppState.rendition.themes) {
+                console.warn('Rendition or themes API not available');
+                return;
+            }
+
+            // ✅ 从 CSS 文件中动态读取颜色值
+            const colors = ThemeManager.loadCurrentThemeColors();
+            if (!colors) {
+                console.error('Failed to load theme colors');
+                return;
+            }
+
+            // ✅ 方式二：传入规则对象（符合官方文档）
+            const rules = {
+                'body': {
+                    'background-color': colors.background,
+                    'color': colors.textPrimary
+                },
+                'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
+                    'color': colors.textPrimary + ' !important',
+                    'background-color': 'transparent !important'
+                },
+                'a': {
+                    'color': colors.primary + ' !important'
+                },
+                'img': {
+                    'background-color': 'transparent !important'
+                }
+            };
+            const themeName = ThemeManager.getCurrentTheme();
+            AppState.rendition.themes.register(themeName, rules);
+            AppState.rendition.themes.select(themeName);
+
+            console.log(`Epub.js theme applied via rules object: ${themeName}`);
+        } catch (error) {
+            console.error('Error applying theme to epub:', error);
+        }
+    },
     setupDoubleClickHandler(view) {
         const contents = view.contents;
         if (contents && contents.window) {
