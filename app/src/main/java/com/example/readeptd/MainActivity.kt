@@ -96,6 +96,11 @@ class MainActivity : ComponentActivity() {
             val viewModel: MainViewModel = viewModel()
             val config by viewModel.configData.collectAsStateWithLifecycle()
             
+            // ✅ 根据夜间模式设置状态栏和导航栏颜色
+            LaunchedEffect(config.isNightMode) {
+                Utils.updateSystemBarColors(window, config.isNightMode)
+            }
+            
             ReadEptdTheme(
                 darkTheme = config.isNightMode,
                 dynamicColor = config.isDynamicColor

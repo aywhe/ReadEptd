@@ -223,12 +223,162 @@ getComputedStyle(document.documentElement)
 3. **懒加载目录** - 大型书籍的目录可能很长
 4. **及时清理资源** - 调用 `EpubReader.cleanUp()`
 
+## 🕒 HTML/CSS/JS 加载时序
+
+### 完整加载流程
+
+```
+时间轴 →
+│
+├─ T0: HTML 开始解析（同步阻塞）
+│   ├─ 加载 base.css ✅ 同步阻塞（基础布局样式）
+│   ├─ 创建空的 <link id="dynamic-theme-style">（主题占位符，href 为空）
+│   ├─ 加载 JS 库（按顺序同步执行）：
+│   │   ├─ jszip.min.js
+│   │   ├─ epub.min.js
+│   │   ├─ epub.custom.js
+│   │   └─ theme-manager.js
+│   └─ ⚠️ epub_reader.core.js 在 </body> 前加载（DOMContentLoaded 之后）
+│
+├─ T1: DOMContentLoaded 事件触发
+│   ├─ ThemeManager.init() （来自 theme-manager.js）
+│   │   └─ 从 localStorage 读取主题（默认 light）
+│   │       └─ 动态创建 <link> 元素并设置 href
+│   │           └─ 异步加载 theme-light.css（非阻塞）
+│   └─ 点击背景关闭导航面板的事件监听器注册
+│
+├─ T2: window.onload 事件触发
+│   ├─ AndroidBridge.onHtmlReady() → 通知 Android HTML 已准备好
+│   └─ UIManager.init() → 初始化 UI（拖拽按钮等）
+│
+├─ T3: Android 收到 onHtmlReady（EpubWebView.AndroidBridge.onHtmlReady()）
+│   ├─ ✅ EpubWebView.setTheme(currentTheme) → 应用初始主题
+│   │   └─ 执行 JS: window.EpubReader.setTheme('light'/'dark'/'eyes-care')
+│   │       └─ ThemeManager.setThemeFromAndroid(themeName)
+│   │           └─ ThemeManager.loadTheme(themeName)
+│   │               ├─ 移除旧的 <link id="dynamic-theme-style">
+│   │               ├─ 创建新的 <link> 并设置 href
+│   │               └─ 异步加载主题 CSS（如 theme-light.css）
+│   │                   └─ onload 回调：
+│   │                       ├─ 更新 currentTheme
+│   │                       ├─ 保存到 localStorage
+│   │                       └─ 通知 Android: window.Android.onThemeChanged()
+│   └─ EpubWebView.loadEpub(epubFilePath)
+│       └─ 执行 JS: window.EpubReader.init(epubPath, startCfi)
+│
+├─ T4: ReaderCore.init() 执行
+│   ├─ ResourceManager.clearRendition() / clearBook() → 清理旧资源
+│   ├─ UIManager.showLoading() → 显示加载指示器
+│   ├─ createBook(epubUrl) → 创建 Book 实例
+│   ├─ createRendition() → 创建渲染器（renderTo "viewer"）
+│   ├─ setupEventListeners() → 设置事件监听器：
+│   │   ├─ relocated → 页面跳转时触发
+│   │   ├─ resized → 窗口大小改变时触发
+│   │   ├─ rendered → 章节渲染时触发 ✅ 调用 applyThemeToEpub()
+│   │   ├─ attached → 渲染器附加时触发
+│   │   ├─ displayed → 章节显示时触发
+│   │   └─ book.ready → 书籍元数据加载完成
+│   ├─ loadNavigation() → 异步加载目录
+│   ├─ generateLocationsAsync() → 异步生成位置信息
+│   └─ displayBook(startCfi) → 显示书籍
+│       └─ rendition.display(cfi)
+│           └─ .then() → 书籍显示成功
+│               ├─ UIManager.hideLoading() → 隐藏加载指示器
+│               ├─ AppState.isLoaded = true
+│               ├─ hookMappingFunctions() → 钩住映射函数
+│               └─ AndroidBridge.onLoadComplete() → ✅ 通知 Android 加载完成
+│
+├─ T5: EPUB 内容首次渲染（rendition.on("rendered") 触发）
+│   └─ ReaderCore.applyThemeToEpub()
+│       ├─ 从 document.documentElement 读取 CSS 变量
+│       │   ├─ --color-background
+│       │   ├─ --color-text-primary
+│       │   └─ --color-primary
+│       ├─ 构建规则对象 rules
+│       ├─ rendition.themes.register("my-theme", rules)
+│       └─ rendition.themes.select("my-theme") → ✅ 应用主题到 EPUB 内容
+│           └─ ⚠️ 注意：此时使用的是 T3 阶段加载的主题 CSS 中的颜色值
+│
+└─ T6: Android 收到 onLoadComplete（可选的主题切换）
+    └─ 如果需要切换主题，调用 setTheme()
+        └─ 执行 JS: window.EpubReader.setTheme('dark'/'light')
+            └─ ThemeManager.setThemeFromAndroid(themeName)
+                └─ ThemeManager.loadTheme(themeName)
+                    ├─ 移除旧的 <link id="dynamic-theme-style">
+                    ├─ 创建新的 <link> 并设置 href
+                    └─ 异步加载新主题 CSS（如 theme-dark.css）
+                        └─ onload 回调：
+                            ├─ 更新 currentTheme
+                            ├─ 保存到 localStorage
+                            └─ 通知 Android: window.Android.onThemeChanged()
+                                └─ ⚠️ 注意：此时不会自动重新应用主题到 EPUB！
+                                    └─ 需要等待下一个 rendered 事件或手动调用 applyThemeToEpub()
+```
+
+### 关键时序说明
+
+#### 1. CSS 加载顺序
+- **base.css**: 在 HTML `<head>` 中同步加载，提供基础布局和结构样式
+- **theme-light.css**: 
+  - **首次加载**（T1）: DOMContentLoaded 时由 ThemeManager 动态加载（异步），仅包含颜色变量
+  - **重新加载**（T3）: Android 收到 onHtmlReady 时，EpubWebView.setTheme() 会重新加载主题 CSS
+- **EPUB 内容主题**: 在 T5 阶段通过 `applyThemeToEpub()` 从 CSS 变量读取颜色并应用到 EPUB 内容（通过 rendition.themes API）
+
+#### 2. 主题应用时机
+- **初始主题设置**（T3）: EpubWebView 收到 onHtmlReady 后，立即调用 `setTheme(currentTheme)` 加载主题 CSS
+- **第一次应用到 EPUB**（T5）: `rendition.on("rendered")` 事件触发时调用 `applyThemeToEpub()`，从主页面的 CSS 变量读取颜色并通过 rendition.themes 应用到 EPUB 内容
+- **后续切换**（T6）: Android 调用 `setTheme()` 时，只更新主页面的 CSS 变量，**不会自动重新应用主题到 EPUB 内容**，需要等待下一次 `rendered` 事件或手动调用
+
+#### 3. 主题切换的正确方式
+```javascript
+// ✅ 正确：同时更新主页面和 EPUB 内容
+window.EpubReader.setTheme = function(themeName) {
+    if (ThemeManager && ThemeManager.setThemeFromAndroid) {
+        ThemeManager.setThemeFromAndroid(themeName);
+        // 延迟调用，等待 CSS 加载完成后重新应用主题到 EPUB
+        setTimeout(() => {
+            if (ReaderCore && ReaderCore.applyThemeToEpub) {
+                ReaderCore.applyThemeToEpub();
+            }
+        }, 100);
+    }
+};
+```
+
+#### 4. JavaScript 执行顺序
+1. **同步加载阶段**（T0）: `<head>` 中的 `<script>` 标签按顺序同步加载和执行
+2. **DOM 就绪阶段**（T1）: DOMContentLoaded 事件触发，ThemeManager 初始化，动态加载主题 CSS（首次）
+3. **完全加载阶段**（T2）: window.onload 事件触发，通知 Android，初始化 UI
+4. **Android 回调阶段**（T3）: 
+   - EpubWebView.AndroidBridge.onHtmlReady() 被调用
+   - ✅ **EpubWebView.setTheme(currentTheme)** → 重新加载主题 CSS
+   - EpubWebView.loadEpub() → 调用 window.EpubReader.init()
+5. **EPUB 初始化阶段**（T4）: ReaderCore.init() 创建 Book 和 Rendition，设置事件监听器
+6. **内容渲染阶段**（T5）: 首个章节渲染完成，`rendered` 事件触发，应用主题到 EPUB 内容
+7. **加载完成阶段**（T5 末尾）: 书籍显示完成，`onLoadComplete()` 通知 Android
+
+### 常见问题
+
+#### Q: 为什么主题切换后 EPUB 内容没有立即变化？
+**A**: 因为 `ThemeManager.loadTheme()` 只更新了主页面的 CSS 变量，没有主动调用 `applyThemeToEpub()`。EPUB 内容的主题会在下一次 `rendered` 事件（翻页时）自动更新，或者需要手动调用 `applyThemeToEpub()`。
+
+#### Q: 为什么要在 rendered 事件中调用 applyThemeToEpub()？
+**A**: 因为此时 rendition 已经创建完成并且章节内容已经渲染到 iframe 中，可以访问 `rendition.themes` API。同时，CSS 变量已经从 theme CSS 文件中加载完成，可以读取到正确的颜色值。
+
+#### Q: 如何确保主题切换时 EPUB 内容也立即更新？
+**A**: 修改 `window.EpubReader.setTheme` 方法，在调用 `ThemeManager.loadTheme()` 后，延迟调用 `ReaderCore.applyThemeToEpub()`。这样可以强制重新应用主题到 EPUB 内容，无需等待下一次 `rendered` 事件。
+
+#### Q: epub_reader.core.js 为什么在 </body> 前加载而不是在 <head> 中？
+**A**: 这是为了确保 DOM 已经完全解析，避免在脚本执行时访问未创建的 DOM 元素。epub_reader.core.js 依赖于 HTML 中的元素（如 #viewer、#toc-btn 等），在 body 末尾加载可以保证这些元素已经存在。
+
 ## 🔒 注意事项
 
 1. **不要直接修改全局变量** - 使用模块提供的方法
 2. **保持接口稳定** - `window.EpubReader` 的方法签名不要随意改动
 3. **CSS 变量兼容性** - Android 5.0+ 完全支持
 4. **错误处理** - 所有异步操作都要有 `.catch()`
+5. **主题切换时序** - 确保在 Rendition 创建完成后才应用主题到 EPUB 内容
+6. **资源清理** - 退出时调用 `EpubReader.cleanUp()` 释放内存
 
 ---
 
