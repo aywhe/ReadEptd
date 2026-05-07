@@ -34,4 +34,7 @@
     
     /* 特殊元素颜色 */
     --color-toc-button: rgba(0, 163, 204, 0.7);
+
+    /* 高亮颜色 */
+    --color-highlight: rgb(72, 72, 72);
 }

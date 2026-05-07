@@ -178,7 +178,7 @@ const UIManager = {
         } else {
             navContent.style.left = '0';
             navContent.style.right = 'auto';
-            navContent.style.boxShadow = '2px 0 10px rgba(0,0,0,0.3)';
+            navContent.style.boxShadow = 'var(--shadow-panel)';
             navContent.style.transform = 'translateX(-100%)';
         }
 
@@ -966,6 +966,14 @@ const SearchManager = {
 // 高亮功能模块
 // ============================================
 const HighlightManager = {
+    /**
+     * 从 CSS 变量获取高亮颜色
+     */
+    getHighlightColor() {
+        const computedStyle = getComputedStyle(document.documentElement);
+        return computedStyle.getPropertyValue('--color-highlight').trim() || 'rgb(72, 72, 72)';
+    },
+
     highlight(cfi, isRemove) {
         if (AppState.rendition) {
             if (isRemove) {
@@ -973,13 +981,17 @@ const HighlightManager = {
                 AppState.rendition.annotations.remove(cfi, "highlight");
             } else {
                 console.log('add highlight: ' + cfi);
+
+                // ✅ 从 CSS 变量动态获取高亮颜色
+                const highlightColor = this.getHighlightColor();
+
                 AppState.rendition.annotations.highlight(
                     cfi,
                     { color: "gray" },
                     null,
                     "my-highlight",
                     {
-                        "fill": "rgb(72, 72, 72)",
+                        "fill": highlightColor,
                         "mix-blend-mode": "multiply"
                     }
                 );
