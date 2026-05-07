@@ -33,6 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,7 +45,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
@@ -127,6 +132,11 @@ fun PdfLazyViewer(
     val totalPages by viewModel.totalPages.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
+    
+    // 收集配置信息，获取夜间模式状态
+    val config by contentViewModel.configFlow.collectAsStateWithLifecycle(
+        initialValue = ConfigureData()
+    )
 
     DisposableEffect(filePath) {
         // 初始化 PDF 渲染器
@@ -254,6 +264,18 @@ fun PdfLazyViewer(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "PDF $page ",
                             contentScale = ContentScale.FillWidth,
+                            colorFilter = if (config.isNightMode) {
+                                ColorFilter.colorMatrix(
+                                    ColorMatrix(
+                                        floatArrayOf(
+                                            -1f, 0f, 0f, 0f, 255f,
+                                            0f, -1f, 0f, 0f, 255f,
+                                            0f, 0f, -1f, 0f, 255f,
+                                            0f, 0f, 0f, 1f, 0f
+                                        )
+                                    )
+                                )
+                            } else null,
                             modifier = modifier
                                 .graphicsLayer(
                                     scaleX = scale,
