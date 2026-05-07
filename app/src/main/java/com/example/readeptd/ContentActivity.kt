@@ -52,12 +52,14 @@ import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.Utils
+import com.example.readeptd.utils.FileUtils
+import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.TimerDialog
+import com.example.readeptd.utils.Utils
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +79,7 @@ class ContentActivity : ComponentActivity() {
             
             // ✅ 根据夜间模式设置状态栏和导航栏颜色
             LaunchedEffect(config.isNightMode) {
-                Utils.updateSystemBarColors(window, config.isNightMode)
+                SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
             }
             
             ReadEptdTheme(

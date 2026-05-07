@@ -81,6 +81,8 @@ import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
+import com.example.readeptd.utils.FileUtils
+import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
             
             // ✅ 根据夜间模式设置状态栏和导航栏颜色
             LaunchedEffect(config.isNightMode) {
-                Utils.updateSystemBarColors(window, config.isNightMode)
+                SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
             }
             
             ReadEptdTheme(
@@ -134,7 +136,7 @@ fun MainScreen(
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             it.forEach { uri ->
                 try {
-                    Utils.takePersistableUriPermission(context, uri.toString())
+                    FileUtils.takePersistableUriPermission(context, uri.toString())
                 } catch (e: Exception) {
                     Log.e("MainActivity", "获取持久化权限失败: $uri", e)
                 }
@@ -482,7 +484,7 @@ fun ContentScreen(
                                     goToContentActivity(fileInfo)
                                 },
                                 onRemove = { 
-                                    Utils.releasePersistableUriPermission(context, files[index].uri)
+                                    FileUtils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
                                 },
                                 isDragging = isDragging,
@@ -590,7 +592,7 @@ fun FileItemCard(
 
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
-            isFileAccessible = Utils.uriExists(context, fileInfo.uri)
+            isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
 

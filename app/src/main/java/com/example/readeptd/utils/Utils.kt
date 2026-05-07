@@ -1,35 +1,11 @@
 package com.example.readeptd.utils
 
-import android.content.Intent
-import android.os.Build
-import android.util.Log
-import androidx.core.net.toUri
-import android.content.Context
-import android.view.View
-import android.view.Window
-
 /**
- * URI 工具类
- * 提供 URI 相关的实用函数
+ * 通用工具类
+ * 提供纯 Kotlin 的实用函数（无 Android 依赖）
  */
 object Utils {
 
-    /**
-     * 检查 URI 指向的资源是否仍然存在且可访问
-     * @param context 上下文
-     * @param uri URI 字符串
-     * @return 如果资源存在且可访问返回 true，否则返回 false
-     */
-    fun uriExists(context: Context, uri: String): Boolean {
-        return try {
-            context.contentResolver.query(uri.toUri(), null, null, null, null)?.use { cursor ->
-                cursor.count > 0
-            } ?: false
-        } catch (e: Exception) {
-            false
-        }
-    }
-    
     /**
      * 格式化文件大小
      * @param size 文件大小（字节）
@@ -43,101 +19,12 @@ object Utils {
             else -> "${size / (1024 * 1024 * 1024)} GB"
         }
     }
-    
-    /**
-     * 获取 URI 的持久化读取权限
-     * @param context 上下文
-     * @param uri URI 字符串
-     */
-    fun takePersistableUriPermission(context: Context, uri: String) {
-        try {
-            val uriObj = uri.toUri()
-            context.contentResolver.takePersistableUriPermission(
-                uriObj,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            Log.d("Utils", "已获取 URI 持久化读取权限: $uri")
-        } catch (e: Exception) {
-            Log.e("Utils", "获取 URI 持久化权限失败: $uri", e)
-        }
-    }
-    
-    /**
-     * 释放 URI 的持久化读取权限
-     * @param context 上下文
-     * @param uri URI 字符串
-     */
-    fun releasePersistableUriPermission(context: Context, uri: String) {
-        try {
-            val uriObj = uri.toUri()
-            context.contentResolver.releasePersistableUriPermission(
-                uriObj,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            Log.d("Utils", "已释放 URI 持久化读取权限: $uri")
-        } catch (e: Exception) {
-            Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
-        }
-    }
-
-    /**
-     * ✅ 更新系统栏颜色（状态栏和导航栏）
-     * @param window 窗口实例
-     * @param isNightMode 是否为夜间模式
-     */
-    fun updateSystemBarColors(window: Window, isNightMode: Boolean) {
-        if (isNightMode) {
-            // 夜间模式：使用深色状态栏和导航栏
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.statusBarColor = android.graphics.Color.BLACK
-                window.navigationBarColor = android.graphics.Color.BLACK
-                
-                // ✅ 设置浅色图标（白色）以适配深色背景
-                // 关键：必须清除 LIGHT_STATUS_BAR 标志，否则图标仍然是深色
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    var flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    // 清除 LIGHT_STATUS_BAR 标志，使状态栏图标变为白色
-                    flags = flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
-                    window.decorView.systemUiVisibility = flags
-                }
-                
-                // Android 11+ 使用新的 API
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    window.insetsController?.setSystemBarsAppearance(
-                        0, // 不设置任何外观标志（即使用浅色图标）
-                        android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-                        android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                    )
-                }
-            }
-        } else {
-            // 日间模式：使用透明/浅色状态栏和导航栏
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.statusBarColor = android.graphics.Color.TRANSPARENT
-                window.navigationBarColor = android.graphics.Color.TRANSPARENT
-                
-                // ✅ 设置深色图标（黑色）以适配浅色背景
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                        View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                }
-                
-                // Android 11+ 支持浅色导航栏图标
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    window.insetsController?.setSystemBarsAppearance(
-                        android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                        android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-                        android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                    )
-                }
-            }
-        }
-    }
 
     data class CharsParams(
         val avgCharsPerLine: Int = 0,
         val maxLinesPerPage: Int = 0
     )
+    
     /**
      * 计算页面字符参数，注意单位统一
      * @param pageWidth 页面宽度（像素）
