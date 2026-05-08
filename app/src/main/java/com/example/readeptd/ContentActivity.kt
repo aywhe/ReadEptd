@@ -69,9 +69,6 @@ class ContentActivity : ComponentActivity() {
         // 保持屏幕常亮，防止阅读时自动息屏
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // 请求通知权限（Android 13+）
-        com.example.readeptd.utils.Utils.checkAndRequestNotificationPermission(this)
-
         val fileInfo = intent.getBundleExtra("file_info")?.let {
             FileInfo.fromBundle(it)
         }
@@ -234,6 +231,11 @@ fun ContentScreen(
                                                     Log.d("ContentActivity", "停止朗读按钮被点击")
                                                     ttsModel.stop()
                                                 } else {
+                                                    // ✅ 在首次播放前请求通知权限
+                                                    val activity = context as? ComponentActivity
+                                                    if (activity != null) {
+                                                        Utils.checkAndRequestNotificationPermission(activity)
+                                                    }
                                                     Log.d("ContentActivity", "请求开始自动朗读")
                                                     ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
                                                 }
