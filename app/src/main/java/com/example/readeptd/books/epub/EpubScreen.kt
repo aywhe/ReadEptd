@@ -30,7 +30,6 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 
@@ -93,7 +92,7 @@ fun EpubScreen(
                                 initTheme(
                                     when(config.isNightMode) {
                                         true -> EpubTheme.Night
-                                        false -> EpubTheme.EyesCare
+                                        false -> EpubTheme.EyeCare
                                     }
                                 )
 
