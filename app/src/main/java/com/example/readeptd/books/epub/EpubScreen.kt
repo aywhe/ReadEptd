@@ -93,7 +93,7 @@ fun EpubScreen(
                                 initTheme(
                                     when(config.isNightMode) {
                                         true -> EpubTheme.Night
-                                        false -> EpubTheme.Light
+                                        false -> EpubTheme.EyesCare
                                     }
                                 )
 
