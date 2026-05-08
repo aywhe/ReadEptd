@@ -93,7 +93,10 @@ fun EpubScreen(
                                 initTheme(
                                     when(config.isNightMode) {
                                         true -> EpubTheme.Night
-                                        false -> EpubTheme.Light
+                                        false -> when(config.isDynamicColor) {
+                                            true -> EpubTheme.Light
+                                            false -> EpubTheme.EyeCare
+                                        }
                                     }
                                 )
 
