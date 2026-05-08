@@ -165,7 +165,7 @@ fun SlideInSearchPanel(
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
             .shadow(24.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .pointerInput(Unit){
                 detectDragGestures { change, dragAmount ->
                     panelPositionPx = IntOffset(
