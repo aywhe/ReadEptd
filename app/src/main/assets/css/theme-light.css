@@ -35,6 +35,9 @@
     /* 特殊元素颜色 */
     --color-toc-button: rgba(0, 163, 204, 0.7);
 
-    /* 高亮颜色（浅色模式使用蓝色系，配合 multiply 混合模式） */
+    /* 高亮颜色（浅色模式使用蓝色系，配合 exclusion 混合模式和 fill-opacity） */
     --color-highlight: rgb(0, 163, 204);
+
+    /* 选中文本的背景色（半透明蓝色，与主色调 #3498db 一致） */
+    --color-selection: rgba(52, 152, 219, 0.5);
 }

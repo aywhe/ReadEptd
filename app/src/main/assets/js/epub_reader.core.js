@@ -587,7 +587,9 @@ const ReaderCore = {
             const colors = {
                 background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
                 textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
-                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db'
+                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
+                highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
+                selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
             };
 
             // ✅ 方式二：传入规则对象（符合官方文档）
@@ -605,6 +607,14 @@ const ReaderCore = {
                 },
                 'img': {
                     'background-color': 'transparent !important'
+                },
+                '::selection': {
+                    'background-color': colors.selection + ' !important',
+                    'color': colors.textPrimary + ' !important'
+                },
+                '::-moz-selection': {
+                    'background-color': colors.selection + ' !important',
+                    'color': colors.textPrimary + ' !important'
                 }
             };
             const themeName = "my-theme";
@@ -1042,7 +1052,8 @@ const HighlightManager = {
                     "my-highlight",
                     {
                         "fill": highlightColor,
-                        "mix-blend-mode": "multiply"
+                        "fill-opacity": "0.7",
+                        "mix-blend-mode": "exclusion"
                     }
                 );
             }

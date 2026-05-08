@@ -35,6 +35,9 @@
     /* 特殊元素颜色 */
     --color-toc-button: rgba(187, 134, 252, 0.7);
 
-    /* 高亮颜色（深色模式使用明亮的金黄色，配合 screen 混合模式） */
-    --color-highlight: rgb(255, 0, 255);
+    /* 高亮颜色（深色模式使用明亮的品红色，配合 exclusion 混合模式和 fill-opacity） */
+    --color-highlight: rgb(187, 134, 252);
+
+    /* 选中文本的背景色（半透明紫色，与主色调一致） */
+    --color-selection: rgba(187, 134, 252, 0.5);
 }
