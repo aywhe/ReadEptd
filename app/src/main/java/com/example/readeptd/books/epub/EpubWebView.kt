@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import java.io.File
 
 /**
@@ -184,7 +183,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         val theme = when (epubTheme) {
             EpubTheme.Night -> "dark"
             EpubTheme.Light -> "light"
-            EpubTheme.EyesCare -> "eyes-care"
+            EpubTheme.EyeCare -> "eye-care"
         }
         Log.d(TAG, "执行 JavaScript 设置主题...")
         executeJs("window.EpubReader.setTheme('$theme')")
