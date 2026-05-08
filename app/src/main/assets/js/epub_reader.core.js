@@ -13,7 +13,8 @@ const AppState = {
     isSearching: false,
     handleSearchCompleted: null,
     tableOfContents: [],
-    
+    isThemeRegistered: false,
+
     // 按钮拖动状态
     dragState: {
         isDragging: false,
@@ -33,6 +34,7 @@ const AppState = {
         this.isGeneratedLocations = false;
         this.isSearching = false;
         this.handleSearchCompleted = null;
+        this.isThemeRegistered = false;
     }
 };
 
@@ -582,6 +584,14 @@ const ReaderCore = {
                 return;
             }
 
+            const themeName = "my-theme";
+
+            // ✅ 如果主题已注册，直接返回，不做任何操作
+            if (AppState.isThemeRegistered) {
+                console.log('Theme already registered, skip');
+                return;
+            }
+
             // ✅ 从 CSS 文件中动态读取颜色值
             const computedStyle = getComputedStyle(document.documentElement);
             const colors = {
@@ -611,19 +621,17 @@ const ReaderCore = {
                 '::selection': {
                     'background-color': colors.selection + ' !important',
                     'color': colors.textPrimary + ' !important'
-                },
-                '::-moz-selection': {
-                    'background-color': colors.selection + ' !important',
-                    'color': colors.textPrimary + ' !important'
                 }
             };
-            const themeName = "my-theme";
+
+            // ✅ 注册并选择主题
             AppState.rendition.themes.register(themeName, rules);
             AppState.rendition.themes.select(themeName);
+            AppState.isThemeRegistered = true;
 
             console.log(`Epub.js theme applied via rules object: ${themeName}`);
         } catch (error) {
-            console.error('Error applying theme to epub:', error);
+            console.error('Error applying theme to epub:', error.stack);
         }
     },
     setupDoubleClickHandler(view) {
