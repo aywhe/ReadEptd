@@ -4,10 +4,11 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.data.ConfigureData
+import com.example.readeptd.data.TempFileManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,19 +23,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
     val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
-    
-    private val _configure = MutableStateFlow(ConfigureData())
-    val configureFlow: StateFlow<ConfigureData> = _configure.asStateFlow()
+
+    private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
+    val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
+
+    // ✅ 配置数据缓存（类似 readingStates）
+    private val _configData = MutableStateFlow<ConfigureData>(ConfigureData())
+    val configData: StateFlow<ConfigureData> = _configData.asStateFlow()
 
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
-        loadConfigure()
+        loadLastReadingFile()
+        loadConfigData()  // ✅ 新增：加载配置数据
     }
     
     override fun onCleared() {
         super.onCleared()
         Log.d("MainViewModel", "ViewModel 清除: ${this.hashCode()}")
+        // 如果真的能正常退出应用的话，就删除所有临时文件，避免占用空间
+        cleanupOrphanedTempFiles(emptyList())
     }
     
     fun onEvent(event: MainUiEvent) {
@@ -42,6 +50,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
             is MainUiEvent.RemoveFile -> removeFile(event.index)
             is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
+            is MainUiEvent.GoToContentActivity -> {
+                _lastReadingFile.value = event.fileInfo
+                saveLastReadingFile(event.fileInfo)
+            }
         }
     }
     
@@ -60,6 +72,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = MainUiState.Success(
                     readingFiles = savedFiles
                 )
+
+                cleanupOrphanedTempFiles(savedFiles)
             }
         }
     }
@@ -74,24 +88,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 加载配置
+     * ✅ 加载配置数据（持续监听 DataStore 变化）
      */
-    private fun loadConfigure() {
+    private fun loadConfigData() {
         viewModelScope.launch {
-            fileDataStore.configureFlow.collect { configure ->
-                _configure.value = configure
-                Log.d("MainViewModel", "加载配置: showTtsNotification=${configure.showTtsNotification}")
+            fileDataStore.configFlow.collect { config ->
+                _configData.value = config
+                Log.d("MainViewModel", "配置已更新: isNightMode=${config.isNightMode}, isDynamicColor=${config.isDynamicColor}")
             }
-        }
-    }
-    
-    /**
-     * 更新配置
-     */
-    fun updateConfigure(configure: ConfigureData) {
-        viewModelScope.launch {
-            fileDataStore.saveConfigure(configure)
-            Log.d("MainViewModel", "保存配置: showTtsNotification=${configure.showTtsNotification}")
         }
     }
 
@@ -139,6 +143,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (index in currentState.readingFiles.indices) {
                     val removedFile = currentState.readingFiles[index]
                     
+                    // 如果删除的是上次阅读的文件，清空 lastReadingFile
+                    if (_lastReadingFile.value?.uri == removedFile.uri) {
+                        _lastReadingFile.value = null
+                        saveLastReadingFile(null)
+                        Log.d("MainViewModel", "已清空上次阅读文件")
+                    }
+
                     val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
@@ -152,6 +163,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     fileDataStore.deleteReadingState(removedFile.uri)
                     Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
+
+                    deleteTempFileForRemovedFile(removedFile)
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }
@@ -195,4 +208,85 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    private fun deleteTempFileForRemovedFile(fileInfo: FileInfo) {
+        viewModelScope.launch {
+            val deleted = TempFileManager.deleteTempFile(
+                getApplication(),
+                fileInfo.uri,
+                fileInfo.fileName
+            )
+
+            if (deleted) {
+                Log.d("MainViewModel", "已删除临时文件: ${fileInfo.fileName}")
+            } else {
+                Log.e("MainViewModel", "删除临时文件失败: ${fileInfo.fileName}")
+            }
+        }
+    }
+
+    private fun cleanupOrphanedTempFiles(currentFiles: List<FileInfo>) {
+        viewModelScope.launch {
+            val cleanedCount = TempFileManager.cleanupOrphanedFiles(
+                getApplication(),
+                currentFiles
+            )
+
+            Log.d("MainViewModel", "孤儿文件清理完成，共清理 $cleanedCount 个文件")
+        }
+    }
+
+    /**
+     * 加载上次打开的文件
+     */
+    private fun loadLastReadingFile() {
+        viewModelScope.launch {
+            try {
+                val lastFile = fileDataStore.getLastReadingFile()
+                _lastReadingFile.value = lastFile
+                Log.d("MainViewModel", "加载上次阅读文件: ${lastFile?.fileName}")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "加载上次阅读文件失败", e)
+            }
+        }
+    }
+
+    /**
+     * 保存上次打开的文件
+     */
+    private fun saveLastReadingFile(fileInfo: FileInfo?) {
+        viewModelScope.launch {
+            try {
+                fileDataStore.saveLastReadingFile(fileInfo)
+                Log.d("MainViewModel", "保存上次阅读文件: ${fileInfo?.fileName}")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "保存上次阅读文件失败", e)
+            }
+        }
+    }
+
+    /**
+     * ✅ 更新应用配置（立即更新缓存，异步保存）
+     */
+    fun updateConfig(update: ConfigureData.() -> ConfigureData) {
+        // ✅ 先立即更新内存（UI 立即响应）
+        val currentConfig = _configData.value
+        val newConfig = currentConfig.update()
+        _configData.value = newConfig
+
+        Log.d("MainViewModel", "配置已更新（内存）: isNightMode=${newConfig.isNightMode}, isDynamicColor=${newConfig.isDynamicColor}")
+
+        // ✅ 再异步保存到磁盘
+        viewModelScope.launch {
+            try {
+                fileDataStore.saveConfig(newConfig)
+                Log.d("MainViewModel", "配置已保存到磁盘")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "保存配置失败，回滚", e)
+                // 如果保存失败，回滚配置
+                _configData.value = currentConfig
+            }
+        }
+    }
+
 }

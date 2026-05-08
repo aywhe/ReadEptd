@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.BookUiState
@@ -29,6 +30,7 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 
@@ -40,10 +42,11 @@ fun EpubScreen(
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    // 准备 EPUB 文件
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentLocation by viewModel.currentLocation.collectAsState()
+    
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName, "epub")
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -70,9 +73,9 @@ fun EpubScreen(
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
-                var location by remember { mutableStateOf(EpubLocation.default()) }
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
+                val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
@@ -87,10 +90,16 @@ fun EpubScreen(
 
                                 // 设置起始位置 CFI
                                 setStartCfi(savedCfi)
+                                initTheme(
+                                    when(config.isNightMode) {
+                                        true -> EpubTheme.Night
+                                        false -> EpubTheme.Light
+                                    }
+                                )
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->
-                                    location = epubLocation
+                                    viewModel.updateLocation(epubLocation)
                                     contentViewModel.updateProgressText("${(epubLocation.start.percentage * 100).toInt()}%")
                                     Log.d("EpubScreen", "保存进度: $epubLocation")
                                     // 并保存进度
@@ -188,6 +197,7 @@ fun EpubScreen(
                         },
                         onRelease = { webView ->
                             Log.d("EpubScreen", "AndroidView 销毁")
+                            ttsModel.clearCallbacks()
                             webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
@@ -195,7 +205,7 @@ fun EpubScreen(
                     
                     if (isShowJumpToProgressDialog) {
                         JumpToProgressDialog(
-                            progress = location.start.percentage,
+                            progress = currentLocation.start.percentage,
                             onDismiss = {
                                 isShowJumpToProgressDialog = false
                             },

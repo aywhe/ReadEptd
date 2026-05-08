@@ -1,6 +1,7 @@
 package com.example.readeptd.search
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -246,5 +247,6 @@ class SearchViewModel(
         super.onCleared()
         clearCache()
         clearResults()
+        Log.d("SearchViewModel", "onCleared")
     }
 }

@@ -169,10 +169,10 @@ class TtsService : Service() {
 
         // 注销 Activity 生命周期监听
         (application as Application).unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
-        
+
         // ✅ 清理所有监听器
         listeners.clear()
-        
+
         shutdown()
         // 清理通知
         notificationManager.cancel(NOTIFICATION_ID)
@@ -213,7 +213,7 @@ class TtsService : Service() {
         scope.launch {
             try {
                 val dataStore = FileDataStore(applicationContext)
-                val configure = dataStore.getConfigure()
+                val configure = dataStore.getConfig()
                 showTtsNotification = configure.showTtsNotification
                 Log.d(TAG, "加载配置: showTtsNotification=$showTtsNotification")
             } catch (e: Exception) {

@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,20 +48,26 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.Utils
+import com.example.readeptd.utils.FileUtils
+import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.TimerDialog
+import com.example.readeptd.utils.Utils
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 保持屏幕常亮，防止阅读时自动息屏
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 请求通知权限（Android 13+）
         com.example.readeptd.utils.Utils.checkAndRequestNotificationPermission(this)
@@ -70,12 +77,30 @@ class ContentActivity : ComponentActivity() {
         }
 
         setContent {
-            ReadEptdTheme {
+            val viewModel: ContentViewModel = viewModel()
+            val config by viewModel.configData.collectAsStateWithLifecycle()
+
+            // ✅ 根据夜间模式设置状态栏和导航栏颜色
+            LaunchedEffect(config.isNightMode) {
+                SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
+            }
+
+            ReadEptdTheme(
+                darkTheme = config.isNightMode,
+                dynamicColor = config.isDynamicColor
+            ) {
                 ContentScreen(
-                    fileInfo = fileInfo
+                    fileInfo = fileInfo,
+                    viewModel = viewModel
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 清除屏幕常亮标志
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 }
 
@@ -102,11 +127,11 @@ fun ContentScreen(
         viewModel.onEvent(ContentUiEvent.OnScreenOrientationChanged(configuration.orientation))
     }
 
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
-    val progressText by viewModel.progressText.collectAsState()
-    val isFullScreen by viewModel.isFullScreen.collectAsState()
+    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    val isFullScreen by viewModel.isFullScreen.collectAsStateWithLifecycle()
 
     // 控制状态栏显示/隐藏
     LaunchedEffect(isFullScreen) {
@@ -135,9 +160,6 @@ fun ContentScreen(
             }
         }
     }
-
-
-    Log.d("ContentActivity", "ContentScreen 重组, UI状态: ${uiState::class.simpleName}")
 
     Scaffold(
         topBar = {

@@ -15,15 +15,16 @@ android {
         applicationId = "com.example.readeptd"
         minSdk = 35
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true  // ✅ 启用代码压缩
+            isShrinkResources = true  // ✅ 启用资源压缩
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

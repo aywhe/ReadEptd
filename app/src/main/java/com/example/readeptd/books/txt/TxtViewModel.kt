@@ -518,6 +518,7 @@ class TxtViewModel(
         jobSetAllowRePagination = null
         currentPageJob?.cancel()
         currentPageJob = null
+        Log.d(TAG, "清理资源")
     }
 
     companion object {

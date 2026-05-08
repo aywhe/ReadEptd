@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主题切换测试</title>
+    
+    <!-- 主题样式（动态加载） -->
+    <link id="dynamic-theme-style" rel="stylesheet" type="text/css">
+    
+    <!-- 引入主题管理器 -->
+    <script src="js/theme-manager.js"></script>
+    
+    <style>
+        /* 非颜色相关的全局样式 */
+        :root {
+            --transition-fast: 0.2s;
+            --transition-normal: 0.3s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            transition: background-color var(--transition-normal), color var(--transition-normal);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: var(--color-text-primary);
+        }
+
+        .theme-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: 2px solid var(--color-primary);
+            background-color: var(--color-background-light);
+            color: var(--color-text-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all var(--transition-fast);
+        }
+
+        button:hover {
+            background-color: var(--color-primary);
+            color: var(--color-text-inverse);
+        }
+
+        button.active {
+            background-color: var(--color-primary);
+            color: var(--color-text-inverse);
+        }
+
+        .info-card {
+            background-color: var(--color-background-light);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-card h2 {
+            margin-bottom: 10px;
+            color: var(--color-text-primary);
+        }
+
+        .info-card p {
+            margin-bottom: 8px;
+            color: var(--color-text-secondary);
+        }
+
+        .color-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .color-box {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background-color: var(--color-background-light);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 主题切换测试</h1>
+        
+        <div class="theme-buttons">
+            <button onclick="setTheme('light')" id="btn-light">浅色主题</button>
+            <button onclick="setTheme('dark')" id="btn-dark">深色主题</button>
+            <button onclick="setTheme('eye-care')" id="btn-eye-care">护眼主题</button>
+            <button onclick="toggleTheme()">循环切换</button>
+        </div>
+
+        <div class="info-card">
+            <h2>当前主题信息</h2>
+            <p><strong>主题名称:</strong> <span id="current-theme">-</span></p>
+            <p><strong>可用主题:</strong> <span id="available-themes">-</span></p>
+            
+            <div class="code-block">
+                // JavaScript 调用示例<br>
+                EpubReader.setTheme('dark');<br>
+                EpubReader.toggleTheme();<br>
+                const theme = EpubReader.getCurrentTheme();
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h2>颜色变量演示</h2>
+            <div class="color-demo">
+                <div class="color-box" style="background-color: var(--color-primary); color: var(--color-text-inverse);">
+                    Primary<br>
+                    <small>var(--color-primary)</small>
+                </div>
+                <div class="color-box" style="background-color: var(--color-background); color: var(--color-text-primary); border: 1px solid var(--color-border);">
+                    Background<br>
+                    <small>var(--color-background)</small>
+                </div>
+                <div class="color-box" style="background-color: var(--color-background-light); color: var(--color-text-secondary);">
+                    Background Light<br>
+                    <small>var(--color-background-light)</small>
+                </div>
+                <div class="color-box" style="background-color: var(--color-error); color: var(--color-text-inverse);">
+                    Error<br>
+                    <small>var(--color-error)</small>
+                </div>
+                <div class="color-box" style="background-color: var(--color-success); color: var(--color-text-inverse);">
+                    Success<br>
+                    <small>var(--color-success)</small>
+                </div>
+                <div class="color-box" style="background-color: var(--color-warning); color: var(--color-text-inverse);">
+                    Warning<br>
+                    <small>var(--color-warning)</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h2>文本颜色演示</h2>
+            <p style="color: var(--color-text-primary);">主要文字 - var(--color-text-primary)</p>
+            <p style="color: var(--color-text-secondary);">次要文字 - var(--color-text-secondary)</p>
+            <p style="color: var(--color-text-muted);">弱化文字 - var(--color-text-muted)</p>
+        </div>
+    </div>
+
+    <script>
+        // 更新显示信息
+        function updateInfo() {
+            const currentTheme = ThemeManager.getCurrentTheme();
+            const availableThemes = ThemeManager.getAvailableThemes();
+            
+            document.getElementById('current-theme').textContent = currentTheme;
+            document.getElementById('available-themes').textContent = availableThemes.join(', ');
+            
+            // 更新按钮状态
+            document.querySelectorAll('.theme-buttons button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const activeBtn = document.getElementById(`btn-${currentTheme}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
+        }
+
+        // 设置主题
+        function setTheme(themeName) {
+            ThemeManager.loadTheme(themeName);
+            setTimeout(updateInfo, 100); // 等待主题加载完成
+        }
+
+        // 切换主题
+        function toggleTheme() {
+            const nextTheme = ThemeManager.toggleTheme();
+            setTimeout(() => {
+                updateInfo();
+                console.log('Switched to:', nextTheme);
+            }, 100);
+        }
+
+        // 页面加载完成后更新信息
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(updateInfo, 200); // 等待主题管理器初始化
+        });
+    </script>
+</body>
+</html>

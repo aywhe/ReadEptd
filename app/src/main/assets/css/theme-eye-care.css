@@ -1,0 +1,43 @@
+/* ============================================
+   护眼主题（暖色调）
+   ============================================ */
+:root {
+    /* 主色调 */
+    --color-primary: #d4a373;
+    --color-primary-dark: #bc8a5f;
+    --color-primary-light: #faedcd;
+    --color-primary-border: #e9c46a;
+    
+    /* 文字颜色 */
+    --color-text-primary: #3d405b;
+    --color-text-secondary: #5e6472;
+    --color-text-muted: #8d99ae;
+    --color-text-inverse: #fefae0;
+    
+    /* 背景颜色 */
+    --color-background: #fefae0;
+    --color-background-light: #faedcd;
+    --color-background-overlay: rgba(61, 64, 91, 0.3);
+    
+    /* 边框颜色 */
+    --color-border: #e9c46a;
+    --color-border-light: #f4a261;
+    
+    /* 功能色 */
+    --color-error: #e76f51;
+    --color-success: #2a9d8f;
+    --color-warning: #f4a261;
+    
+    /* 阴影 */
+    --shadow-panel: -2px 0 10px rgba(61, 64, 91, 0.2);
+    --shadow-button: 0 2px 2px rgba(61, 64, 91, 0.15);
+    
+    /* 特殊元素颜色 */
+    --color-toc-button: rgba(212, 163, 115, 0.7);
+
+    /* 高亮颜色（护眼模式使用温暖的橙色，配合 exclusion 混合模式和 fill-opacity） */
+    --color-highlight: rgb(255, 152, 0);
+
+    /* 选中文本的背景色（半透明橙色，与主色调 #d4a373 一致） */
+    --color-selection: rgba(212, 163, 115, 0.5);
+}
