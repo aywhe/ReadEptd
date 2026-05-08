@@ -39,5 +39,5 @@
     --color-highlight: rgb(187, 134, 252);
 
     /* 选中文本的背景色（半透明紫色，与主色调一致） */
-    --color-selection: rgba(187, 134, 252, 0.5);
+    --color-selection: rgba(138, 43, 226, 0.5);
 }

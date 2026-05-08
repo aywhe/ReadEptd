@@ -1052,7 +1052,7 @@ const HighlightManager = {
                     "my-highlight",
                     {
                         "fill": highlightColor,
-                        "fill-opacity": "0.7",
+                        "fill-opacity": "0.6",
                         "mix-blend-mode": "exclusion"
                     }
                 );
