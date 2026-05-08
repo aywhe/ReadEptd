@@ -213,7 +213,7 @@ class TtsService : Service() {
         scope.launch {
             try {
                 val dataStore = FileDataStore(applicationContext)
-                val configure = dataStore.getConfigure()
+                val configure = dataStore.getConfig()
                 showTtsNotification = configure.showTtsNotification
                 Log.d(TAG, "加载配置: showTtsNotification=$showTtsNotification")
             } catch (e: Exception) {

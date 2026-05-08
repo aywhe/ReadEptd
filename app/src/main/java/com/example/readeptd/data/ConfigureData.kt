@@ -24,6 +24,7 @@ data class ConfigureData(
             put(KEY_AUTO_NIGHT_MODE, autoNightMode)
             put(KEY_AUTO_NIGHT_START_TIME, autoNightStartTime)
             put(KEY_AUTO_NIGHT_END_TIME, autoNightEndTime)
+            put(KEY_SHOW_TTS_NOTIFICATION, showTtsNotification)
         }.toString()
     }
 
@@ -33,6 +34,7 @@ data class ConfigureData(
         private const val KEY_AUTO_NIGHT_MODE = "auto_night_mode"
         private const val KEY_AUTO_NIGHT_START_TIME = "auto_night_start_time"
         private const val KEY_AUTO_NIGHT_END_TIME = "auto_night_end_time"
+        private const val KEY_SHOW_TTS_NOTIFICATION = "show_tts_notification"
 
         /**
          * 从 JSON 字符串恢复配置
@@ -44,7 +46,8 @@ data class ConfigureData(
                 isDynamicColor = jsonObject.optBoolean(KEY_IS_DYNAMIC_COLOR, true),
                 autoNightMode = jsonObject.optBoolean(KEY_AUTO_NIGHT_MODE, false),
                 autoNightStartTime = jsonObject.optString(KEY_AUTO_NIGHT_START_TIME, "20:00"),
-                autoNightEndTime = jsonObject.optString(KEY_AUTO_NIGHT_END_TIME, "06:00")
+                autoNightEndTime = jsonObject.optString(KEY_AUTO_NIGHT_END_TIME, "06:00"),
+                showTtsNotification = jsonObject.optBoolean(KEY_SHOW_TTS_NOTIFICATION, true)
             )
         }
     }

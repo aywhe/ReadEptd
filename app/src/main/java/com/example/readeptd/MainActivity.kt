@@ -42,6 +42,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -805,9 +806,9 @@ fun SettingsDialog(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Switch(
-                        checked = configure.showTtsNotification,
+                        checked = config.showTtsNotification,
                         onCheckedChange = { isChecked ->
-                            mainViewModel.updateConfigure(configure.copy(showTtsNotification = isChecked))
+                            viewModel.updateConfig({ config.copy(showTtsNotification = isChecked) })
                         }
                     )
                 }
@@ -818,11 +819,7 @@ fun SettingsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                HorizontalDivider(
-                    modifier = Modifier,
-                    thickness = DividerDefaults.Thickness,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
+                HorizontalDivider()
 
                 // TTS 设置按钮
                 Button(
