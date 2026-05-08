@@ -82,3 +82,7 @@ reject 同理。
       ✅ 不跨页或向后跨页没问题
       git上也有相关问题，https://github.com/futurepress/epub.js/issues/1343
 方法： 没有找到方法
+
+- 问题： epub全屏后，会触发 resized 事件，epub.js库会重新渲染。
+但是好像只会渲染当前章节，不会渲染前一章和后一章，所以如果全屏后直接翻页，翻不了。
+方法： 没有找到方法
