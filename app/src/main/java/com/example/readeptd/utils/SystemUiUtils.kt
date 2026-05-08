@@ -19,8 +19,8 @@ object SystemUiUtils {
         if (isNightMode) {
             // 夜间模式：使用深色状态栏和导航栏
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.statusBarColor = android.graphics.Color.BLACK
-                window.navigationBarColor = android.graphics.Color.BLACK
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
                 
                 // ✅ 设置浅色图标（白色）以适配深色背景
                 // 关键：必须清除 LIGHT_STATUS_BAR 标志，否则图标仍然是深色
