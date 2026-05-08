@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,8 +42,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,10 +63,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import com.example.readeptd.data.ConfigureData
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -75,14 +75,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
-import com.example.readeptd.data.FileInfo.Companion.toBundle
 import com.example.readeptd.ui.theme.ReadEptdTheme
+import com.example.readeptd.utils.FileUtils
+import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -95,8 +95,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ReadEptdTheme {
-                MainScreen()
+            val viewModel: MainViewModel = viewModel()
+            val config by viewModel.configData.collectAsStateWithLifecycle()
+
+            // ✅ 根据夜间模式设置状态栏和导航栏颜色
+            LaunchedEffect(config.isNightMode) {
+                SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
+            }
+
+            ReadEptdTheme(
+                darkTheme = config.isNightMode,
+                dynamicColor = config.isDynamicColor
+            ) {
+                MainScreen(viewModel = viewModel)
             }
         }
     }
@@ -110,12 +121,6 @@ fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-
-    Log.d("MainActivity", "MainScreen 重组, UI状态: ${uiState::class.simpleName}")
-    if (uiState is MainUiState.Success) {
-        val successState = uiState as MainUiState.Success
-        Log.d("MainActivity", "当前选中文件数: ${successState.readingFiles.size}")
-    }
 
     // 创建文件选择器 Launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -131,7 +136,7 @@ fun MainScreen(
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             it.forEach { uri ->
                 try {
-                    Utils.takePersistableUriPermission(context, uri.toString())
+                    FileUtils.takePersistableUriPermission(context, uri.toString())
                 } catch (e: Exception) {
                     Log.e("MainActivity", "获取持久化权限失败: $uri", e)
                 }
@@ -279,7 +284,7 @@ fun MainScreen(
     if (showSettingDialog){
         SettingsDialog(
             onDismiss = { showSettingDialog = false },
-            mainViewModel = viewModel
+            viewModel = viewModel
         )
     }
 
@@ -326,8 +331,8 @@ fun MainScreen(
 private fun getAllowedMimeTypes(): Array<String> {
     return arrayOf(
         "text/plain",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        //"application/msword",
+        //"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/pdf",
         "application/epub+zip"
     )
@@ -351,8 +356,8 @@ fun ContentScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val readingStates by viewModel.readingStates.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val readingStates by viewModel.readingStates.collectAsStateWithLifecycle()
     val context = LocalContext.current
     
     val files = if (uiState is MainUiState.Success) {
@@ -393,10 +398,51 @@ fun ContentScreen(
             }
         }
     }
-    
-    Box(modifier = modifier.fillMaxSize()) {
+
+    val lastReadingFile by viewModel.lastReadingFile.collectAsStateWithLifecycle()
+
+    fun goToContentActivity(fileInfo: FileInfo?) {
+        if (fileInfo == null) {
+            return
+        }
+        val intent = Intent(context, ContentActivity::class.java)
+        intent.putExtra("file_info", fileInfo.toBundle())
+        viewModel.onEvent(MainUiEvent.GoToContentActivity(fileInfo))
+        Log.d("MainActivity", "go to content activity: ${fileInfo.fileName}")
+        context.startActivity(intent)
+    }
+
+    Box(modifier =
+        modifier
+            .fillMaxSize()
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(lastReadingFile) {
+                    // 只有存在上次阅读文件时才启用手势
+                    if (lastReadingFile != null) {
+                        var totalDragAmount = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                totalDragAmount = 0f
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                totalDragAmount += dragAmount
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                // 在手势结束时判断总滑动距离是否达到阈值
+                                if (totalDragAmount < -50f) {
+                                    goToContentActivity(lastReadingFile)
+                                }
+                            },
+                            onDragCancel = {
+                                totalDragAmount = 0f
+                            }
+                        )
+                    }
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (files.isEmpty()) {
@@ -434,8 +480,11 @@ fun ContentScreen(
                             
                             FileItemCard(
                                 fileInfo = files[index],
-                                onRemove = { 
-                                    Utils.releasePersistableUriPermission(context, files[index].uri)
+                                onClick = {fileInfo ->
+                                    goToContentActivity(fileInfo)
+                                },
+                                onRemove = {
+                                    FileUtils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
                                 },
                                 isDragging = isDragging,
@@ -529,6 +578,7 @@ fun DraggableFloatingButton(
 @Composable
 fun FileItemCard(
     fileInfo: FileInfo,
+    onClick: (FileInfo) -> Unit,
     onRemove: () -> Unit,
     isDragging: Boolean = false,
     progress: Float? = null,
@@ -542,7 +592,7 @@ fun FileItemCard(
 
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
-            isFileAccessible = Utils.uriExists(context, fileInfo.uri)
+            isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
 
@@ -558,10 +608,7 @@ fun FileItemCard(
     Card(
         onClick = {
             if (isFileAccessible == true && !isDragging) {
-                val intent = Intent(context, ContentActivity::class.java).apply {
-                    putExtra("file_info", fileInfo.toBundle())
-                }
-                context.startActivity(intent)
+                onClick(fileInfo)
             }
         },
         enabled = isFileAccessible == true,
@@ -701,21 +748,52 @@ fun MainScreenPreview() {
 
 @Composable
 fun SettingsDialog(
-    mainViewModel: MainViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: MainViewModel
 ) {
     val context = LocalContext.current
+    val config by viewModel.configData.collectAsStateWithLifecycle()
 
-    val configure by mainViewModel.configureFlow.collectAsStateWithLifecycle()
-    
     AlertDialog(
-        onDismissRequest = {onDismiss()},
+        onDismissRequest = { onDismiss() },
         title = { Text("设置") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 夜间模式开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("夜间模式")
+                    Switch(
+                        checked = config.isNightMode,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isNightMode = it) }
+                        }
+                    )
+                }
+
+                // 动态颜色开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("跟随系统主题色")
+                    Switch(
+                        checked = config.isDynamicColor,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isDynamicColor = it) }
+                        }
+                    )
+                }
+
+                HorizontalDivider()
+
                 // TTS 朗读通知开关
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -733,7 +811,7 @@ fun SettingsDialog(
                         }
                     )
                 }
-                
+
                 Text(
                     text = "开启后，后台朗读时会在通知栏显示当前文本",
                     style = MaterialTheme.typography.bodySmall,
@@ -756,7 +834,8 @@ fun SettingsDialog(
                             Log.d("MainActivity", "已打开 TTS 设置页面")
                         } catch (e: Exception) {
                             Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
-                        } },
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("设置 TTS")
@@ -771,10 +850,11 @@ fun SettingsDialog(
         },
         confirmButton = {
             Button(
-                onClick = {onDismiss()},
+                onClick = { onDismiss() },
             ) {
                 Text("关闭")
             }
         }
     )
+
 }

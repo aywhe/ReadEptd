@@ -229,6 +229,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
         onRequestSpeechStartCallback = null
         onRequestNextPageCallback = null
         onRequestPreviousPageCallback = null
+        Log.d(TAG,"清除回调")
     }
 
     /**
@@ -303,6 +304,9 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
         }
 
         Log.d(TAG, "ViewModel清理，服务已解绑")
+        ttsService?.shutdown()
+        ttsService = null
+        Log.d(TAG,"清理资源")
     }
 
     companion object {

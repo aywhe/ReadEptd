@@ -1,0 +1,43 @@
+/* ============================================
+   浅色主题（默认）
+   ============================================ */
+:root {
+    /* 主色调 */
+    --color-primary: #3498db;
+    --color-primary-dark: #1976d2;
+    --color-primary-light: #e3f2fd;
+    --color-primary-border: #90caf9;
+    
+    /* 文字颜色 */
+    --color-text-primary: #333333;
+    --color-text-secondary: #666666;
+    --color-text-muted: #999999;
+    --color-text-inverse: #ffffff;
+    
+    /* 背景颜色 */
+    --color-background: #f5f5f5;
+    --color-background-light: #fafafa;
+    --color-background-overlay: rgba(0, 0, 0, 0.5);
+    
+    /* 边框颜色 */
+    --color-border: #eeeeee;
+    --color-border-light: #dddddd;
+    
+    /* 功能色 */
+    --color-error: #e74c3c;
+    --color-success: #2ecc71;
+    --color-warning: #f39c12;
+    
+    /* 阴影 */
+    --shadow-panel: -2px 0 10px rgba(0, 0, 0, 0.3);
+    --shadow-button: 0 2px 2px rgba(0, 0, 0, 0.2);
+    
+    /* 特殊元素颜色 */
+    --color-toc-button: rgba(0, 163, 204, 0.7);
+
+    /* 高亮颜色（浅色模式使用蓝色系，配合 exclusion 混合模式和 fill-opacity） */
+    --color-highlight: rgb(0, 163, 204);
+
+    /* 选中文本的背景色（半透明蓝色，与主色调 #3498db 一致） */
+    --color-selection: rgba(52, 152, 219, 0.5);
+}

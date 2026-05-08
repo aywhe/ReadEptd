@@ -20,4 +20,5 @@ sealed interface MainUiEvent {
     data class OnFilesSelected(val files: List<FileInfo>) : MainUiEvent
     data class RemoveFile(val index: Int) : MainUiEvent
     data class MoveFile(val fromIndex: Int, val toIndex: Int) : MainUiEvent
+    data class GoToContentActivity(val fileInfo: FileInfo?) : MainUiEvent
 }

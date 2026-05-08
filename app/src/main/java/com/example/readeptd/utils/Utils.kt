@@ -12,26 +12,10 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 
 /**
- * URI 工具类
- * 提供 URI 相关的实用函数
+ * 通用工具类
+ * 提供纯 Kotlin 的实用函数（无 Android 依赖）
  */
 object Utils {
-
-    /**
-     * 检查 URI 指向的资源是否仍然存在且可访问
-     * @param context 上下文
-     * @param uri URI 字符串
-     * @return 如果资源存在且可访问返回 true，否则返回 false
-     */
-    fun uriExists(context: Context, uri: String): Boolean {
-        return try {
-            context.contentResolver.query(uri.toUri(), null, null, null, null)?.use { cursor ->
-                cursor.count > 0
-            } ?: false
-        } catch (e: Exception) {
-            false
-        }
-    }
 
     /**
      * 格式化文件大小
@@ -44,42 +28,6 @@ object Utils {
             size < 1024 * 1024 -> "${size / 1024} KB"
             size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
             else -> "${size / (1024 * 1024 * 1024)} GB"
-        }
-    }
-
-    /**
-     * 获取 URI 的持久化读取权限
-     * @param context 上下文
-     * @param uri URI 字符串
-     */
-    fun takePersistableUriPermission(context: Context, uri: String) {
-        try {
-            val uriObj = uri.toUri()
-            context.contentResolver.takePersistableUriPermission(
-                uriObj,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            Log.d("Utils", "已获取 URI 持久化读取权限: $uri")
-        } catch (e: Exception) {
-            Log.e("Utils", "获取 URI 持久化权限失败: $uri", e)
-        }
-    }
-
-    /**
-     * 释放 URI 的持久化读取权限
-     * @param context 上下文
-     * @param uri URI 字符串
-     */
-    fun releasePersistableUriPermission(context: Context, uri: String) {
-        try {
-            val uriObj = uri.toUri()
-            context.contentResolver.releasePersistableUriPermission(
-                uriObj,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            Log.d("Utils", "已释放 URI 持久化读取权限: $uri")
-        } catch (e: Exception) {
-            Log.e("Utils", "释放 URI 持久化权限失败: $uri", e)
         }
     }
 
