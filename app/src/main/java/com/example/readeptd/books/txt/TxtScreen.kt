@@ -343,8 +343,8 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
                 // 为匹配的关键词添加黄色背景高亮
                 addStyle(
                     style = SpanStyle(
-                        background = MaterialTheme.colorScheme.primaryContainer,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        background = MaterialTheme.colorScheme.tertiary,
+                        color = MaterialTheme.colorScheme.onTertiary
                     ),
                     start = matchIndex,
                     end = matchIndex + keyword.length
