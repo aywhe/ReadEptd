@@ -184,7 +184,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         val theme = when (epubTheme) {
             EpubTheme.Night -> "dark"
             EpubTheme.Light -> "light"
-            EpubTheme.EyesCare -> "eyes-care"
+            EpubTheme.EyesCare -> "eye-care"
         }
         Log.d(TAG, "执行 JavaScript 设置主题...")
         executeJs("window.EpubReader.setTheme('$theme')")
