@@ -275,7 +275,8 @@ fun TxtScreen(
                                 onResultClick = {
                                     scope.launch {
                                         try{
-                                            pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
+                                            val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
+                                            pagerState.scrollToPage(pageIndex)
                                         } catch (e: Exception){
                                             Log.e("TxtScreen", "跳转页失败: ${e.message}")
                                         }
