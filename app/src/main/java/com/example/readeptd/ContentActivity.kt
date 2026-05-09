@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -90,12 +91,12 @@ class ContentActivity : ComponentActivity() {
         setContent {
             val viewModel: ContentViewModel = viewModel()
             val config by viewModel.configData.collectAsStateWithLifecycle()
-            
+
             // ✅ 根据夜间模式设置状态栏和导航栏颜色
             LaunchedEffect(config.isNightMode) {
                 SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
             }
-            
+
             ReadEptdTheme(
                 darkTheme = config.isNightMode,
                 dynamicColor = config.isDynamicColor
@@ -261,6 +262,7 @@ fun ContentScreen(
 @Composable
 fun ToolTip(
     modifier: Modifier = Modifier,
+    isDragTool: Boolean = false,
     onLongPressSpeak: () -> Unit =  {},
     viewModel: ContentViewModel,
     ttsModel: TtsViewModel
@@ -341,13 +343,12 @@ fun DraggableFloatingToolTip(
 ) {
     var offset by remember { mutableStateOf(IntOffset.Zero) }
     var showTip by remember { mutableStateOf(false) }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
                 .offset { offset }
-                .padding(16.dp)
+                .padding(horizontal = 4.dp, vertical = 0.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { },
@@ -360,36 +361,52 @@ fun DraggableFloatingToolTip(
                         }
                     )
                 },
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showTip) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                     shadowElevation = 4.dp,
+                    tonalElevation = 2.dp,
                     modifier = Modifier.animateContentSize()
                 ) {
-                    ToolTip(
-                        onLongPressSpeak = onLongPressSpeak,
-                        viewModel = viewModel,
-                        ttsModel = ttsModel
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 0.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToolTip(
+                            isDragTool = true,
+                            onLongPressSpeak = onLongPressSpeak,
+                            viewModel = viewModel,
+                            ttsModel = ttsModel
+                        )
+                    }
                 }
             }
-            
-            FloatingActionButton(
-                onClick = { showTip = !showTip },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(56.dp),
-                shape = CircleShape
+
+            Surface(
+                shape = if (showTip) RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp) else CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                shadowElevation = 4.dp,
+                tonalElevation = 2.dp,
+                modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    imageVector = if (showTip) Icons.Default.Close else Icons.Default.Add,
-                    contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { showTip = !showTip },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (showTip) Icons.Default.Close else Icons.Default.Add,
+                        contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
