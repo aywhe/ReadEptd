@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -356,12 +357,18 @@ fun DraggableFloatingToolTip(
             )
         )
     }
+    val iconSize = 48.dp
+    val cornerSize = 12.dp
+    val buttonCenterX = offset.x + with(density) { (iconSize/2).toPx() }.toInt() // 按钮宽度的一半(48dp/2)
+    val isButtonOnRightSide = buttonCenterX > screenWidthPx / 2
+
+
     var showTip by remember { mutableStateOf(false) }
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
     Box(modifier = Modifier.fillMaxSize()) {
-        Row(
+        Box(
             modifier = Modifier
                 .offset { offset }
                 .padding(0.dp)
@@ -376,13 +383,57 @@ fun DraggableFloatingToolTip(
                             )
                         }
                     )
-                },
-            verticalAlignment = Alignment.CenterVertically
+                }
         ) {
+            if (showTip) {
+                val toolTipSurfaceModifier = if(isButtonOnRightSide) {
+                    Modifier.layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, placeable.height) {
+                            placeable.placeRelative(x = -placeable.width, y = 0)
+                        }
+                    }
+                } else {
+                    Modifier.offset(x = iconSize)
+                }.animateContentSize()
+                val toolTipCornerShape = if(isButtonOnRightSide) {
+                    RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
+                } else {
+                    RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
+                }
+
+                Surface(
+                    shape = toolTipCornerShape,
+                    color = surfaceColor,
+                    modifier = toolTipSurfaceModifier
+                ) {
+                    Row(
+                        modifier = Modifier,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToolTip(
+                            isDragTool = true,
+                            onLongPressSpeak = onLongPressSpeak,
+                            viewModel = viewModel,
+                            ttsModel = ttsModel
+                        )
+                    }
+                }
+            }
+
+            val iconCornerShape = if (showTip) {
+                if(isButtonOnRightSide) {
+                    RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
+                } else {
+                    RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
+                }
+            } else {
+                CircleShape
+            }
             Surface(
-                shape = if (showTip) RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp) else CircleShape,
+                shape =  iconCornerShape,
                 color = surfaceColor,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(iconSize)
             ) {
                 Box(
                     modifier = Modifier
@@ -396,26 +447,6 @@ fun DraggableFloatingToolTip(
                         tint = onSurfaceColor,
                         modifier = Modifier.size(24.dp)
                     )
-                }
-            }
-
-            if (showTip) {
-                Surface(
-                    shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
-                    color = surfaceColor,
-                    modifier = Modifier.animateContentSize()
-                ) {
-                    Row(
-                        modifier = Modifier,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ToolTip(
-                            isDragTool = true,
-                            onLongPressSpeak = onLongPressSpeak,
-                            viewModel = viewModel,
-                            ttsModel = ttsModel
-                        )
-                    }
                 }
             }
         }
