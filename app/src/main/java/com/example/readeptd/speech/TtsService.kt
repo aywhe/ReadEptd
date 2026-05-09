@@ -568,7 +568,7 @@ class SpeakTextSplitManager() : MutableList<QueueItem> by mutableListOf() {
 
     private fun splitText(){
         val sentences = mutableListOf<String>()
-        val regex = Regex("[.。!！?？;；,，、]")
+        val regex = Regex("[.。!！?？;；,，、\\s]+")
 
         var start = 0
         for (match in regex.findAll(originalText)) {
