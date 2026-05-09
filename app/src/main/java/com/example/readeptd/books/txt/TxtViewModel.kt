@@ -481,9 +481,10 @@ class TxtViewModel(
                     SearchData.TxtSearchResult(
                         keyword = keyword,
                         previewContent = previewContent,
-                        pageIndex = charOffset.toInt(),//currentPageIndex,
+                        pageIndex = currentPageIndex,
                         charOffset = charOffset,
-                        charOffsetInPage = matchIndex
+                        charOffsetInPage = matchIndex,
+                        displayName = "#${charOffset}"
                     )
                 )
 
