@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import androidx.compose.ui.geometry.Offset
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookViewModel
@@ -196,34 +195,6 @@ class PdfViewModel(
         }
     }
 
-    fun getReadingState(): ReadingState.Pdf {
-        return currentReadingState as ReadingState.Pdf
-    }
-
-    /**
-     * 更新缩放信息并保存（带防抖）
-     * @param zoom 缩放比例
-     * @param offset 偏移量
-     */
-    fun updateZoomInfo(zoom: Float, offset: androidx.compose.ui.geometry.Offset) {
-        val currentState = currentReadingState as? ReadingState.Pdf ?: run {
-            Log.w(TAG, "当前状态不是 PDF 类型，无法更新缩放信息")
-            return
-        }
-        
-        // ✅ 创建新的状态对象，保留其他字段不变
-        val updatedState = currentState.copy(
-            zoom = zoom,
-            zoomOffset = offset,
-            lastReadTime = System.currentTimeMillis()
-        )
-        
-        // ✅ 调用父类的 saveProgress，会自动触发防抖保存
-        saveProgress(updatedState)
-        
-        Log.d(TAG, "更新缩放状态: zoom=$zoom, offset=$offset")
-    }
-
     /**
      * 更新当前页码并保存进度
      */
@@ -263,22 +234,13 @@ class PdfViewModel(
         pageIndex: Int
     ) {
         val progress = if (_totalPages.value > 0) pageIndex.toFloat() / _totalPages.value else 0f
-        
-        // ✅ 获取当前状态，保留缩放信息
-        val currentState = currentReadingState as? ReadingState.Pdf
-        
-        val state = currentState?.copy(
-            page = pageIndex,
-            progress = progress,
-            lastReadTime = System.currentTimeMillis()
-        ) ?: ReadingState.Pdf(
+        val state = ReadingState.Pdf(
             uri = uri,
             page = pageIndex,
             totalPages = _totalPages.value,
             progress = progress,
             lastReadTime = System.currentTimeMillis()
         )
-        
         saveProgress(state)
     }
 
