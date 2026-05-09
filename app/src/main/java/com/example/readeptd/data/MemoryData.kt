@@ -85,8 +85,8 @@ object AppMemoryStore {
     
     /**
      * PDF 缩放信息缓存
-     * Key: 文件 URI 或唯一标识
-     * Value: 缩放信息（缩放比例 + 偏移量）
+     * Key: 文件 URI
+     * Value: 包含横屏和竖屏的缩放信息
      */
     private val _pdfZoomInfoMap = MutableStateFlow<Map<String, PdfZoomInfo>>(emptyMap())
     val pdfZoomInfoMap: StateFlow<Map<String, PdfZoomInfo>> = _pdfZoomInfoMap.asStateFlow()
@@ -121,19 +121,52 @@ object AppMemoryStore {
     }
     
     /**
-     * 更新指定文件的缩放比例
+     * 更新指定文件在特定屏幕方向下的缩放比例
+     * @param fileKey 文件 URI
+     * @param isLandscape 是否为横屏
+     * @param zoom 缩放比例
      */
-    fun updatePdfZoom(fileKey: String, zoom: Float) {
+    fun updatePdfZoom(fileKey: String, isLandscape: Boolean, zoom: Float) {
         val currentInfo = getPdfZoomInfo(fileKey)
-        setPdfZoomInfo(fileKey, currentInfo.copy(zoom = zoom))
+        val updatedInfo = if (isLandscape) {
+            currentInfo.copy(landscapeZoom = zoom)
+        } else {
+            currentInfo.copy(portraitZoom = zoom)
+        }
+        setPdfZoomInfo(fileKey, updatedInfo)
     }
     
     /**
-     * 更新指定文件的偏移量
+     * 更新指定文件在特定屏幕方向下的偏移量
+     * @param fileKey 文件 URI
+     * @param isLandscape 是否为横屏
+     * @param offset 偏移量
      */
-    fun updatePdfOffset(fileKey: String, offset: Offset) {
+    fun updatePdfOffset(fileKey: String, isLandscape: Boolean, offset: Offset) {
         val currentInfo = getPdfZoomInfo(fileKey)
-        setPdfZoomInfo(fileKey, currentInfo.copy(offset = offset))
+        val updatedInfo = if (isLandscape) {
+            currentInfo.copy(landscapeOffset = offset)
+        } else {
+            currentInfo.copy(portraitOffset = offset)
+        }
+        setPdfZoomInfo(fileKey, updatedInfo)
+    }
+    
+    /**
+     * 同时更新指定文件在特定屏幕方向下的缩放比例和偏移量
+     * @param fileKey 文件 URI
+     * @param isLandscape 是否为横屏
+     * @param zoom 缩放比例
+     * @param offset 偏移量
+     */
+    fun updatePdfZoomAndOffset(fileKey: String, isLandscape: Boolean, zoom: Float, offset: Offset) {
+        val currentInfo = getPdfZoomInfo(fileKey)
+        val updatedInfo = if (isLandscape) {
+            currentInfo.copy(landscapeZoom = zoom, landscapeOffset = offset)
+        } else {
+            currentInfo.copy(portraitZoom = zoom, portraitOffset = offset)
+        }
+        setPdfZoomInfo(fileKey, updatedInfo)
     }
     
     /**
@@ -192,8 +225,28 @@ object AppMemoryStore {
 
 /**
  * PDF 缩放信息数据类
+ * 同时保存横屏和竖屏两种状态的缩放信息
  */
 data class PdfZoomInfo(
-    val zoom: Float = 1f,
-    val offset: Offset = Offset.Zero
-)
+    // 竖屏状态
+    val portraitZoom: Float = 1f,
+    val portraitOffset: Offset = Offset.Zero,
+    
+    // 横屏状态
+    val landscapeZoom: Float = 1f,
+    val landscapeOffset: Offset = Offset.Zero
+) {
+    /**
+     * 获取当前屏幕方向的缩放比例
+     */
+    fun getZoom(isLandscape: Boolean): Float {
+        return if (isLandscape) landscapeZoom else portraitZoom
+    }
+    
+    /**
+     * 获取当前屏幕方向的偏移量
+     */
+    fun getOffset(isLandscape: Boolean): Offset {
+        return if (isLandscape) landscapeOffset else portraitOffset
+    }
+}
