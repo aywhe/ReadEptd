@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -378,28 +379,8 @@ fun DraggableFloatingToolTip(
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (showTip) {
-                Surface(
-                    shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
-                    color = surfaceColor,
-                    modifier = Modifier.animateContentSize()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ToolTip(
-                            isDragTool = true,
-                            onLongPressSpeak = onLongPressSpeak,
-                            viewModel = viewModel,
-                            ttsModel = ttsModel
-                        )
-                    }
-                }
-            }
-
             Surface(
-                shape = if (showTip) RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp) else CircleShape,
+                shape = if (showTip) RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp) else CircleShape,
                 color = surfaceColor,
                 modifier = Modifier.size(48.dp)
             ) {
@@ -415,6 +396,26 @@ fun DraggableFloatingToolTip(
                         tint = onSurfaceColor,
                         modifier = Modifier.size(24.dp)
                     )
+                }
+            }
+
+            if (showTip) {
+                Surface(
+                    shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
+                    color = surfaceColor,
+                    modifier = Modifier.animateContentSize()
+                ) {
+                    Row(
+                        modifier = Modifier,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToolTip(
+                            isDragTool = true,
+                            onLongPressSpeak = onLongPressSpeak,
+                            viewModel = viewModel,
+                            ttsModel = ttsModel
+                        )
+                    }
                 }
             }
         }
