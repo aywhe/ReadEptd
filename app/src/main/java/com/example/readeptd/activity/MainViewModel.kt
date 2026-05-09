@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
@@ -24,9 +25,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _readingStates = MutableStateFlow<Map<String, ReadingState>>(emptyMap())
     val readingStates: StateFlow<Map<String, ReadingState>> = _readingStates.asStateFlow()
 
-    private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
-    val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
-
     // ✅ 配置数据缓存（类似 readingStates）
     private val _configData = MutableStateFlow<ConfigureData>(ConfigureData())
     val configData: StateFlow<ConfigureData> = _configData.asStateFlow()
@@ -34,7 +32,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         Log.d("MainViewModel", "ViewModel 创建: ${this.hashCode()}")
         loadInitialData()
-        loadLastReadingFile()
         loadConfigData()  // ✅ 新增：加载配置数据
     }
     
@@ -51,8 +48,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is MainUiEvent.RemoveFile -> removeFile(event.index)
             is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
             is MainUiEvent.GoToContentActivity -> {
-                _lastReadingFile.value = event.fileInfo
-                saveLastReadingFile(event.fileInfo)
+                // ✅ 使用 AppMemoryStore 保存（仅会话级别）
+                AppMemoryStore.setLastReadingFile(event.fileInfo)
+                Log.d("MainViewModel", "设置上次阅读文件: ${event.fileInfo?.fileName}")
             }
         }
     }
@@ -143,10 +141,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (index in currentState.readingFiles.indices) {
                     val removedFile = currentState.readingFiles[index]
                     
-                    // 如果删除的是上次阅读的文件，清空 lastReadingFile
-                    if (_lastReadingFile.value?.uri == removedFile.uri) {
-                        _lastReadingFile.value = null
-                        saveLastReadingFile(null)
+                    // ✅ 如果删除的是上次阅读的文件，清空 lastReadingFile
+                    if (AppMemoryStore.getLastReadingFile()?.uri == removedFile.uri) {
+                        AppMemoryStore.clearLastReadingFile()
                         Log.d("MainViewModel", "已清空上次阅读文件")
                     }
                     
@@ -233,35 +230,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             
             Log.d("MainViewModel", "孤儿文件清理完成，共清理 $cleanedCount 个文件")
-        }
-    }
-    
-    /**
-     * 加载上次打开的文件
-     */
-    private fun loadLastReadingFile() {
-        viewModelScope.launch {
-            try {
-                val lastFile = fileDataStore.getLastReadingFile()
-                _lastReadingFile.value = lastFile
-                Log.d("MainViewModel", "加载上次阅读文件: ${lastFile?.fileName}")
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "加载上次阅读文件失败", e)
-            }
-        }
-    }
-    
-    /**
-     * 保存上次打开的文件
-     */
-    private fun saveLastReadingFile(fileInfo: FileInfo?) {
-        viewModelScope.launch {
-            try {
-                fileDataStore.saveLastReadingFile(fileInfo)
-                Log.d("MainViewModel", "保存上次阅读文件: ${fileInfo?.fileName}")
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "保存上次阅读文件失败", e)
-            }
         }
     }
 

@@ -79,6 +79,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.FileUtils
@@ -399,7 +400,8 @@ fun ContentScreen(
         }
     }
 
-    val lastReadingFile by viewModel.lastReadingFile.collectAsStateWithLifecycle()
+    // ✅ 直接从 AppMemoryStore 读取（会话级别）
+    val lastReadingFile by AppMemoryStore.lastReadingFile.collectAsStateWithLifecycle()
     
     fun goToContentActivity(fileInfo: FileInfo?) {
         if (fileInfo == null) {

@@ -177,7 +177,36 @@ object AppMemoryStore {
             remove(fileKey)
         }
     }
-    
+
+    // ==================== 上次阅读文件管理 ====================
+
+    /**
+     * 当前会话的上次阅读文件（不持久化，进程重启后丢失）
+     */
+    private val _lastReadingFile = MutableStateFlow<FileInfo?>(null)
+    val lastReadingFile: StateFlow<FileInfo?> = _lastReadingFile.asStateFlow()
+
+    /**
+     * 获取上次阅读文件
+     */
+    fun getLastReadingFile(): FileInfo? {
+        return _lastReadingFile.value
+    }
+
+    /**
+     * 设置上次阅读文件
+     */
+    fun setLastReadingFile(fileInfo: FileInfo?) {
+        _lastReadingFile.value = fileInfo
+    }
+
+    /**
+     * 清除上次阅读文件
+     */
+    fun clearLastReadingFile() {
+        _lastReadingFile.value = null
+    }
+
     // ==================== 通用数据缓存 ====================
     
     /**
