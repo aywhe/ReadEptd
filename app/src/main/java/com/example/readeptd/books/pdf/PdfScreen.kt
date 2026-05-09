@@ -50,6 +50,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
@@ -57,6 +60,8 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 @Composable
 fun PdfScreen(
@@ -117,7 +122,7 @@ fun PdfScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, FlowPreview::class)
 @Composable
 fun PdfLazyViewer(
     filePath: String,
@@ -150,6 +155,20 @@ fun PdfLazyViewer(
         var offset by remember { mutableStateOf(Offset.Zero) }
         var containerSize by remember { mutableStateOf(IntSize.Zero) }
         var isShowSearchDialog by remember { mutableStateOf(false) }
+        
+        // ✅ 使用 StateFlow 管理待保存的缩放状态
+        val pendingZoomState = remember { MutableStateFlow<Pair<Float, Offset>?>(null) }
+
+        // ✅ 使用 LaunchedEffect + debounce 实现高性能防抖
+        LaunchedEffect(Unit) {
+            pendingZoomState
+                .debounce(500)  // 500ms 防抖
+                .collect { zoomState ->
+                    zoomState?.let { (zoom, offset) ->
+                        viewModel.updateZoomInfo(zoom, offset)
+                    }
+                }
+        }
 
         val initialPage = viewModel.getInitialPage()
         val pagerState = rememberPagerState(
@@ -157,7 +176,12 @@ fun PdfLazyViewer(
             pageCount = { totalPages }
         )
         Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
-        
+        LaunchedEffect(configuration.orientation) {
+            if(configuration.orientation == Configuration.ORIENTATION_PORTRAIT){
+                scale = viewModel.getReadingState().zoom
+                offset = viewModel.getReadingState().zoomOffset
+            }
+        }
         LaunchedEffect(pagerState.currentPage) {
             Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
             contentViewModel.updateProgressText("${pagerState.currentPage + 1}/$totalPages")
@@ -235,6 +259,8 @@ fun PdfLazyViewer(
                     detectTransformGestures { _, pan, zoom, _ ->
                         scale *= zoom
                         offset += pan
+                        // ✅ 直接更新 StateFlow，由 debounce 处理防抖
+                        pendingZoomState.value = Pair(scale, offset)
                     }
                 }
         ) {

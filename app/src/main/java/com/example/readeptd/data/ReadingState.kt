@@ -1,5 +1,6 @@
 package com.example.readeptd.data
 
+import androidx.compose.ui.geometry.Offset
 import org.json.JSONObject
 
 /**
@@ -45,10 +46,16 @@ sealed interface ReadingState {
                     )
                 }
                 mimeType == "application/pdf" -> {
+                    val zoom = jsonObject.optDouble(Pdf.KEY_ZOOM, 1.0).toFloat()
+                    val zoomOffsetX = jsonObject.optDouble(Pdf.KEY_ZOOM_OFFSET_X, 0.0).toFloat()
+                    val zoomOffsetY = jsonObject.optDouble(Pdf.KEY_ZOOM_OFFSET_Y, 0.0).toFloat()
+                    
                     Pdf(
                         uri = uri,
                         page = jsonObject.optInt(Pdf.KEY_PAGE, 1),
                         totalPages = jsonObject.optInt(Pdf.KEY_TOTAL_PAGES, 1),
+                        zoom = zoom,
+                        zoomOffset = Offset(zoomOffsetX, zoomOffsetY),
                         progress = progress,
                         lastReadTime = lastReadTime
                     )
@@ -113,6 +120,8 @@ sealed interface ReadingState {
         override val uri: String,
         val page: Int = 1,                 // 当前页码
         val totalPages: Int = 1,           // 总页数
+        val zoom: Float = 1f,
+        val zoomOffset: Offset = Offset.Zero,
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf"
@@ -120,6 +129,9 @@ sealed interface ReadingState {
         companion object {
             const val KEY_PAGE = "page"
             const val KEY_TOTAL_PAGES = "totalPages"
+            const val KEY_ZOOM = "zoom"
+            const val KEY_ZOOM_OFFSET_X = "zoomOffsetX"
+            const val KEY_ZOOM_OFFSET_Y = "zoomOffsetY"
         }
         
         override fun toJson(): String {
@@ -130,6 +142,9 @@ sealed interface ReadingState {
                 put(KEY_PROGRESS, progress)
                 put(KEY_PAGE, page)
                 put(KEY_TOTAL_PAGES, totalPages)
+                put(KEY_ZOOM, zoom)
+                put(KEY_ZOOM_OFFSET_X, zoomOffset.x)
+                put(KEY_ZOOM_OFFSET_Y, zoomOffset.y)
             }.toString()
         }
     }
