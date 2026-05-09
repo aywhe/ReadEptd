@@ -163,6 +163,14 @@ const UIManager = {
         document.getElementById('toc-btn').style.display = 'block';
     },
 
+    hideTocButton() {
+        document.getElementById('toc-btn').style.display = 'none';
+    },
+
+    hideToggleTocButton() {
+        document.getElementById('toc-toggle-btn').style.display = 'none';
+    },
+
     openNavPanel() {
         const navPanel = document.getElementById('nav-panel');
         const navContent = document.getElementById('nav-content');
@@ -702,7 +710,9 @@ const ReaderCore = {
             console.log('Navigation loaded');
             AppState.tableOfContents = toc.toc || [];
             UIManager.generateTOC(AppState.tableOfContents);
-            UIManager.showTocButton();
+            //UIManager.showTocButton();
+            UIManager.hideTocButton();
+            UIManager.hideToggleTocButton();
         }).catch((err) => {
             console.error('Failed to load navigation:', err);
         });
