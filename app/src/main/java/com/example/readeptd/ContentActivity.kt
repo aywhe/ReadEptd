@@ -6,6 +6,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -17,9 +18,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Search
@@ -31,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -337,11 +341,9 @@ fun DraggableFloatingToolTip(
 ) {
     var offset by remember { mutableStateOf(IntOffset.Zero) }
     var showTip by remember { mutableStateOf(false) }
+    
     Box(modifier = modifier.fillMaxSize()) {
-        FloatingActionButton(
-            onClick = { showTip = !showTip },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .offset { offset }
@@ -357,21 +359,35 @@ fun DraggableFloatingToolTip(
                             )
                         }
                     )
-                }
-                .size(56.dp),
-            shape = CircleShape
+                },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row {
-                if (showTip) {
+            if (showTip) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.animateContentSize()
+                ) {
                     ToolTip(
                         onLongPressSpeak = onLongPressSpeak,
                         viewModel = viewModel,
                         ttsModel = ttsModel
                     )
                 }
+            }
+            
+            FloatingActionButton(
+                onClick = { showTip = !showTip },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape
+            ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "全屏小工具",
+                    imageVector = if (showTip) Icons.Default.Close else Icons.Default.Add,
+                    contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                     modifier = Modifier.size(24.dp)
                 )
             }
