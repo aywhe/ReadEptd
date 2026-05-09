@@ -129,7 +129,7 @@ fun ContentScreen(
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
-    
+    var isShowTimerDialog by remember { mutableStateOf(false) }
     // ✅ 直接传入可能为 null 的 uri，AppMemoryStore 内部处理
     val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsStateWithLifecycle()
 
@@ -223,7 +223,6 @@ fun ContentScreen(
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            var isShowTimerDialog by remember { mutableStateOf(false) }
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.padding(start = 4.dp,end = 16.dp)
@@ -251,30 +250,29 @@ fun ContentScreen(
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-
-                            if (isShowTimerDialog) {
-                                val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
-                                TimerDialog(
-                                    currentRemainingMillis = remainingTimeMillis,
-                                    onDismiss = {
-                                        isShowTimerDialog = false
-                                    },
-                                    onConfirm = { millis ->
-                                        ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
-                                        isShowTimerDialog = false
-                                    },
-                                    onStopTimer = {
-                                        ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
-                                        isShowTimerDialog = false
-                                    },
-                                )
-                            }
                         }
                     }
                 )
             }
         }
     ) { innerPadding ->
+        if (isShowTimerDialog) {
+            val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
+            TimerDialog(
+                currentRemainingMillis = remainingTimeMillis,
+                onDismiss = {
+                    isShowTimerDialog = false
+                },
+                onConfirm = { millis ->
+                    ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
+                    isShowTimerDialog = false
+                },
+                onStopTimer = {
+                    ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
+                    isShowTimerDialog = false
+                },
+            )
+        }
         when (val state = uiState) {
             is ContentUiState.Loading -> LoadingContentScreen(
                 modifier = modifier.padding(innerPadding)
