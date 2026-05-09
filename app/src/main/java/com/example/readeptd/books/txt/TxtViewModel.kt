@@ -484,7 +484,8 @@ class TxtViewModel(
                         pageIndex = currentPageIndex,
                         charOffset = charOffset,
                         charOffsetInPage = matchIndex,
-                        displayName = "#${charOffset}"
+                        displayName = "#${charOffset}",
+                        sortKey = charOffset
                     )
                 )
 
