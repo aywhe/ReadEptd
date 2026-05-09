@@ -126,9 +126,6 @@ fun ContentScreen(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isSpeaking by ttsModel.isSpeaking.collectAsState()
-    val ttsInitialized by ttsModel.isInitialized.collectAsState()
-    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
     var isShowTimerDialog by remember { mutableStateOf(false) }
     // ✅ 直接传入可能为 null 的 uri，AppMemoryStore 内部处理
     val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsStateWithLifecycle()
@@ -189,68 +186,13 @@ fun ContentScreen(
                         }
                     },
                     actions = {
-                        if (progressText.isNotBlank()) {
-                            TextButton(
-                                onClick = {
-                                    viewModel.onEvent(
-                                        ContentUiEvent.OnClickProgressInfo(
-                                            progressText
-                                        )
-                                    )
-                                }
-                            ) {
-                                Text(
-                                    text = progressText,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                        ToolTip(
+                            viewModel = viewModel,
+                            ttsModel = ttsModel,
+                            onLongPressSpeak = {
+                                isShowTimerDialog = true
                             }
-                        }
-                        if (ttsInitialized) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
-                                            }
-                                        )
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "搜索",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(start = 4.dp,end = 16.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                if (isSpeaking) {
-                                                    Log.d("ContentActivity", "停止朗读按钮被点击")
-                                                    ttsModel.stop()
-                                                } else {
-                                                    Log.d("ContentActivity", "请求开始自动朗读")
-                                                    ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
-                                                }
-                                            },
-                                            onLongPress = {
-                                                Log.d("ContentActivity", "长按按钮被点击")
-                                                isShowTimerDialog = true
-                                            }
-                                        )
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
-                                    contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
+                        )
                     }
                 )
             }
@@ -288,6 +230,80 @@ fun ContentScreen(
             is ContentUiState.Error -> ErrorContentScreen(
                 error = state.error,
                 modifier = modifier.padding(innerPadding)
+            )
+        }
+    }
+}
+
+@Composable
+fun ToolTip(
+    modifier: Modifier = Modifier,
+    onLongPressSpeak: () -> Unit =  {},
+    viewModel: ContentViewModel,
+    ttsModel: TtsViewModel
+){
+    val isSpeaking by ttsModel.isSpeaking.collectAsState()
+    val ttsInitialized by ttsModel.isInitialized.collectAsState()
+    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    if (progressText.isNotBlank()) {
+        TextButton(
+            onClick = {
+                viewModel.onEvent(
+                    ContentUiEvent.OnClickProgressInfo(
+                        progressText
+                    )
+                )
+            }
+        ) {
+            Text(
+                text = progressText,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+    if (ttsInitialized) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
+                        }
+                    )
+                }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "搜索",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(start = 4.dp,end = 16.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            if (isSpeaking) {
+                                Log.d("ContentActivity", "停止朗读按钮被点击")
+                                ttsModel.stop()
+                            } else {
+                                Log.d("ContentActivity", "请求开始自动朗读")
+                                ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
+                            }
+                        },
+                        onLongPress = {
+                            Log.d("ContentActivity", "长按按钮被点击")
+                            onLongPressSpeak()
+                        }
+                    )
+                }
+        ) {
+            Icon(
+                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
     }
