@@ -46,6 +46,7 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import kotlinx.coroutines.launch
@@ -61,7 +62,6 @@ fun TxtScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val initialPage by viewModel.initialPage.collectAsStateWithLifecycle()
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
-    val isFullScreen by contentViewModel.isFullScreen.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -115,17 +115,15 @@ fun TxtScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .onSizeChanged { size ->
-                            if(!isFullScreen){
-                                viewModel.onEvent(
-                                    TxtEvent.OnViewMetricsChanged(
-                                        size = size,
-                                        leftPaddingDp = leftPaddingDp,
-                                        rightPaddingDp = rightPaddingDp,
-                                        topPaddingDp = topPaddingDp,
-                                        bottomPaddingDp = bottomPaddingDp
-                                    )
+                            viewModel.onEvent(
+                                TxtEvent.OnViewMetricsChanged(
+                                    size = size,
+                                    leftPaddingDp = leftPaddingDp,
+                                    rightPaddingDp = rightPaddingDp,
+                                    topPaddingDp = topPaddingDp,
+                                    bottomPaddingDp = bottomPaddingDp
                                 )
-                            }
+                            )
                         }
                         .pointerInput(Unit) {
                             awaitEachGesture {

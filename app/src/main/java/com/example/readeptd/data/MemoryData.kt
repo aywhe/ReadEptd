@@ -1,9 +1,14 @@
 package com.example.readeptd.data
 
 import androidx.compose.ui.geometry.Offset
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * 应用级内存数据存储
@@ -17,6 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object AppMemoryStore {
     
+    // ✅ 创建一个全局 CoroutineScope 用于 stateIn
+    private val scope = CoroutineScope(Dispatchers.Default)
+    
     // ==================== 全屏状态管理 ====================
     
     /**
@@ -26,6 +34,19 @@ object AppMemoryStore {
      */
     private val _fullScreenStates = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val fullScreenStates: StateFlow<Map<String, Boolean>> = _fullScreenStates.asStateFlow()
+    
+    /**
+     * 获取指定文件的全屏状态 StateFlow（便于 Composable 中直接收集）
+     * @param fileKey 文件 URI，可为 null，null 时返回默认值 false
+     */
+    fun fullScreenStateFlow(fileKey: String?): StateFlow<Boolean> {
+        if (fileKey == null) {
+            return MutableStateFlow(false).asStateFlow()
+        }
+        return _fullScreenStates
+            .map { it[fileKey] ?: false }
+            .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = false)
+    }
     
     /**
      * 获取指定文件的全屏状态
@@ -69,6 +90,19 @@ object AppMemoryStore {
      */
     private val _pdfZoomInfoMap = MutableStateFlow<Map<String, PdfZoomInfo>>(emptyMap())
     val pdfZoomInfoMap: StateFlow<Map<String, PdfZoomInfo>> = _pdfZoomInfoMap.asStateFlow()
+    
+    /**
+     * 获取指定文件的 PDF 缩放信息 StateFlow（便于 Composable 中直接收集）
+     * @param fileKey 文件 URI，可为 null，null 时返回默认值 PdfZoomInfo()
+     */
+    fun pdfZoomInfoStateFlow(fileKey: String?): StateFlow<PdfZoomInfo> {
+        if (fileKey == null) {
+            return MutableStateFlow(PdfZoomInfo()).asStateFlow()
+        }
+        return _pdfZoomInfoMap
+            .map { it[fileKey] ?: PdfZoomInfo() }
+            .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = PdfZoomInfo())
+    }
     
     /**
      * 获取指定文件的 PDF 缩放信息

@@ -95,12 +95,12 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnDoubleClickScreen -> {
-                allowRePagination = false
-                jobSetAllowRePagination?.cancel()
-                jobSetAllowRePagination = viewModelScope.launch {
-                    delay(5000)
-                    allowRePagination = true
-                }
+//                allowRePagination = false
+//                jobSetAllowRePagination?.cancel()
+//                jobSetAllowRePagination = viewModelScope.launch {
+//                    delay(5000)
+//                    allowRePagination = true
+//                }
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {
