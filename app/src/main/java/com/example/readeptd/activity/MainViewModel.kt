@@ -147,6 +147,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         Log.d("MainViewModel", "已清空上次阅读文件")
                     }
                     
+                    // ✅ 清理该文件的所有内存缓存数据
+                    AppMemoryStore.clearFileCache(removedFile.uri)
+                    Log.d("MainViewModel", "已清理文件缓存: ${removedFile.fileName}")
+                    
                     val updatedFiles = currentState.readingFiles.toMutableList().apply {
                         removeAt(index)
                     }
