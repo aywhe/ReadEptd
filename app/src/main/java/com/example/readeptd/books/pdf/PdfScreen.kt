@@ -141,7 +141,7 @@ fun PdfLazyViewer(
 
     // ✅ 从 AppMemoryStore 获取当前文件的缩放信息（包含横竖屏两种状态）
     val fileUri = viewModel.getCurrentState()?.uri ?: ""
-    val pdfZoomInfo by AppMemoryStore.pdfZoomInfoStateFlow(fileUri).collectAsState()
+    val pdfZoomInfo by AppMemoryStore.pdfZoomInfoStateFlow(fileUri).collectAsStateWithLifecycle()
     
     // ✅ 根据当前屏幕方向获取对应的缩放状态
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE

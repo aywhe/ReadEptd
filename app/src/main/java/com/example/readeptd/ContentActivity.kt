@@ -131,7 +131,7 @@ fun ContentScreen(
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
     
     // ✅ 直接传入可能为 null 的 uri，AppMemoryStore 内部处理
-    val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsState()
+    val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsStateWithLifecycle()
 
     // 控制状态栏显示/隐藏
     LaunchedEffect(isFullScreen) {
