@@ -76,7 +76,7 @@ class EpubViewModel(
                         chapterTitle = result.chapterTitle,
                         href = result.href,
                         cfi = result.cfi,
-                        sortKey = result.sectionIndex * 1000 + result.matchIndex
+                        sortKey = (result.sectionIndex * 1000 + result.matchIndex).toLong()
                     )
                     // ✅ 发送结果到 Flow
                     trySend(searchResult)

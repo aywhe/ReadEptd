@@ -91,8 +91,8 @@ fun SlideInSearchPanel(
     
     // ✅ 监听屏幕旋转，清除搜索结果
     LaunchedEffect(configuration.orientation) {
-        viewModel.clearCache()
-        viewModel.clearResults()
+        //viewModel.clearCache()
+        //viewModel.clearResults()
     }
     
     // ✅ 搜索完成后，主动获取当前位置并滚动到最近的结果
@@ -165,7 +165,7 @@ fun SlideInSearchPanel(
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
             .shadow(24.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .pointerInput(Unit){
                 detectDragGestures { change, dragAmount ->
                     panelPositionPx = IntOffset(

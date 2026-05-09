@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.books.BookViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.parser.TextSplitter
@@ -95,12 +96,15 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnDoubleClickScreen -> {
-                allowRePagination = false
-                jobSetAllowRePagination?.cancel()
-                jobSetAllowRePagination = viewModelScope.launch {
-                    delay(5000)
-                    allowRePagination = true
-                }
+//                // 只有在退出全屏或者屏幕旋转时才允许重新分页
+//                if(currentFileUri == null || AppMemoryStore.isFullScreen(currentFileUri!!)) {
+//                    allowRePagination = false
+//                    jobSetAllowRePagination?.cancel()
+//                    jobSetAllowRePagination = viewModelScope.launch {
+//                        delay(5000)
+//                        allowRePagination = true
+//                    }
+//                }
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {
@@ -341,7 +345,7 @@ class TxtViewModel(
     /**
      * 根据字符偏移量查找对应的页码
      */
-    private fun findPageByCharOffset(charOffset: Long): Int {
+    fun findPageByCharOffset(charOffset: Long): Int {
         if (_pages.value.isEmpty()) return 0
 
         // 二分查找或直接遍历
@@ -479,7 +483,9 @@ class TxtViewModel(
                         previewContent = previewContent,
                         pageIndex = currentPageIndex,
                         charOffset = charOffset,
-                        charOffsetInPage = matchIndex
+                        charOffsetInPage = matchIndex,
+                        displayName = "#${charOffset}",
+                        sortKey = charOffset
                     )
                 )
 

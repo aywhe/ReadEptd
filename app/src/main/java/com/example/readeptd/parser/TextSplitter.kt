@@ -55,25 +55,23 @@ class TextSplitter(
             text = "\n"
         }
         if(text.isNotEmpty()) {
-            val startPos = if (text == "\n") {
-                currentPosition
-            } else {
-                currentPosition - text.length
-            }
-            val endPos = if (text == "\n") {
-                currentPosition + 1
-            } else {
-                currentPosition
-            }
-            emitCallback(
-                TextChunk(
-                    content = text,
-                    index = getCurrentIndex(),
-                    startPos = startPos,
-                    endPos = endPos
-                )
-            )
+            autoEmit(text)
         }
+    }
+
+    private suspend fun autoEmit(pageText: String) {
+        val startPos = currentPosition
+        val endPos = startPos + pageText.length
+        currentPosition = endPos
+        emitCallback(
+            TextChunk(
+                content = pageText,
+                index = getCurrentIndex(),
+                startPos = startPos,
+                endPos =endPos
+            )
+        )
+        incrementIndex()
     }
 
     private fun calculateLinesNeeded(line: String): Int {
@@ -87,16 +85,7 @@ class TextSplitter(
     private suspend fun flushCurrentPage() {
         if (currentContent.isNotEmpty()) {
             val content = currentContent.toString()
-            val startPos = currentPosition - content.length
-            emitCallback(
-                TextChunk(
-                    content = content,
-                    index = getCurrentIndex(),
-                    startPos = startPos,
-                    endPos = currentPosition
-                )
-            )
-            incrementIndex()
+            autoEmit(content)
             currentContent.clear()
             currentLines = 0
         }
@@ -112,16 +101,7 @@ class TextSplitter(
             val pageTextBuilder = StringBuilder(chunkSize + 1)
             pageTextBuilder.append(line, startIndex, endIndex)
             val pageText = pageTextBuilder.toString()
-            
-            emitCallback(
-                TextChunk(
-                    content = pageText,
-                    index = getCurrentIndex(),
-                    startPos = currentPosition + startIndex,
-                    endPos = currentPosition + endIndex
-                )
-            )
-            incrementIndex()
+            autoEmit(pageText)
             startIndex = endIndex
         }
 
@@ -134,7 +114,6 @@ class TextSplitter(
 
     private fun appendLineToCurrentPage(line: String) {
         currentContent.append(line).append('\n')
-        currentPosition += line.length + 1
         currentLines += calculateLinesNeeded(line)
     }
 

@@ -230,7 +230,7 @@ class SearchViewModel(
         if (results.isEmpty()) return -1
         
         var closestIndex = 0
-        var minDistance = Int.MAX_VALUE
+        var minDistance = Long.MAX_VALUE
         
         results.forEachIndexed { index, result ->
             val distance = kotlin.math.abs(result.sortKey - currentPosition)

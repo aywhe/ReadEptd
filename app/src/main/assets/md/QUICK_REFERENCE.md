@@ -253,7 +253,7 @@ getComputedStyle(document.documentElement)
 │
 ├─ T3: Android 收到 onHtmlReady（EpubWebView.AndroidBridge.onHtmlReady()）
 │   ├─ ✅ EpubWebView.setTheme(currentTheme) → 应用初始主题
-│   │   └─ 执行 JS: window.EpubReader.setTheme('light'/'dark'/'eyes-care')
+│   │   └─ 执行 JS: window.EpubReader.setTheme('light'/'dark'/'eye-care')
 │   │       └─ ThemeManager.setThemeFromAndroid(themeName)
 │   │           └─ ThemeManager.loadTheme(themeName)
 │   │               ├─ 移除旧的 <link id="dynamic-theme-style">

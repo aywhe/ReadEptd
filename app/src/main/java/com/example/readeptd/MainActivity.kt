@@ -80,6 +80,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
 import com.example.readeptd.utils.FileUtils
@@ -98,12 +99,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: MainViewModel = viewModel()
             val config by viewModel.configData.collectAsStateWithLifecycle()
-
+            
             // ✅ 根据夜间模式设置状态栏和导航栏颜色
             LaunchedEffect(config.isNightMode) {
                 SystemUiUtils.updateSystemBarColors(window, config.isNightMode)
             }
-
+            
             ReadEptdTheme(
                 darkTheme = config.isNightMode,
                 dynamicColor = config.isDynamicColor
@@ -400,8 +401,9 @@ fun ContentScreen(
         }
     }
 
-    val lastReadingFile by viewModel.lastReadingFile.collectAsStateWithLifecycle()
-
+    // ✅ 直接从 AppMemoryStore 读取（会话级别）
+    val lastReadingFile by AppMemoryStore.lastReadingFile.collectAsStateWithLifecycle()
+    
     fun goToContentActivity(fileInfo: FileInfo?) {
         if (fileInfo == null) {
             return
@@ -484,7 +486,7 @@ fun ContentScreen(
                                 onClick = {fileInfo ->
                                     goToContentActivity(fileInfo)
                                 },
-                                onRemove = {
+                                onRemove = { 
                                     FileUtils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
                                 },
@@ -772,7 +774,7 @@ fun SettingsDialog(
                     Text("夜间模式")
                     Switch(
                         checked = config.isNightMode,
-                        onCheckedChange = {
+                        onCheckedChange = { 
                             viewModel.updateConfig { copy(isNightMode = it) }
                         }
                     )
@@ -787,7 +789,7 @@ fun SettingsDialog(
                     Text("跟随系统主题色")
                     Switch(
                         checked = config.isDynamicColor,
-                        onCheckedChange = {
+                        onCheckedChange = { 
                             viewModel.updateConfig { copy(isDynamicColor = it) }
                         }
                     )
@@ -831,7 +833,7 @@ fun SettingsDialog(
                             Log.d("MainActivity", "已打开 TTS 设置页面")
                         } catch (e: Exception) {
                             Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
-                        }
+                        } 
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

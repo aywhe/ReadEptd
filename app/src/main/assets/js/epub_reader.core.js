@@ -547,12 +547,37 @@ const ReaderCore = {
     },
 
     setupEventListeners() {
+        this.setupStartListener();
         this.setupRelocationListener();
         this.setupResizeListener();
         this.setupRenderedListener();
         this.setupAttachedListener();
         this.setupDisplayedListener();
         this.setupBookReadyListener();
+    },
+
+    setupStartListener() {
+        AppState.rendition.on("started", () => {
+            console.log('Rendition started');
+            if(AppState.rendition.manager){
+                this.hookMappingFunctions();
+                AppState.rendition.manager.on("scroll", (position) => {
+                    console.log('View scroll');
+                    try {
+                        const location = AppState.rendition.currentLocation();
+                        if (location) {
+                            console.log('Current location:', JSON.stringify(location));
+                            AndroidBridge.onPageChanged(JSON.stringify(location));
+                            UIManager.highlightCurrentChapter(location.end.href);
+                        }
+                    } catch (err) {
+                        console.error('Error in scroll event:', err.stack);
+                    }
+                });
+            } else {
+                console.warn('Rendition manager not available, scroll listener not attached');
+            }
+        });
     },
 
     setupRelocationListener() {
@@ -650,19 +675,7 @@ const ReaderCore = {
 
     setupAttachedListener() {
         AppState.rendition.on("attached", () => {
-            AppState.rendition.manager.on("scroll", (position) => {
-                console.log('View scroll');
-                try {
-                    const location = AppState.rendition.currentLocation();
-                    if (location) {
-                        console.log('Current location:', JSON.stringify(location));
-                        AndroidBridge.onPageChanged(JSON.stringify(location));
-                        UIManager.highlightCurrentChapter(location.end.href);
-                    }
-                } catch (err) {
-                    console.error('Error in scroll event:', err.stack);
-                }
-            });
+            console.log('Rendition attached to DOM');
         });
     },
 
@@ -732,7 +745,6 @@ const ReaderCore = {
             UIManager.hideLoading();
             AppState.isLoaded = true;
 
-            this.hookMappingFunctions();
             AndroidBridge.onLoadComplete();
             
             if (AppState.isGeneratedLocations) {
@@ -761,6 +773,7 @@ const ReaderCore = {
 
     hookMappingFunctions() {
         if (AppState.rendition && AppState.rendition.manager) {
+            console.log('Hooking manager updateLayout to replace mapping functions...');
             const originalUpdateLayout = AppState.rendition.manager.updateLayout.bind(AppState.rendition.manager);
             AppState.rendition.manager.updateLayout = function() {
                 originalUpdateLayout();

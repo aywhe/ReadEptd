@@ -16,7 +16,8 @@
 另外注意 rendition.manager.mapping 在 rendition.manager.updateLayout() 中会被重重建，
 所以也要 hook updateLayout，重建后重新hook splitTextNodeIntoRanges。
 hook 时需要 rendition 准备好，我是在第一次display().then()中进行的。
-方法： 还没找到方法， displayed 事件也不行，它只触发了一次
+方法： hook updateLayout，在原来的 updateLayout 执行完成后，替换 manager.mapping 的3个函数为自己的版本
+findTextStartRangeByChar,findTextEndRangeByChar,splitTextNodeIntoRanges，重写这三个函数，使用每个字符分割而不是空格分割
 
 - 问题： TextToSpeech(context) 失败返回 status -1
 方法：manifest中添加

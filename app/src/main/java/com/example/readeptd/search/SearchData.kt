@@ -8,7 +8,7 @@ class SearchData {
         val keyword: String           // 搜索关键词
         val previewContent: String           // 上下文预览
         val displayName: String       // 显示名称（如"第5页"、"第三章"）
-        val sortKey: Int              // 排序键（用于结果排序）
+        val sortKey: Long              // 排序键（用于结果排序）
     }
 
     /**
@@ -21,7 +21,7 @@ class SearchData {
         val charOffset: Long,          // 字符偏移
         val charOffsetInPage: Int,     // 在该页中的字符位置
         override val displayName: String = "第 ${pageIndex + 1} 页",
-        override val sortKey: Int = pageIndex
+        override val sortKey: Long = charOffset
     ) : SearchResult
 
     /**
@@ -34,7 +34,7 @@ class SearchData {
         val href: String,             // 章节链接
         val cfi: String,              // CFI 位置
         override val displayName: String = chapterTitle,
-        override val sortKey: Int = 0  // EPUB 按文档顺序
+        override val sortKey: Long = 0  // EPUB 按文档顺序
     ) : SearchResult
 
     /**
@@ -45,6 +45,6 @@ class SearchData {
         override val previewContent: String,
         val pageIndex: Int,           // 页码
         override val displayName: String = "第 ${pageIndex + 1} 页",
-        override val sortKey: Int = pageIndex
+        override val sortKey: Long = pageIndex.toLong()
     ) : SearchResult
 }
