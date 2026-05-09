@@ -220,8 +220,7 @@ fun ContentScreen(
                     ttsModel = ttsModel
                 )
             }
-        },
-        floatingActionButtonPosition = FabPosition.Center,
+        }
     ) { innerPadding ->
         if (isShowTimerDialog) {
             val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
@@ -360,7 +359,7 @@ fun DraggableFloatingToolTip(
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .offset { offset }
@@ -387,7 +386,6 @@ fun DraggableFloatingToolTip(
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ToolTip(
