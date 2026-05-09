@@ -29,7 +29,6 @@ class FileDataStore(private val context: Context) {
     companion object {
         private val READING_FILES_KEY = stringPreferencesKey("reading_files")
         private val READING_STATES_KEY = stringPreferencesKey("reading_states")
-        private val LAST_READING_FILE_KEY = stringPreferencesKey("last_reading_file")
         private val CONFIG_DATA_KEY = stringPreferencesKey("config_data")
     }
     
@@ -76,36 +75,6 @@ class FileDataStore(private val context: Context) {
     suspend fun clearReadingFiles() {
         context.fileListDataStore.edit { preferences ->
             preferences.remove(READING_FILES_KEY)
-        }
-    }
-    
-    // ==================== 上次阅读文件管理 ====================
-    
-    /**
-     * 保存上次打开的文件
-     */
-    suspend fun saveLastReadingFile(fileInfo: FileInfo?) {
-        context.fileListDataStore.edit { preferences ->
-            if (fileInfo != null) {
-                preferences[LAST_READING_FILE_KEY] = fileInfo.toJson()
-            } else {
-                preferences.remove(LAST_READING_FILE_KEY)
-            }
-        }
-    }
-    
-    /**
-     * 获取上次打开的文件
-     */
-    suspend fun getLastReadingFile(): FileInfo? {
-        val preferences = context.fileListDataStore.data.first()
-        val jsonString = preferences[LAST_READING_FILE_KEY] ?: return null
-        
-        return try {
-            FileInfo.fromJson(jsonString)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
         }
     }
     
