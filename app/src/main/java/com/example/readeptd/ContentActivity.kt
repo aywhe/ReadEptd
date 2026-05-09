@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -341,14 +342,29 @@ fun DraggableFloatingToolTip(
     viewModel: ContentViewModel,
     ttsModel: TtsViewModel
 ) {
-    var offset by remember { mutableStateOf(IntOffset.Zero) }
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
+    var offset by remember {
+        mutableStateOf(
+            IntOffset(
+                (screenWidthPx * 0.8).toInt(),
+                (screenHeightPx * 0.2).toInt()
+            )
+        )
+    }
     var showTip by remember { mutableStateOf(false) }
 
+    val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
     Box(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .offset { offset }
-                .padding(horizontal = 4.dp, vertical = 0.dp)
+                .padding(0.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { },
@@ -361,20 +377,17 @@ fun DraggableFloatingToolTip(
                         }
                     )
                 },
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showTip) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                    shadowElevation = 4.dp,
-                    tonalElevation = 2.dp,
+                    color = surfaceColor,
                     modifier = Modifier.animateContentSize()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 0.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp),
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ToolTip(
@@ -389,9 +402,7 @@ fun DraggableFloatingToolTip(
 
             Surface(
                 shape = if (showTip) RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp) else CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                shadowElevation = 4.dp,
-                tonalElevation = 2.dp,
+                color = surfaceColor,
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(
@@ -403,8 +414,8 @@ fun DraggableFloatingToolTip(
                     Icon(
                         imageVector = if (showTip) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp)
+                        tint = onSurfaceColor,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
