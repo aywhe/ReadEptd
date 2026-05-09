@@ -6,19 +6,27 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +49,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -196,7 +205,17 @@ fun ContentScreen(
                     }
                 )
             }
-        }
+        },
+        floatingActionButton = {
+            if(isFullScreen) {
+                DraggableFloatingToolTip(
+                    modifier = modifier,
+                    viewModel = viewModel,
+                    ttsModel = ttsModel
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center,
     ) { innerPadding ->
         if (isShowTimerDialog) {
             val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
@@ -305,6 +324,57 @@ fun ToolTip(
                 contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
                 tint = MaterialTheme.colorScheme.onSurface
             )
+        }
+    }
+}
+
+@Composable
+fun DraggableFloatingToolTip(
+    modifier: Modifier = Modifier,
+    onLongPressSpeak: () -> Unit =  {},
+    viewModel: ContentViewModel,
+    ttsModel: TtsViewModel
+) {
+    var offset by remember { mutableStateOf(IntOffset.Zero) }
+    var showTip by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxSize()) {
+        FloatingActionButton(
+            onClick = { showTip = !showTip },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset { offset }
+                .padding(16.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            offset += IntOffset(
+                                dragAmount.x.toInt(),
+                                dragAmount.y.toInt()
+                            )
+                        }
+                    )
+                }
+                .size(56.dp),
+            shape = CircleShape
+        ) {
+            Row {
+                if (showTip) {
+                    ToolTip(
+                        onLongPressSpeak = onLongPressSpeak,
+                        viewModel = viewModel,
+                        ttsModel = ttsModel
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "全屏小工具",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
