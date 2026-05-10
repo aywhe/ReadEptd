@@ -446,18 +446,13 @@ fun DraggableFloatingToolTip(
                         Modifier.offset(x = iconSizeDp)
                     }.animateContentSize()
                 
-                val toolTipShape = remember(isDragging, isButtonOnRightSide, cornerRadiusDp) {
-                    if (!isDragging) {
-                        RoundedCornerShape(
-                            topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
-                            topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
-                            bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
-                            bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
-                        )
-                    } else {
-                        RoundedCornerShape(cornerRadiusDp)
-                    }
-                }
+                val toolTipShape =
+                    RoundedCornerShape(
+                        topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                        bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
+                    )
                 
                 Surface(
                     shape = toolTipShape,
