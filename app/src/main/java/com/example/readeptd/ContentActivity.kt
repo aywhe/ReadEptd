@@ -364,7 +364,7 @@ fun DraggableFloatingToolTip(
     val iconSize = 48.dp
     val cornerSize = 12.dp
     val iconSizePx = with(density) { iconSize.toPx() }.toInt()
-    val buttonCenterX = offset.x + iconSizePx / 2 // 按钮宽度的一半(48dp/2)
+    val buttonCenterX = offset.x + iconSizePx / 2
     val isButtonOnRightSide = buttonCenterX > screenWidthPx / 2
 
     var isCollapsed by remember { mutableStateOf(false) }
@@ -375,6 +375,15 @@ fun DraggableFloatingToolTip(
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
+    
+    val iconStyle = generateIconStyle(
+        defaultSize = iconSize,
+        defaultCornerSize = cornerSize,
+        isCollapsed = isCollapsed,
+        isShowTip = showTip,
+        isOnRightSide = isButtonOnRightSide
+    )
+    
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -416,11 +425,13 @@ fun DraggableFloatingToolTip(
                 } else {
                     Modifier.offset(x = iconSize)
                 }.animateContentSize()
-                val toolTipCornerShape = if(isButtonOnRightSide) {
-                    RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
-                } else {
-                    RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
-                }
+                
+                val toolTipCornerShape = RoundedCornerShape(
+                    topStart = iconStyle.cornerSize.topStart,
+                    topEnd = iconStyle.cornerSize.topEnd,
+                    bottomStart = iconStyle.cornerSize.bottomStart,
+                    bottomEnd = iconStyle.cornerSize.bottomEnd
+                )
 
                 Surface(
                     shape = toolTipCornerShape,
@@ -441,15 +452,7 @@ fun DraggableFloatingToolTip(
                 }
             }
 
-            val iconStyle = generateIconStyle(
-                defaultSize = iconSize,
-                defaultCornerSize = cornerSize,
-                isCollapsed = isCollapsed,
-                isShowTip = showTip,
-                isOnRightSide = isButtonOnRightSide
-            )
-
-            val thisCornerShape = if (showTip) {
+            val thisCornerShape = if (showTip || isCollapsed) {
                 RoundedCornerShape(
                     topEnd = iconStyle.cornerSize.topEnd,
                     bottomEnd = iconStyle.cornerSize.bottomEnd,
@@ -459,6 +462,7 @@ fun DraggableFloatingToolTip(
             } else {
                 CircleShape
             }
+            
             Surface(
                 shape =  thisCornerShape,
                 color = surfaceColor,
@@ -476,11 +480,17 @@ fun DraggableFloatingToolTip(
                         },
                     contentAlignment = Alignment.Center
                 ) {
+                    val iconActualSize = if (isCollapsed) {
+                        iconStyle.iconSize.width
+                    } else {
+                        iconStyle.iconSize.width / 2
+                    }
+                    
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
-                        modifier = Modifier.size(iconStyle.iconSize.width/2, iconStyle.iconSize.height/2)
+                        modifier = Modifier.size(iconActualSize)
                     )
                 }
             }
@@ -514,7 +524,6 @@ fun generateIconStyle(
     isOnRightSide: Boolean = true
 ): IconStyle {
     val (width, cornerSize, offsetX) = if (isCollapsed) {
-        // 折叠状态
         val newWidth = defaultSize / 2
         val newCornerSize = if (isOnRightSide) {
             IconStyle.CornerSize(
@@ -531,10 +540,13 @@ fun generateIconStyle(
                 bottomEnd = defaultCornerSize
             )
         }
-        val newOffsetX = if (isOnRightSide) defaultSize / 2 else -(defaultSize / 2)
+        val newOffsetX = if (isOnRightSide) {
+            -(defaultSize / 2)
+        } else {
+            defaultSize / 2
+        }
         Triple(newWidth, newCornerSize, newOffsetX)
     } else if (isShowTip) {
-        // 显示提示状态
         val newCornerSize = if (isOnRightSide) {
             IconStyle.CornerSize(
                 topStart = 0.dp,
@@ -552,22 +564,12 @@ fun generateIconStyle(
         }
         Triple(defaultSize, newCornerSize, 0.dp)
     } else {
-        // 默认展开状态
-        val newCornerSize = if (isOnRightSide) {
-            IconStyle.CornerSize(
-                topStart = defaultCornerSize,
-                topEnd = defaultCornerSize,
-                bottomStart = defaultCornerSize,
-                bottomEnd = defaultCornerSize
-            )
-        } else {
-            IconStyle.CornerSize(
-                topStart = defaultCornerSize,
-                topEnd = defaultCornerSize,
-                bottomStart = defaultCornerSize,
-                bottomEnd = defaultCornerSize
-            )
-        }
+        val newCornerSize = IconStyle.CornerSize(
+            topStart = defaultCornerSize,
+            topEnd = defaultCornerSize,
+            bottomStart = defaultCornerSize,
+            bottomEnd = defaultCornerSize
+        )
         Triple(defaultSize, newCornerSize, 0.dp)
     }
     
