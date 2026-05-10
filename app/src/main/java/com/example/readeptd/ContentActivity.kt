@@ -215,15 +215,6 @@ fun ContentScreen(
                     }
                 )
             }
-        },
-        floatingActionButton = {
-            if(isFullScreen) {
-                DraggableFloatingToolTip(
-                    modifier = modifier,
-                    viewModel = viewModel,
-                    ttsModel = ttsModel
-                )
-            }
         }
     ) { innerPadding ->
         if (isShowTimerDialog) {
@@ -258,6 +249,14 @@ fun ContentScreen(
             is ContentUiState.Error -> ErrorContentScreen(
                 error = state.error,
                 modifier = modifier.padding(innerPadding)
+            )
+        }
+
+        if(isFullScreen) {
+            DraggableFloatingToolTip(
+                modifier = modifier.padding(innerPadding),
+                viewModel = viewModel,
+                ttsModel = ttsModel
             )
         }
     }
@@ -361,8 +360,8 @@ fun DraggableFloatingToolTip(
     var offset by remember {
         mutableStateOf(
             IntOffset(
-                (screenWidthPx * 0.8).toInt(),
-                ( iconSizePx/2).toInt()
+                (screenWidthPx - iconSizePx).toInt(),
+                ( screenHeightPx/2).toInt()
             )
         )
     }
@@ -388,18 +387,25 @@ fun DraggableFloatingToolTip(
         isOnRightSide = isButtonOnRightSide
     )
 
-    LaunchedEffect(isCollapsed, isButtonOnRightSide, screenWidthPx, iconSizePx) {
+    LaunchedEffect(isCollapsed, screenWidthPx, iconSizePx) {
         if (isCollapsed) {
             val targetX = if (isButtonOnRightSide) {
-                screenWidthPx.toInt() - with(density) { iconStyle.iconSize.width.toPx() / 2 }.toInt()
+                screenWidthPx.toInt() - with(density) { iconStyle.iconSize.width.toPx() }.toInt()
             } else {
-                0 + with(density) { iconStyle.iconSize.width.toPx() / 2 }.toInt()
+                0
+            }
+            offset = IntOffset(targetX, offset.y)
+        } else {
+            val targetX = if (isButtonOnRightSide) {
+                screenWidthPx.toInt() - iconSizePx
+            } else {
+                0
             }
             offset = IntOffset(targetX, offset.y)
         }
     }
     
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .offset { offset }
@@ -483,7 +489,7 @@ fun DraggableFloatingToolTip(
             } else {
                 CircleShape
             }
-            
+
             Surface(
                 shape =  thisCornerShape,
                 color = surfaceColor,
@@ -501,17 +507,22 @@ fun DraggableFloatingToolTip(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val iconActualSize = if (isCollapsed) {
+                    val iconActualWidth = if (isCollapsed) {
                         iconStyle.iconSize.width
                     } else {
-                        iconStyle.iconSize.width / 3 * 2
+                        iconSize / 3 * 2
                     }
-                    
+                    val iconActualHeight = if (isCollapsed) {
+                        iconStyle.iconSize.height
+                    } else {
+                        iconSize / 3 * 2
+                    }
+
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
-                        modifier = Modifier.size(iconActualSize)
+                        modifier = Modifier.size(iconActualWidth,iconActualHeight)
                     )
                 }
             }
@@ -545,20 +556,20 @@ fun generateIconStyle(
     isOnRightSide: Boolean = true
 ): IconStyle {
     val (width, cornerSize) = if (isCollapsed) {
-        val newWidth = defaultSize / 3
+        val newWidth = defaultSize / 4
         val newCornerSize = if (isOnRightSide) {
             IconStyle.CornerSize(
-                topStart = defaultCornerSize / 2,
+                topStart = defaultCornerSize,
                 topEnd = 0.dp,
-                bottomStart = defaultCornerSize / 2,
+                bottomStart = defaultCornerSize,
                 bottomEnd = 0.dp
             )
         } else {
             IconStyle.CornerSize(
                 topStart = 0.dp,
-                topEnd = defaultCornerSize / 2,
+                topEnd = defaultCornerSize,
                 bottomStart = 0.dp,
-                bottomEnd = defaultCornerSize / 2
+                bottomEnd = defaultCornerSize
             )
         }
         Pair(newWidth, newCornerSize)
