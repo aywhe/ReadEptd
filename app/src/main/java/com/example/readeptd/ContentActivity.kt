@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
@@ -291,7 +293,8 @@ fun ToolTip(
     if (ttsInitialized) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -308,7 +311,8 @@ fun ToolTip(
         }
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(start = 4.dp,end = 16.dp)
+            modifier = Modifier
+                .padding(start = 4.dp, end = 16.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -352,16 +356,20 @@ fun DraggableFloatingToolTip(
     var offset by remember {
         mutableStateOf(
             IntOffset(
-                (screenWidthPx * 0.8).toInt(),
-                (screenHeightPx * 0.2).toInt()
+                (screenWidthPx * 0.9).toInt(),
+                (screenHeightPx * 0.1).toInt()
             )
         )
     }
     val iconSize = 48.dp
     val cornerSize = 12.dp
-    val buttonCenterX = offset.x + with(density) { (iconSize/2).toPx() }.toInt() // 按钮宽度的一半(48dp/2)
+    val iconSizePx = with(density) { iconSize.toPx() }.toInt()
+    val buttonCenterX = offset.x + iconSizePx / 2 // 按钮宽度的一半(48dp/2)
     val isButtonOnRightSide = buttonCenterX > screenWidthPx / 2
 
+    var isCollapsed by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
+    val snapThresholdPx = iconSizePx / 3 * 2
 
     var showTip by remember { mutableStateOf(false) }
 
@@ -374,18 +382,30 @@ fun DraggableFloatingToolTip(
                 .padding(0.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
-                        onDragStart = { },
+                        onDragStart = { isDragging = true },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             offset += IntOffset(
                                 dragAmount.x.toInt(),
                                 dragAmount.y.toInt()
                             )
-                        }
+                            if(offset.y < 0) offset = IntOffset(offset.x, 0)
+                            if(offset.y > screenHeightPx - iconSizePx) offset = IntOffset(offset.x, (screenHeightPx - iconSizePx).toInt())
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            if (!isCollapsed) {
+                                if (offset.x < snapThresholdPx) {
+                                    isCollapsed = true
+                                } else if (offset.x > screenWidthPx - snapThresholdPx) {
+                                    isCollapsed = true
+                                }
+                            }
+                        },
                     )
                 }
         ) {
-            if (showTip) {
+            if (showTip && !isCollapsed) {
                 val toolTipSurfaceModifier = if(isButtonOnRightSide) {
                     Modifier.layout { measurable, constraints ->
                         val placeable = measurable.measure(constraints)
@@ -421,36 +441,141 @@ fun DraggableFloatingToolTip(
                 }
             }
 
-            val iconCornerShape = if (showTip) {
-                if(isButtonOnRightSide) {
-                    RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
-                } else {
-                    RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
-                }
+            val iconStyle = generateIconStyle(
+                defaultSize = iconSize,
+                defaultCornerSize = cornerSize,
+                isCollapsed = isCollapsed,
+                isShowTip = showTip,
+                isOnRightSide = isButtonOnRightSide
+            )
+
+            val thisCornerShape = if (showTip) {
+                RoundedCornerShape(
+                    topEnd = iconStyle.cornerSize.topEnd,
+                    bottomEnd = iconStyle.cornerSize.bottomEnd,
+                    topStart = iconStyle.cornerSize.topStart,
+                    bottomStart = iconStyle.cornerSize.bottomStart
+                )
             } else {
                 CircleShape
             }
             Surface(
-                shape =  iconCornerShape,
+                shape =  thisCornerShape,
                 color = surfaceColor,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier.offset(x = iconStyle.offsetX).size(iconStyle.iconSize.width, iconStyle.iconSize.height)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clickable { showTip = !showTip },
+                        .clickable {
+                            if (isCollapsed) {
+                                isCollapsed = false
+                            } else {
+                                showTip = !showTip
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (showTip) Icons.Default.Close else Icons.Default.Add,
+                        imageVector = Icons.Default.Menu,
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(iconStyle.iconSize.width/2, iconStyle.iconSize.height/2)
                     )
                 }
             }
         }
     }
+}
+
+data class IconStyle(
+    val iconSize: IconSize = IconSize(),
+    val cornerSize: CornerSize = CornerSize(),
+    val offsetX: Dp = 0.dp
+) {
+    data class CornerSize(
+        val topStart: Dp = 12.dp,
+        val topEnd: Dp = 12.dp,
+        val bottomStart: Dp = 12.dp,
+        val bottomEnd: Dp = 12.dp
+    )
+    
+    data class IconSize(
+        val width: Dp = 48.dp,
+        val height: Dp = 48.dp
+    )
+}
+
+fun generateIconStyle(
+    defaultSize: Dp = 48.dp,
+    defaultCornerSize: Dp = 12.dp,
+    isCollapsed: Boolean = false,
+    isShowTip: Boolean = false,
+    isOnRightSide: Boolean = true
+): IconStyle {
+    val (width, cornerSize, offsetX) = if (isCollapsed) {
+        // 折叠状态
+        val newWidth = defaultSize / 2
+        val newCornerSize = if (isOnRightSide) {
+            IconStyle.CornerSize(
+                topStart = defaultCornerSize,
+                topEnd = 0.dp,
+                bottomStart = defaultCornerSize,
+                bottomEnd = 0.dp
+            )
+        } else {
+            IconStyle.CornerSize(
+                topStart = 0.dp,
+                topEnd = defaultCornerSize,
+                bottomStart = 0.dp,
+                bottomEnd = defaultCornerSize
+            )
+        }
+        val newOffsetX = if (isOnRightSide) defaultSize / 2 else -(defaultSize / 2)
+        Triple(newWidth, newCornerSize, newOffsetX)
+    } else if (isShowTip) {
+        // 显示提示状态
+        val newCornerSize = if (isOnRightSide) {
+            IconStyle.CornerSize(
+                topStart = 0.dp,
+                topEnd = defaultCornerSize,
+                bottomStart = 0.dp,
+                bottomEnd = defaultCornerSize
+            )
+        } else {
+            IconStyle.CornerSize(
+                topStart = defaultCornerSize,
+                topEnd = 0.dp,
+                bottomStart = defaultCornerSize,
+                bottomEnd = 0.dp
+            )
+        }
+        Triple(defaultSize, newCornerSize, 0.dp)
+    } else {
+        // 默认展开状态
+        val newCornerSize = if (isOnRightSide) {
+            IconStyle.CornerSize(
+                topStart = defaultCornerSize,
+                topEnd = defaultCornerSize,
+                bottomStart = defaultCornerSize,
+                bottomEnd = defaultCornerSize
+            )
+        } else {
+            IconStyle.CornerSize(
+                topStart = defaultCornerSize,
+                topEnd = defaultCornerSize,
+                bottomStart = defaultCornerSize,
+                bottomEnd = defaultCornerSize
+            )
+        }
+        Triple(defaultSize, newCornerSize, 0.dp)
+    }
+    
+    return IconStyle(
+        iconSize = IconStyle.IconSize(width = width, height = defaultSize),
+        cornerSize = cornerSize,
+        offsetX = offsetX
+    )
 }
 
 @Composable
