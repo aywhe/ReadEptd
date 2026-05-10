@@ -434,22 +434,17 @@ fun DraggableFloatingToolTip(
         ) {
             // 工具提示内容
             if (showTip && !isCollapsed) {
-                val toolTipModifier = remember(isDragging, isButtonOnRightSide) {
-                    if (!isDragging) {
-                        if (isButtonOnRightSide) {
-                            Modifier.layout { measurable, constraints ->
-                                val placeable = measurable.measure(constraints)
-                                layout(placeable.width, placeable.height) {
-                                    placeable.placeRelative(x = -placeable.width, y = 0)
-                                }
+                val toolTipModifier =
+                    if (isButtonOnRightSide) {
+                        Modifier.layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            layout(placeable.width, placeable.height) {
+                                placeable.placeRelative(x = -placeable.width, y = 0)
                             }
-                        } else {
-                            Modifier.offset(x = iconSizeDp)
-                        }.animateContentSize()
+                        }
                     } else {
-                        Modifier
-                    }
-                }
+                        Modifier.offset(x = iconSizeDp)
+                    }.animateContentSize()
                 
                 val toolTipShape = remember(isDragging, isButtonOnRightSide, cornerRadiusDp) {
                     if (!isDragging) {
