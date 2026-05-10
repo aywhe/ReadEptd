@@ -356,7 +356,7 @@ fun DraggableFloatingToolTip(
     val iconSizeDp = 48.dp
     val cornerRadiusDp = 12.dp
     val iconSizePx = with(density) { iconSizeDp.toPx() }.roundToInt()
-    val collapseFac = 4
+    val collapseFac = 3
     val collapsedIconSizeDp = iconSizeDp / collapseFac
     val collapsedIconSizePx = iconSizePx / collapseFac
 
