@@ -22,10 +22,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,7 +48,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
@@ -140,6 +141,8 @@ fun ContentScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isShowTimerDialog by remember { mutableStateOf(false) }
+    var isShowToolTipInFullScreen by remember { mutableStateOf(true) }
+
     // ✅ 直接传入可能为 null 的 uri，AppMemoryStore 内部处理
     val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsStateWithLifecycle()
 
@@ -246,9 +249,10 @@ fun ContentScreen(
             )
         }
 
-        if(isFullScreen) {
+        if(isFullScreen && isShowToolTipInFullScreen) {
             DraggableFloatingToolTip(
                 modifier = modifier.padding(innerPadding),
+                onDismiss = { isShowToolTipInFullScreen = false },
                 onLongPressSpeak =  { isShowTimerDialog = true },
                 viewModel = viewModel,
                 ttsModel = ttsModel
@@ -337,6 +341,7 @@ fun ToolTip(
 @Composable
 fun DraggableFloatingToolTip(
     modifier: Modifier = Modifier,
+    onDismiss: () -> Unit = {},
     onLongPressSpeak: () -> Unit = {},
     viewModel: ContentViewModel,
     ttsModel: TtsViewModel
@@ -370,6 +375,7 @@ fun DraggableFloatingToolTip(
     var isCollapsed by remember { mutableStateOf(false) }
     var showTip by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -391,6 +397,30 @@ fun DraggableFloatingToolTip(
             0
         }
         offset = IntOffset(targetX, offset.y)
+    }
+
+    // 确认对话框
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("隐藏悬浮球") },
+            text = { Text("是否隐藏悬浮球？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDialog = false
+                    onDismiss()
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showConfirmDialog = false
+                }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -446,7 +476,7 @@ fun DraggableFloatingToolTip(
                         Modifier.offset(x = iconSizeDp)
                     }.animateContentSize()
                 
-                val toolTipShape =
+                val toolTipShape = 
                     RoundedCornerShape(
                         topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
                         topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
@@ -468,6 +498,24 @@ fun DraggableFloatingToolTip(
                             viewModel = viewModel,
                             ttsModel = ttsModel
                         )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            showConfirmDialog = true
+                                        }
+                                    )
+                                }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
@@ -515,7 +563,7 @@ fun DraggableFloatingToolTip(
                         modifier = Modifier.size(
                             if (isCollapsed) collapsedIconSizeDp else iconSizeDp * 2 / 3,
                             iconSizeDp * 2 / 3
-                            )
+                        )
                     )
                 }
             }
