@@ -148,6 +148,10 @@ fun ContentScreen(
 
     // 控制状态栏显示/隐藏
     LaunchedEffect(isFullScreen) {
+        if(isFullScreen){
+            // 进入全屏时默认显示工具提示，用户可以选择隐藏
+            isShowToolTipInFullScreen = true
+        }
         val window = (context as? ComponentActivity)?.window
         if (window != null) {
             if (isFullScreen) {
