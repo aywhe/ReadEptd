@@ -18,21 +18,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,7 +54,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
@@ -67,11 +62,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.FileUtils
 import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
@@ -80,6 +73,7 @@ import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.TimerDialog
 import com.example.readeptd.utils.Utils
+import kotlin.math.roundToInt
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -255,6 +249,7 @@ fun ContentScreen(
         if(isFullScreen) {
             DraggableFloatingToolTip(
                 modifier = modifier.padding(innerPadding),
+                onLongPressSpeak =  { isShowTimerDialog = true },
                 viewModel = viewModel,
                 ttsModel = ttsModel
             )
@@ -342,7 +337,7 @@ fun ToolTip(
 @Composable
 fun DraggableFloatingToolTip(
     modifier: Modifier = Modifier,
-    onLongPressSpeak: () -> Unit =  {},
+    onLongPressSpeak: () -> Unit = {},
     viewModel: ContentViewModel,
     ttsModel: TtsViewModel
 ) {
@@ -353,15 +348,18 @@ fun DraggableFloatingToolTip(
     val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
 
-    val iconSize = 48.dp
-    val cornerSize = 12.dp
-    val iconSizePx = with(density) { iconSize.toPx() }.toInt()
+    val iconSizeDp = 48.dp
+    val cornerRadiusDp = 12.dp
+    val iconSizePx = with(density) { iconSizeDp.toPx() }.roundToInt()
+    val collapseFac = 4
+    val collapsedIconSizeDp = iconSizeDp / collapseFac
+    val collapsedIconSizePx = iconSizePx / collapseFac
 
     var offset by remember {
         mutableStateOf(
             IntOffset(
-                (screenWidthPx - iconSizePx).toInt(),
-                ( screenHeightPx/2).toInt()
+                (screenWidthPx - iconSizePx * 1.5f).roundToInt(),
+                (screenHeightPx * 0.1f).roundToInt()
             )
         )
     }
@@ -370,41 +368,31 @@ fun DraggableFloatingToolTip(
     val isButtonOnRightSide = buttonCenterX > screenWidthPx / 2
 
     var isCollapsed by remember { mutableStateOf(false) }
-    var isDragging by remember { mutableStateOf(false) }
-    val snapThresholdPx = iconSizePx / 2
-
     var showTip by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
 
-    
-    val iconStyle = generateIconStyle(
-        defaultSize = iconSize,
-        defaultCornerSize = cornerSize,
-        isCollapsed = isCollapsed,
-        isShowTip = showTip,
-        isOnRightSide = isButtonOnRightSide
-    )
-
-    LaunchedEffect(isCollapsed, screenWidthPx, iconSizePx) {
-        if (isCollapsed) {
-            val targetX = if (isButtonOnRightSide) {
-                screenWidthPx.toInt() - with(density) { iconStyle.iconSize.width.toPx() }.toInt()
-            } else {
-                0
-            }
-            offset = IntOffset(targetX, offset.y)
-        } else {
-            val targetX = if (isButtonOnRightSide) {
-                screenWidthPx.toInt() - iconSizePx
-            } else {
-                0
-            }
-            offset = IntOffset(targetX, offset.y)
+    // 自动贴边逻辑
+    var isFirstRun by remember { mutableStateOf(true) }
+    LaunchedEffect(isCollapsed) {
+        if (isFirstRun) {
+            isFirstRun = false
+            return@LaunchedEffect
         }
+        val targetX = if(isButtonOnRightSide){
+            if (isCollapsed) {
+                screenWidthPx.toInt() - collapsedIconSizePx
+            } else {
+                 screenWidthPx.toInt() - iconSizePx
+            }
+        } else {
+            0
+        }
+        offset = IntOffset(targetX, offset.y)
     }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -412,11 +400,11 @@ fun DraggableFloatingToolTip(
                 .padding(0.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
-                        onDragStart = { 
-                            isDragging = true
+                        onDragStart = {
                             if (isCollapsed) {
                                 isCollapsed = false
                             }
+                            isDragging = true
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
@@ -424,49 +412,64 @@ fun DraggableFloatingToolTip(
                                 dragAmount.x.toInt(),
                                 dragAmount.y.toInt()
                             )
-                            if(offset.y < 0) offset = IntOffset(offset.x, 0)
-                            if(offset.y > screenHeightPx - iconSizePx) offset = IntOffset(offset.x, (screenHeightPx - iconSizePx).toInt())
+                            // 限制垂直拖动范围
+                            offset = IntOffset(
+                                offset.x,
+                                offset.y.coerceIn(0, (screenHeightPx - iconSizePx).toInt())
+                            )
                         },
                         onDragEnd = {
                             isDragging = false
+                            // 根据位置判断是否折叠
+                            val snapThresholdPx = iconSizePx / 2
                             if (!isCollapsed) {
-                                if (offset.x < snapThresholdPx) {
-                                    isCollapsed = true
-                                } else if (offset.x + iconSizePx / 2 > screenWidthPx - snapThresholdPx) {
+                                if (offset.x < snapThresholdPx || 
+                                    offset.x + iconSizePx / 2 > screenWidthPx - snapThresholdPx) {
                                     isCollapsed = true
                                 }
                             }
-                        },
+                        }
                     )
                 }
         ) {
+            // 工具提示内容
             if (showTip && !isCollapsed) {
-                val toolTipSurfaceModifier = if(isButtonOnRightSide) {
-                    Modifier.layout { measurable, constraints ->
-                        val placeable = measurable.measure(constraints)
-                        layout(placeable.width, placeable.height) {
-                            placeable.placeRelative(x = -placeable.width, y = 0)
-                        }
+                val toolTipModifier = remember(isDragging, isButtonOnRightSide) {
+                    if (!isDragging) {
+                        if (isButtonOnRightSide) {
+                            Modifier.layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints)
+                                layout(placeable.width, placeable.height) {
+                                    placeable.placeRelative(x = -placeable.width, y = 0)
+                                }
+                            }
+                        } else {
+                            Modifier.offset(x = iconSizeDp)
+                        }.animateContentSize()
+                    } else {
+                        Modifier
                     }
-                } else {
-                    Modifier.offset(x = iconSize)
-                }.animateContentSize()
+                }
                 
-                val toolTipCornerShape = RoundedCornerShape(
-                    // 与 icon 左右对称
-                    topStart = iconStyle.cornerSize.topEnd,
-                    topEnd = iconStyle.cornerSize.topStart,
-                    bottomStart = iconStyle.cornerSize.bottomEnd,
-                    bottomEnd = iconStyle.cornerSize.bottomStart
-                )
-
+                val toolTipShape = remember(isDragging, isButtonOnRightSide, cornerRadiusDp) {
+                    if (!isDragging) {
+                        RoundedCornerShape(
+                            topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                            topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                            bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                            bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
+                        )
+                    } else {
+                        RoundedCornerShape(cornerRadiusDp)
+                    }
+                }
+                
                 Surface(
-                    shape = toolTipCornerShape,
+                    shape = toolTipShape,
                     color = surfaceColor,
-                    modifier = toolTipSurfaceModifier
+                    modifier = toolTipModifier
                 ) {
                     Row(
-                        modifier = Modifier,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ToolTip(
@@ -479,21 +482,29 @@ fun DraggableFloatingToolTip(
                 }
             }
 
-            val thisCornerShape = if (showTip || isCollapsed) {
-                RoundedCornerShape(
-                    topEnd = iconStyle.cornerSize.topEnd,
-                    bottomEnd = iconStyle.cornerSize.bottomEnd,
-                    topStart = iconStyle.cornerSize.topStart,
-                    bottomStart = iconStyle.cornerSize.bottomStart
+            // 主按钮
+            val buttonShape = when {
+                isCollapsed -> RoundedCornerShape(
+                    topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
                 )
-            } else {
-                CircleShape
+                showTip -> RoundedCornerShape(
+                    topStart = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    topEnd = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    bottomStart = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    bottomEnd = if (isButtonOnRightSide) cornerRadiusDp else 0.dp
+                )
+                else -> CircleShape
             }
 
+            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
+
             Surface(
-                shape =  thisCornerShape,
+                shape = buttonShape,
                 color = surfaceColor,
-                modifier = Modifier.size(iconStyle.iconSize.width, iconStyle.iconSize.height)
+                modifier = Modifier.size(buttonWidth, iconSizeDp)
             ) {
                 Box(
                     modifier = Modifier
@@ -507,104 +518,19 @@ fun DraggableFloatingToolTip(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val iconActualWidth = if (isCollapsed) {
-                        iconStyle.iconSize.width
-                    } else {
-                        iconSize / 3 * 2
-                    }
-                    val iconActualHeight = if (isCollapsed) {
-                        iconStyle.iconSize.height
-                    } else {
-                        iconSize / 3 * 2
-                    }
-
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
-                        modifier = Modifier.size(iconActualWidth,iconActualHeight)
+                        modifier = Modifier.size(
+                            if (isCollapsed) collapsedIconSizeDp else iconSizeDp * 2 / 3,
+                            iconSizeDp * 2 / 3
+                            )
                     )
                 }
             }
         }
     }
-}
-
-data class IconStyle(
-    val iconSize: IconSize = IconSize(),
-    val cornerSize: CornerSize = CornerSize(),
-    val offsetX: Dp = 0.dp
-) {
-    data class CornerSize(
-        val topStart: Dp = 12.dp,
-        val topEnd: Dp = 12.dp,
-        val bottomStart: Dp = 12.dp,
-        val bottomEnd: Dp = 12.dp
-    )
-    
-    data class IconSize(
-        val width: Dp = 48.dp,
-        val height: Dp = 48.dp
-    )
-}
-
-fun generateIconStyle(
-    defaultSize: Dp = 48.dp,
-    defaultCornerSize: Dp = 12.dp,
-    isCollapsed: Boolean = false,
-    isShowTip: Boolean = false,
-    isOnRightSide: Boolean = true
-): IconStyle {
-    val (width, cornerSize) = if (isCollapsed) {
-        val newWidth = defaultSize / 4
-        val newCornerSize = if (isOnRightSide) {
-            IconStyle.CornerSize(
-                topStart = defaultCornerSize,
-                topEnd = 0.dp,
-                bottomStart = defaultCornerSize,
-                bottomEnd = 0.dp
-            )
-        } else {
-            IconStyle.CornerSize(
-                topStart = 0.dp,
-                topEnd = defaultCornerSize,
-                bottomStart = 0.dp,
-                bottomEnd = defaultCornerSize
-            )
-        }
-        Pair(newWidth, newCornerSize)
-    } else if (isShowTip) {
-        val newCornerSize = if (isOnRightSide) {
-            IconStyle.CornerSize(
-                topStart = 0.dp,
-                topEnd = defaultCornerSize,
-                bottomStart = 0.dp,
-                bottomEnd = defaultCornerSize
-            )
-        } else {
-            IconStyle.CornerSize(
-                topStart = defaultCornerSize,
-                topEnd = 0.dp,
-                bottomStart = defaultCornerSize,
-                bottomEnd = 0.dp
-            )
-        }
-        Pair(defaultSize, newCornerSize)
-    } else {
-        val newCornerSize = IconStyle.CornerSize(
-            topStart = defaultCornerSize,
-            topEnd = defaultCornerSize,
-            bottomStart = defaultCornerSize,
-            bottomEnd = defaultCornerSize
-        )
-        Pair(defaultSize, newCornerSize)
-    }
-    
-    return IconStyle(
-        iconSize = IconStyle.IconSize(width = width, height = defaultSize),
-        cornerSize = cornerSize,
-        offsetX = 0.dp
-    )
 }
 
 @Composable

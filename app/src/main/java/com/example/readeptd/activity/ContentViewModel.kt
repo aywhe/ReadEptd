@@ -25,7 +25,7 @@ class ContentViewModel(
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()
-    private val _progressText = MutableStateFlow("")
+    private val _progressText = MutableStateFlow("-%")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
