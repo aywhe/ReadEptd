@@ -468,8 +468,15 @@ fun DraggableFloatingToolTip(
         ) {
             // 工具提示内容
             if (showTip && !isCollapsed) {
+                var cachedIsButtonOnRightSide by remember { mutableStateOf(isButtonOnRightSide) }
+
+                LaunchedEffect(isDragging, isButtonOnRightSide) {
+                    if (!isDragging) {
+                        cachedIsButtonOnRightSide = isButtonOnRightSide
+                    }
+                }
                 val toolTipModifier =
-                    if (isButtonOnRightSide) {
+                    if (cachedIsButtonOnRightSide) {
                         Modifier.layout { measurable, constraints ->
                             val placeable = measurable.measure(constraints)
                             layout(placeable.width, placeable.height) {
@@ -482,10 +489,10 @@ fun DraggableFloatingToolTip(
                 
                 val toolTipShape = 
                     RoundedCornerShape(
-                        topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
-                        topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
-                        bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
-                        bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
+                        topStart = if (cachedIsButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        topEnd = if (cachedIsButtonOnRightSide) 0.dp else cornerRadiusDp,
+                        bottomStart = if (cachedIsButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        bottomEnd = if (cachedIsButtonOnRightSide) 0.dp else cornerRadiusDp
                     )
                 
                 Surface(
