@@ -10,6 +10,7 @@ data class ConfigureData(
     val isNightMode: Boolean = false,
     val isDynamicColor: Boolean = true,
     val autoNightMode: Boolean = false,
+    val isSwipeLayout: Boolean = true,
     val autoNightStartTime: String = "20:00",
     val autoNightEndTime: String = "06:00"
 ) {

@@ -52,6 +52,7 @@ class PdfViewModel(
     private val _totalPages = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
     val totalPages: StateFlow<Int> = _totalPages.asStateFlow()
+    private var _onGoToPageListener: ((Int) -> Unit)? = null
 
     /**
      * 获取指定页面的位图（供 UI 调用）
@@ -63,6 +64,17 @@ class PdfViewModel(
     fun onEvent(event: PdfEvent) {
         when (event) {
             is PdfEvent.OnPageChanged -> handlePageChanged(event.pageIndex)
+        }
+    }
+
+    fun setOnGoToPageListener(listener: (Int) -> Unit) {
+        _onGoToPageListener = listener
+    }
+
+    fun goToPage(pageIndex: Int) {
+        if (pageIndex >= 0 && pageIndex < _totalPages.value) {
+            _currentPage.value = pageIndex
+            _onGoToPageListener?.invoke(pageIndex)
         }
     }
 
@@ -369,6 +381,7 @@ class PdfViewModel(
     override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "PdfViewModel 清除，清理资源")
+        _onGoToPageListener =  null
         cleanupRenderer()
     }
 
