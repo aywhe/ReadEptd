@@ -267,38 +267,20 @@ fun PdfLazyViewer(
                         containerSize = coordinates.size
                     }
                     .pointerInput(Unit) {
+                        detectTransformGestures(
+                            onGesture = { centroid, pan, zoom, rotation ->
+                                scale *= zoom
+                                scale = scale.coerceIn(0.5f, 5f) // 限制缩放范围
+                                Log.d("PdfScreen", "缩放: scale=$scale")
+                                offset += pan
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = { tapOffset ->
                                 Log.d("PdfScreen", "双击屏幕，切换全屏")
                                 contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                Log.d("PdfScreen", "长按开始，scale=$scale")
-                            },
-                            onDrag = { change, dragAmount ->
-                                offset += dragAmount
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                Log.d("PdfScreen", "拖拽结束")
-                            },
-                            onDragCancel = {
-                                Log.d("PdfScreen", "拖拽取消")
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectTransformGestures(
-                            onGesture = { centroid, pan, zoom, rotation ->
-                                if (zoom != 1f) {
-                                    scale *= zoom
-                                    Log.d("PdfScreen", "缩放: scale=$scale")
-                                }
-                                offset += pan
                             }
                         )
                     }
