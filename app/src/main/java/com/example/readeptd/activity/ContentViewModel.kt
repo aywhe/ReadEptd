@@ -29,7 +29,7 @@ class ContentViewModel(
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
-    
+
     // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
     private var currentFileUri: String? = null
 
@@ -37,6 +37,7 @@ class ContentViewModel(
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
         // ✅ 启动配置监听
         loadConfigData()
+        _configData.value = _configData.value.copy(isSwipeLayout = false)
         // 注意：数据需要通过外部传入，而不是从 SavedStateHandle 获取
         // 因为我们是使用 Intent 传递的数据
     }

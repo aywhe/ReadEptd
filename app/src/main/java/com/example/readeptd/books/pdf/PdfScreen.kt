@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -468,6 +472,70 @@ fun ScrollLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel
-){
-
+) {
+    val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val scope = rememberCoroutineScope()
+    
+    // 收集配置信息，获取夜间模式状态
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    
+    // 创建 LazyListState 用于控制滚动
+    val lazyListState = rememberLazyListState()
+    
+    // 监听页面跳转请求
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener { targetPage ->
+            scope.launch {
+                lazyListState.animateScrollToItem(targetPage)
+            }
+        }
+    }
+    
+    // 监听滚动位置变化，更新当前页码
+    LaunchedEffect(remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }) {
+        viewModel.onEvent(PdfEvent.OnPageChanged(lazyListState.firstVisibleItemIndex))
+    }
+    
+    // 使用 LazyColumn 实现垂直滚动布局，提升性能
+    LazyColumn(
+        state = lazyListState,
+        modifier = modifier.fillMaxSize()
+    ) {
+        items(totalPages) { page ->
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                viewModel.renderPage(page, 1)
+                val bitmap = viewModel.getPageBitmap(page)
+                
+                if (bitmap != null) {
+                    Image(
+                        modifier = Modifier.fillMaxWidth(),
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "PDF_Page_$page",
+                        contentScale = ContentScale.FillWidth,
+                        colorFilter = if (config.isNightMode) {
+                            ColorFilter.colorMatrix(
+                                ColorMatrix(
+                                    floatArrayOf(
+                                        -1f, 0f, 0f, 0f, 255f,
+                                        0f, -1f, 0f, 0f, 255f,
+                                        0f, 0f, -1f, 0f, 255f,
+                                        0f, 0f, 0f, 1f, 0f
+                                    )
+                                )
+                            )
+                        } else null
+                    )
+                } else {
+                    // 显示加载指示器
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+        }
+    }
 }
