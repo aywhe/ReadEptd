@@ -400,8 +400,9 @@ fun SwipeLayout(
     LaunchedEffect(pagerState.currentPage) {
         Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
         viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
-        val currentPage = pagerState.currentPage
-        viewModel.cleanupUnusedPages(currentPage)
+        // 使用 LinkedHashMap 实现 LRU 缓存，不需要手动清理过期页面
+        //val currentPage = pagerState.currentPage
+        //viewModel.cleanupUnusedPages(currentPage)
     }
     LaunchedEffect(Unit) {
         viewModel.setOnGoToPageListener {
