@@ -62,6 +62,7 @@ import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 
@@ -284,11 +285,11 @@ fun PdfLazyViewer(
                         )
                     }
                     .pointerInput(Unit) {
+                        delay(100)
                         detectTransformGestures(
                             onGesture = { centroid, pan, zoom, rotation ->
                                 scale *= zoom
                                 scale = scale.coerceIn(0.5f, 5f)
-                                //Log.d("Gesture", "缩放: scale=$scale")
                                 offset += pan
                             }
                         )
