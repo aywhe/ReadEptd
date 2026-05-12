@@ -794,6 +794,21 @@ fun SettingsDialog(
                     )
                 }
 
+                // 滑动布局开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("启用左右分页")
+                    Switch(
+                        checked = config.isSwipeLayout,
+                        onCheckedChange = { 
+                            viewModel.updateConfig { copy(isSwipeLayout = it) }
+                        }
+                    )
+                }
+
                 HorizontalDivider()
 
                 // TTS 设置按钮
