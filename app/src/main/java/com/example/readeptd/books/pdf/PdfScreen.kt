@@ -276,27 +276,16 @@ fun PdfLazyViewer(
                         containerSize = coordinates.size
                     }
                     .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = { tapOffset ->
+                                Log.d("PdfLazyViewer", "双击屏幕，切换全屏")
+                                contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
                         detectTransformGestures(
                             onGesture = { centroid, pan, zoom, rotation ->
-                                val isMultiTouch = zoom != 1f || rotation != 0f
-                                if (isMultiTouch) {
-                                    Log.d("Gesture", "多指操作")
-                                    isZoomMode = true
-                                }
-                                if (!isZoomMode) {
-                                    totalPanDistance += pan.getDistance()
-                                    Log.d("Gesture", "拖曳: totalPanDistance=$totalPanDistance")
-                                    val currentTime = System.currentTimeMillis()
-                                    if (currentTime - touchStartTime > longPressThreshold && totalPanDistance < panDistanceThreshold) {
-                                        isZoomMode = true
-                                        Log.d("Gesture", "进入缩放模式")
-                                        totalPanDistance = 0f // 重置累计距离
-                                    } else {
-                                        Log.d("Gesture", "未进入缩放模式")
-                                        return@detectTransformGestures
-                                    }
-                                }
-                                // ✅ 只有在缩放模式下或者双指操作时才处理缩放
                                 scale *= zoom
                                 scale = scale.coerceIn(0.5f, 5f)
                                 //Log.d("Gesture", "缩放: scale=$scale")
