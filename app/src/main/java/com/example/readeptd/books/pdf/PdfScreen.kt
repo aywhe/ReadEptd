@@ -260,6 +260,14 @@ fun PdfLazyViewer(
                         }
                     }
             }
+            var touchStartTime by remember { mutableStateOf(0L) }
+            val longPressThreshold = 300L // 毫秒
+            val panDistanceThreshold = 20f // 像素，长按后移动距离小于此值才允许缩放
+            
+            // ✅ 用于跟踪拖曳过程中的累计移动距离
+            var totalPanDistance by remember { mutableFloatStateOf(0f) }
+            var isZoomMode by remember { mutableStateOf(false) }
+            
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -271,16 +279,37 @@ fun PdfLazyViewer(
                             onDoubleTap = { tapOffset ->
                                 Log.d("PdfScreen", "双击屏幕，切换全屏")
                                 contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                            },
+                            onPress = {
+                                touchStartTime = System.currentTimeMillis()
+                                isZoomMode = false
+                                totalPanDistance = 0f
                             }
                         )
                     }
                     .pointerInput(Unit) {
                         detectTransformGestures(
                             onGesture = { centroid, pan, zoom, rotation ->
-                                scale *= zoom
-                                scale = scale.coerceIn(0.5f, 5f) // 限制缩放范围
-                                Log.d("PdfScreen", "缩放: scale=$scale")
-                                offset += pan
+                                if(!isZoomMode){
+                                    totalPanDistance += pan.getDistance()
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - touchStartTime > longPressThreshold && totalPanDistance < panDistanceThreshold) {
+                                        isZoomMode = true
+                                        Log.d("PdfScreen", "进入缩放模式")
+                                        totalPanDistance = 0f // 重置累计距离
+                                    }
+                                }
+                                // ✅ 只有在缩放模式下或者双指操作时才处理缩放
+                                if (zoom != 1f) {
+                                    scale *= zoom
+                                    scale = scale.coerceIn(0.5f, 5f)
+                                    Log.d("PdfScreen", "缩放: scale=$scale")
+                                }
+                                
+                                // ✅ 单指且无缩放时，不处理平移（让上面的 detectDragGesturesAfterLongPress 处理）
+                                if (isZoomMode) {
+                                    offset += pan
+                                }
                             }
                         )
                     }
@@ -470,6 +499,7 @@ fun ScrollLayout(
     itemContent: @Composable (Int) -> Unit
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
+    val initialPage = viewModel.getInitialPage()
     val currentPage by viewModel.currentPage.collectAsState()
     val scope = rememberCoroutineScope()
     
@@ -477,7 +507,10 @@ fun ScrollLayout(
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
     
     // 创建 LazyListState 用于控制滚动
-    val lazyListState = rememberLazyListState()
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialPage,
+        initialFirstVisibleItemScrollOffset = 0
+    )
     
     // 监听页面跳转请求
     LaunchedEffect(Unit) {
