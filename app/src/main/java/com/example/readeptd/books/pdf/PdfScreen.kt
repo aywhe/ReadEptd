@@ -209,7 +209,8 @@ fun PdfLazyViewer(
                 ttsModel.clearCallbacks()
             }
         }
-        Box(modifier = modifier.fillMaxSize()
+        Box(modifier = modifier
+            .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
         ) {
             // ✅ 从 AppMemoryStore 获取当前文件的缩放信息（包含横竖屏两种状态）
@@ -261,8 +262,8 @@ fun PdfLazyViewer(
                     }
             }
             var touchStartTime by remember { mutableStateOf(0L) }
-            val longPressThreshold = 300L // 毫秒
-            val panDistanceThreshold = 20f // 像素，长按后移动距离小于此值才允许缩放
+            val longPressThreshold = 160L // 毫秒
+            val panDistanceThreshold = 20f // 像素
             
             // ✅ 用于跟踪拖曳过程中的累计移动距离
             var totalPanDistance by remember { mutableFloatStateOf(0f) }
@@ -275,41 +276,31 @@ fun PdfLazyViewer(
                         containerSize = coordinates.size
                     }
                     .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = { tapOffset ->
-                                Log.d("PdfScreen", "双击屏幕，切换全屏")
-                                contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                            },
-                            onPress = {
-                                touchStartTime = System.currentTimeMillis()
-                                isZoomMode = false
-                                totalPanDistance = 0f
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
                         detectTransformGestures(
                             onGesture = { centroid, pan, zoom, rotation ->
-                                if(!isZoomMode){
+                                val isMultiTouch = zoom != 1f || rotation != 0f
+                                if (isMultiTouch) {
+                                    Log.d("Gesture", "多指操作")
+                                    isZoomMode = true
+                                }
+                                if (!isZoomMode) {
                                     totalPanDistance += pan.getDistance()
+                                    Log.d("Gesture", "拖曳: totalPanDistance=$totalPanDistance")
                                     val currentTime = System.currentTimeMillis()
                                     if (currentTime - touchStartTime > longPressThreshold && totalPanDistance < panDistanceThreshold) {
                                         isZoomMode = true
-                                        Log.d("PdfScreen", "进入缩放模式")
+                                        Log.d("Gesture", "进入缩放模式")
                                         totalPanDistance = 0f // 重置累计距离
+                                    } else {
+                                        Log.d("Gesture", "未进入缩放模式")
+                                        return@detectTransformGestures
                                     }
                                 }
                                 // ✅ 只有在缩放模式下或者双指操作时才处理缩放
-                                if (zoom != 1f) {
-                                    scale *= zoom
-                                    scale = scale.coerceIn(0.5f, 5f)
-                                    Log.d("PdfScreen", "缩放: scale=$scale")
-                                }
-                                
-                                // ✅ 单指且无缩放时，不处理平移（让上面的 detectDragGesturesAfterLongPress 处理）
-                                if (isZoomMode) {
-                                    offset += pan
-                                }
+                                scale *= zoom
+                                scale = scale.coerceIn(0.5f, 5f)
+                                //Log.d("Gesture", "缩放: scale=$scale")
+                                offset += pan
                             }
                         )
                     }
@@ -478,7 +469,9 @@ fun SwipeLayout(
     ) { page ->
         val scrollState = rememberScrollState()
         Box(
-            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState),
             contentAlignment =
                 if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
                     Alignment.TopCenter
