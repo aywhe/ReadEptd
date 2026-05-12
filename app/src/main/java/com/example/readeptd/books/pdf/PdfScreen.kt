@@ -280,10 +280,8 @@ fun PdfLazyViewer(
                                 Log.d("PdfScreen", "长按开始，scale=$scale")
                             },
                             onDrag = { change, dragAmount ->
-                                if (scale > 1f) {
-                                    offset += dragAmount
-                                    change.consume()
-                                }
+                                offset += dragAmount
+                                change.consume()
                             },
                             onDragEnd = {
                                 Log.d("PdfScreen", "拖拽结束")
@@ -299,9 +297,8 @@ fun PdfLazyViewer(
                                 if (zoom != 1f) {
                                     scale *= zoom
                                     Log.d("PdfScreen", "缩放: scale=$scale")
-                                } else if (scale > 1f) {
-                                    offset += pan
                                 }
+                                offset += pan
                             }
                         )
                     }
