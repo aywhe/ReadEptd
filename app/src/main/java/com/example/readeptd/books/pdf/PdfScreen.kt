@@ -414,28 +414,26 @@ fun SwipeLayout(
         state = pagerState,
         modifier = Modifier.fillMaxSize()
     ) { page ->
-        val contentAlignment =
-            if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                Alignment.TopCenter
-            } else {
-                Alignment.Center
-            }
+        val scrollState = rememberScrollState()
         Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = contentAlignment,
-        ) {
-            val scrollState = rememberScrollState()
-            val modifierImage: Modifier =
+            modifier =
                 if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
                     Modifier.fillMaxSize().verticalScroll(scrollState)
                 } else {
                     Modifier.fillMaxSize()
-                }
+                },
+            contentAlignment =
+                if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    Alignment.TopCenter
+                } else {
+                    Alignment.Center
+                },
+        ) {
             viewModel.renderPage(page, 1)
             val bitmap = viewModel.getPageBitmap(page)
             if (bitmap != null) {
                 Image(
-                    modifier = modifierImage,
+                    modifier = Modifier,
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
                     contentScale = ContentScale.FillWidth,
@@ -487,14 +485,36 @@ fun ScrollLayout(
     LaunchedEffect(Unit) {
         viewModel.setOnGoToPageListener { targetPage ->
             scope.launch {
-                lazyListState.animateScrollToItem(targetPage)
+                lazyListState.scrollToItem(targetPage)
             }
         }
     }
     
-    // 监听滚动位置变化，更新当前页码
-    LaunchedEffect(remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }) {
-        viewModel.onEvent(PdfEvent.OnPageChanged(lazyListState.firstVisibleItemIndex))
+    // 监听滚动位置变化，更新当前页码（使用可见区域中间的页码）
+    val centerPageIndex by remember {
+        derivedStateOf {
+            val layoutInfo = lazyListState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            
+            if (visibleItems.isNotEmpty()) {
+                // 计算中间位置
+                val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+                
+                // 找到最接近视口中心的 item
+                val centerItem = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }
+                
+                centerItem?.index ?: 0
+            } else {
+                0
+            }
+        }
+    }
+    
+    LaunchedEffect(centerPageIndex) {
+        viewModel.onEvent(PdfEvent.OnPageChanged(centerPageIndex))
     }
     
     // 使用 LazyColumn 实现垂直滚动布局，提升性能

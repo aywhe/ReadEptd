@@ -37,7 +37,7 @@ class ContentViewModel(
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
         // ✅ 启动配置监听
         loadConfigData()
-        _configData.value = _configData.value.copy(isSwipeLayout = false)
+        //_configData.value = _configData.value.copy(isSwipeLayout = false)
         // 注意：数据需要通过外部传入，而不是从 SavedStateHandle 获取
         // 因为我们是使用 Intent 传递的数据
     }
