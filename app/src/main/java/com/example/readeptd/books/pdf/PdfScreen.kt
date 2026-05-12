@@ -267,20 +267,20 @@ fun PdfLazyViewer(
                         containerSize = coordinates.size
                     }
                     .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = { tapOffset ->
+                                Log.d("PdfScreen", "双击屏幕，切换全屏")
+                                contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
                         detectTransformGestures(
                             onGesture = { centroid, pan, zoom, rotation ->
                                 scale *= zoom
                                 scale = scale.coerceIn(0.5f, 5f) // 限制缩放范围
                                 Log.d("PdfScreen", "缩放: scale=$scale")
                                 offset += pan
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = { tapOffset ->
-                                Log.d("PdfScreen", "双击屏幕，切换全屏")
-                                contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
                             }
                         )
                     }
@@ -298,36 +298,39 @@ fun PdfLazyViewer(
                     viewModel = viewModel,
                     contentViewModel = contentViewModel
                 ){ page->
-                    viewModel.renderPage(page, 1)
-                    val bitmap = viewModel.getPageBitmap(page)
-                    if (bitmap != null) {
-                        Image(
-                            modifier = Modifier,
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "PDF_Page_$page",
-                            contentScale = ContentScale.FillWidth,
-                            colorFilter = if (config.isNightMode) {
-                                ColorFilter.colorMatrix(
-                                    ColorMatrix(
-                                        floatArrayOf(
-                                            -1f, 0f, 0f, 0f, 255f,
-                                            0f, -1f, 0f, 0f, 255f,
-                                            0f, 0f, -1f, 0f, 255f,
-                                            0f, 0f, 0f, 1f, 0f
+                    Box(modifier = Modifier.fillMaxSize()
+                    ) {
+                        viewModel.renderPage(page, 1)
+                        val bitmap = viewModel.getPageBitmap(page)
+                        if (bitmap != null) {
+                            Image(
+                                modifier = Modifier,
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "PDF_Page_$page",
+                                contentScale = ContentScale.FillWidth,
+                                colorFilter = if (config.isNightMode) {
+                                    ColorFilter.colorMatrix(
+                                        ColorMatrix(
+                                            floatArrayOf(
+                                                -1f, 0f, 0f, 0f, 255f,
+                                                0f, -1f, 0f, 0f, 255f,
+                                                0f, 0f, -1f, 0f, 255f,
+                                                0f, 0f, 0f, 1f, 0f
+                                            )
                                         )
                                     )
-                                )
-                            } else null
-                        )
-                    } else {
-                        Log.d("PdfLazyViewer", "PDF page $page bmp is null")
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(40.dp)
+                                } else null
                             )
+                        } else {
+                            Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
                         }
                     }
                 }
