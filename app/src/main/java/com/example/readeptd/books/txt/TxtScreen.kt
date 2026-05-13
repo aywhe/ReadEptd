@@ -54,6 +54,7 @@ import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.JumpToProgressDialog
 import kotlinx.coroutines.launch
 
 @Composable
@@ -177,9 +178,15 @@ fun TxtScreen(
                                 }
                             }
                             LaunchedEffect(currentPage) {
-                                contentViewModel.updateProgressText(
-                                    "${currentPage + 1}/${viewModel.getPagesCount()}"
-                                )
+                                if(config.isSwipeLayout){
+                                    contentViewModel.updateProgressText(
+                                        "${currentPage + 1}/${viewModel.getPagesCount()}"
+                                    )
+                                } else {
+                                    contentViewModel.updateProgressText(
+                                        "${(viewModel.getProgress() * 100).toInt()}%"
+                                    )
+                                }
                             }
 
                             DisposableEffect(Unit) {
@@ -234,7 +241,8 @@ fun TxtScreen(
                                 viewModel = viewModel
                             ){ page ->
                                 Log.d("TxtScreen", "当前页: $page")
-                                val pageContent = viewModel.getPageContent(page)
+                                // 注意：TextChunk保留不同TextChunk之间的换行信息，但是显示的时候，每个页面独立，不需要拼接，所以删除末尾的换行信息
+                                val pageContent = viewModel.getPageContent(page).trimEnd()
                                 val pageAnnotatedContent =
                                     if (isShowSearchDialog) highLightText(
                                         pageContent,
@@ -249,19 +257,34 @@ fun TxtScreen(
                                 )
                             }
                             if(isShowJumpToPageDialog){
-                                JumpToPageDialog(
-                                    currentPage = currentPage,
-                                    totalPages = viewModel.getPagesCount(),
-                                    onDismiss = {
-                                        isShowJumpToPageDialog = false
-                                    },
-                                    onConfirm = {
-                                        scope.launch {
-                                            viewModel.goToPage(it)
+                                if(config.isSwipeLayout) {
+                                    JumpToPageDialog(
+                                        currentPage = currentPage,
+                                        totalPages = viewModel.getPagesCount(),
+                                        onDismiss = {
+                                            isShowJumpToPageDialog = false
+                                        },
+                                        onConfirm = {
+                                            scope.launch {
+                                                viewModel.goToPage(it)
+                                            }
+                                            isShowJumpToPageDialog = false
                                         }
-                                        isShowJumpToPageDialog = false
-                                    }
-                                )
+                                    )
+                                } else {
+                                    JumpToProgressDialog(
+                                        progress = viewModel.getProgress(),
+                                        onDismiss = {
+                                            isShowJumpToPageDialog = false
+                                        },
+                                        onConfirm = {
+                                            scope.launch {
+                                                viewModel.goToPage(viewModel.findPageByProgress(it))
+                                            }
+                                            isShowJumpToPageDialog = false
+                                        }
+                                    )
+                                }
                             }
                             SlideInSearchPanel(
                                 initialVisible = isShowSearchDialog,

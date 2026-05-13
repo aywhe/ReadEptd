@@ -338,6 +338,18 @@ class TxtViewModel(
         _currentPage.value = targetPageIndex
     }
 
+    fun getProgress(): Float{
+        val savedState = currentReadingState
+        if (savedState == null || _pages.value.isEmpty()) {
+            return 0f
+        }
+        return savedState.progress
+    }
+
+    fun findPageByProgress(progress: Float): Int {
+        val charOffset = (progress * _pages.value.last().endPos).toLong()
+        return findPageByCharOffset(charOffset)
+    }
     /**
      * 根据字符偏移量查找对应的页码
      */
@@ -388,7 +400,8 @@ class TxtViewModel(
         pageIndex: Int
     ) {
         val progress =
-            if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
+            if (_pages.value.isNotEmpty()) _pages.value[pageIndex].startPos.toFloat() / _pages.value.last().endPos else 0f
+            //if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
         val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
         val state = ReadingState.Txt(
