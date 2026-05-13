@@ -632,6 +632,7 @@ const ReaderCore = {
     setupStartListener() {
         AppState.rendition.on("started", () => {
             console.log('Rendition started');
+            ThemeBridge.applyThemeToEpub();
             if(AppState.rendition.manager){
                 this.hookMappingFunctions();
                 AppState.rendition.manager.on("scroll", UtilsTool.debounce((position) => {
@@ -671,32 +672,31 @@ const ReaderCore = {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
             this.setupDoubleClickHandler(view);
-            ThemeBridge.applyThemeToEpub();
         });
     },
 
     setupDoubleClickHandler(view) {
-            const contents = view.contents;
-            if (contents && contents.window) {
-                // ✅ 检查是否已经注册过
-                if (contents._doubleClickHandlerRegistered) {
-                    console.log('Double click handler already registered for this view');
-                    return;
-                }
-
-                contents.window.addEventListener('dblclick', (e) => {
-                    console.log('Double click detected!');
-                    const navPanel = document.getElementById('nav-panel');
-                    if (navPanel.style.display === 'block') { return; }
-
-                    AndroidBridge.onDoubleClick();
-                    e.preventDefault();
-                });
-
-                // ✅ 标记为已注册
-                contents._doubleClickHandlerRegistered = true;
+        const contents = view.contents;
+        if (contents && contents.window) {
+            // ✅ 检查是否已经注册过
+            if (contents._doubleClickHandlerRegistered) {
+                console.log('Double click handler already registered for this view');
+                return;
             }
-        },
+
+            contents.window.addEventListener('dblclick', (e) => {
+                console.log('Double click detected!');
+                const navPanel = document.getElementById('nav-panel');
+                if (navPanel.style.display === 'block') { return; }
+
+                AndroidBridge.onDoubleClick();
+                e.preventDefault();
+            });
+
+            // ✅ 标记为已注册
+            contents._doubleClickHandlerRegistered = true;
+        }
+    },
 
     setupAttachedListener() {
         AppState.rendition.on("attached", () => {
