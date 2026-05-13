@@ -800,7 +800,7 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("启用左右分页")
+                    Text("左右分页")
                     Switch(
                         checked = config.isSwipeLayout,
                         onCheckedChange = { 

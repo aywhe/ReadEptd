@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +56,8 @@ import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.JumpToProgressDialog
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 @Composable
@@ -466,31 +469,30 @@ fun TxtScrollLayout(
         }
     }
 
-    // 监听滚动位置变化，更新当前页码（使用可见区域中间的页码）
-    val centerPageIndex by remember {
-        derivedStateOf {
+    // 使用 snapshotFlow 监听滚动位置变化
+    LaunchedEffect(lazyListState) {
+        snapshotFlow { 
             val layoutInfo = lazyListState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
-
+            
             if (visibleItems.isNotEmpty()) {
-                // 计算中间位置
                 val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
-
-                // 找到最接近视口中心的 item
+                
                 val centerItem = visibleItems.minByOrNull { item ->
                     val itemCenter = item.offset + item.size / 2
                     kotlin.math.abs(itemCenter - viewportCenter)
                 }
-
-                centerItem?.index ?: 0
+                
+                centerItem?.index
             } else {
-                0
+                null
             }
         }
-    }
-    
-    LaunchedEffect(centerPageIndex) {
-        viewModel.onEvent(TxtEvent.OnPageChanged(centerPageIndex))
+        .filterNotNull()
+        .distinctUntilChanged()
+        .collect { centerIndex ->
+            viewModel.onEvent(TxtEvent.OnPageChanged(centerIndex))
+        }
     }
 
     // 使用 LazyColumn 实现垂直滚动布局，提升性能
