@@ -14,6 +14,7 @@ const AppState = {
     handleSearchCompleted: null,
     tableOfContents: [],
     isThemeRegistered: false,
+    isMappingHooked: false,
     config: {},
 
     // 按钮拖动状态
@@ -37,6 +38,7 @@ const AppState = {
         this.handleSearchCompleted = null;
         this.isThemeRegistered = false;
         this.tableOfContents = [];
+        this.isMappingHooked = false;
     }
 };
 
@@ -808,9 +810,15 @@ const ReaderCore = {
     },
 
     hookMappingFunctions() {
+        // ✅ 防止重复绑定
+        if (AppState.isMappingHooked) {
+            console.log('Mapping functions already hooked, skip');
+            return;
+        }
         if (AppState.rendition && AppState.rendition.manager) {
             console.log('Hooking manager updateLayout to replace mapping functions...');
             const originalUpdateLayout = AppState.rendition.manager.updateLayout.bind(AppState.rendition.manager);
+
             AppState.rendition.manager.updateLayout = function() {
                 originalUpdateLayout();
                 if (this.mapping) {
@@ -827,6 +835,8 @@ const ReaderCore = {
                     };
                 }
             };
+            // ✅ 标记为已绑定
+            this.isMappingHooked = true;
         }
     }
 };
