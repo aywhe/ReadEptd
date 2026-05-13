@@ -180,9 +180,7 @@ fun TxtScreen(
                                     isShowSearchDialog = !isShowSearchDialog
                                 }
                             }
-
                             LaunchedEffect(currentPage) {
-                                viewModel.onEvent(TxtEvent.OnPageChanged(currentPage))
                                 contentViewModel.updateProgressText(
                                     "${currentPage + 1}/${viewModel.getPagesCount()}"
                                 )
@@ -394,6 +392,7 @@ fun TxtSwipeLayout(
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ){
+    val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialPage.coerceIn(
             0,
@@ -401,6 +400,18 @@ fun TxtSwipeLayout(
         ),
         pageCount = { viewModel.getPagesCount() }
     )
+
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                pagerState.scrollToPage(it)
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+    }
     HorizontalPager(
         state = pagerState,
         modifier = Modifier.fillMaxSize(),
@@ -426,6 +437,15 @@ fun TxtScrollLayout(
         initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
         initialFirstVisibleItemScrollOffset = 0
     )
+
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                lazyListState.scrollToItem(it)
+            }
+        }
+    }
+
     // 监听滚动位置变化，更新当前页码（使用可见区域中间的页码）
     val centerPageIndex by remember {
         derivedStateOf {

@@ -79,6 +79,9 @@ class TxtViewModel(
     val currentFontSizeSp: Int get() = fontSizeSp
     val currentLineHeightSp: Int get() = lineHeightSp
 
+    private var _onGoToPageListener: ((Int) -> Unit)? = null
+
+
     /**
      * 处理 UI 事件
      */
@@ -404,9 +407,14 @@ class TxtViewModel(
         saveProgress(state)
     }
 
+    fun setOnGoToPageListener(listener: (Int) -> Unit) {
+        _onGoToPageListener = listener
+    }
+
     fun goToPage(pageIndex: Int) {
         if (pageIndex in _pages.value.indices) {
             _currentPage.value = pageIndex
+            _onGoToPageListener?.invoke(pageIndex)
         }
     }
 
