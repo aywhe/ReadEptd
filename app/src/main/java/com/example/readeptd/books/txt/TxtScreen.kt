@@ -47,6 +47,7 @@ import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.AppMemoryStore
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import kotlinx.coroutines.launch
@@ -67,6 +68,8 @@ fun TxtScreen(
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    val currentPage by viewModel.currentPage.collectAsState()
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -161,17 +164,9 @@ fun TxtScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            val pagerState = rememberPagerState(
-                                initialPage = initialPage.coerceIn(
-                                    0,
-                                    viewModel.getPagesCount() - 1
-                                ),
-                                pageCount = { viewModel.getPagesCount() }
-                            )
-
                             LaunchedEffect(initialPage) {
                                 if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
-                                    pagerState.scrollToPage(initialPage)
+                                    viewModel.goToPage(initialPage)
                                 }
                             }
                             LaunchedEffect(Unit) {
@@ -183,10 +178,10 @@ fun TxtScreen(
                                 }
                             }
 
-                            LaunchedEffect(pagerState.currentPage) {
-                                viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+                            LaunchedEffect(currentPage) {
+                                viewModel.onEvent(TxtEvent.OnPageChanged(currentPage))
                                 contentViewModel.updateProgressText(
-                                    "${pagerState.currentPage + 1}/${viewModel.getPagesCount()}"
+                                    "${currentPage + 1}/${viewModel.getPagesCount()}"
                                 )
                             }
 
@@ -195,16 +190,15 @@ fun TxtScreen(
                                 // 当 TTS 开始朗读时,获取当前页文本并开始朗读
                                 ttsModel.setOnRequestSpeechStartListener {
                                     Log.d("TxtScreen", "开始朗读")
-                                    val text = viewModel.getPageContent(pagerState.currentPage)
+                                    val text = viewModel.getPageContent(currentPage)
                                     if (text.isNotBlank()) {
-                                        ttsModel.speak(text, "txt_${pagerState.currentPage}")
+                                        ttsModel.speak(text, "txt_${currentPage}")
                                     }
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
                                     val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                                    val currentPage = pagerState.currentPage
-                                    
+
                                     // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
                                     val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
                                         // 用户手动翻页，从当前页继续
@@ -219,7 +213,7 @@ fun TxtScreen(
                                         scope.launch {
                                             // 如果需要翻页（目标页不是当前页），先滚动
                                             if (targetPage != currentPage) {
-                                                pagerState.scrollToPage(targetPage)
+                                                viewModel.goToPage(targetPage)
                                             }
 
                                             // 朗读目标页
@@ -235,16 +229,21 @@ fun TxtScreen(
                                     ttsModel.clearCallbacks()
                                 }
                             }
+
                             var currentKeyword by remember { mutableStateOf("") }
-                            HorizontalPager(
-                                state = pagerState,
-                                modifier = Modifier.fillMaxSize(),
-                                beyondViewportPageCount = 10
-                            ) { page ->
+                            TxtLayoutWrapper(
+                                isSwipeLayout = config.isSwipeLayout,
+                                contentViewModel = contentViewModel,
+                                initialPage = initialPage,
+                                viewModel = viewModel
+                            ){ page ->
                                 Log.d("TxtScreen", "当前页: $page")
                                 val pageContent = viewModel.getPageContent(page)
                                 val pageAnnotatedContent =
-                                    if(isShowSearchDialog) highLightText(pageContent, currentKeyword)
+                                    if (isShowSearchDialog) highLightText(
+                                        pageContent,
+                                        currentKeyword
+                                    )
                                     else highLightText(pageContent, "")
                                 PageContent(
                                     pageAnnotatedContent = pageAnnotatedContent,
@@ -255,14 +254,14 @@ fun TxtScreen(
                             }
                             if(isShowJumpToPageDialog){
                                 JumpToPageDialog(
-                                    currentPage = pagerState.currentPage,
+                                    currentPage = currentPage,
                                     totalPages = viewModel.getPagesCount(),
                                     onDismiss = {
                                         isShowJumpToPageDialog = false
                                     },
                                     onConfirm = {
                                         scope.launch {
-                                            pagerState.scrollToPage(it)
+                                            viewModel.goToPage(it)
                                         }
                                         isShowJumpToPageDialog = false
                                     }
@@ -271,12 +270,12 @@ fun TxtScreen(
                             SlideInSearchPanel(
                                 initialVisible = isShowSearchDialog,
                                 onClose =  {isShowSearchDialog =  false},
-                                getCurrentPosition = {pagerState.currentPage},
+                                getCurrentPosition = {currentPage},
                                 onResultClick = {
                                     scope.launch {
                                         try{
                                             val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
-                                            pagerState.scrollToPage(pageIndex)
+                                            viewModel.goToPage(pageIndex)
                                         } catch (e: Exception){
                                             Log.e("TxtScreen", "跳转页失败: ${e.message}")
                                         }
@@ -357,4 +356,62 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
             append(content)
         }
     }
+}
+
+@Composable
+fun TxtLayoutWrapper(
+    modifier: Modifier = Modifier,
+    initialPage: Int = 0,
+    isSwipeLayout: Boolean,
+    contentViewModel: ContentViewModel,
+    viewModel: TxtViewModel,
+    pageContent: @Composable (Int) -> Unit
+    ) {
+        if (isSwipeLayout) {
+            TxtSwipeLayout(
+                modifier = modifier,
+                initialPage = initialPage,
+                viewModel = viewModel,
+                itemContent = pageContent
+            )
+        } else {
+            TxtScrollLayout(
+                modifier = modifier,
+                initialPage = initialPage,
+                viewModel = viewModel,
+                itemContent = pageContent
+            )
+        }
+}
+
+@Composable
+fun TxtSwipeLayout(
+    modifier: Modifier = Modifier,
+    initialPage: Int,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+){
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.coerceIn(
+            0,
+            viewModel.getPagesCount() - 1
+        ),
+        pageCount = { viewModel.getPagesCount() }
+    )
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+        beyondViewportPageCount = 10
+    ) { page ->
+        itemContent(page)
+    }
+}
+
+fun TxtScrollLayout(
+    modifier: Modifier = Modifier,
+    initialPage: Int,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+) {
+
 }

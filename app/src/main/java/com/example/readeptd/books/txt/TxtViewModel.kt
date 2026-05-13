@@ -404,6 +404,12 @@ class TxtViewModel(
         saveProgress(state)
     }
 
+    fun goToPage(pageIndex: Int) {
+        if (pageIndex in _pages.value.indices) {
+            _currentPage.value = pageIndex
+        }
+    }
+
     fun search(
         keyword: String,
         startPage: Int = 0,
