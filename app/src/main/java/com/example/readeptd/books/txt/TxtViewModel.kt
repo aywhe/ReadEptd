@@ -76,8 +76,12 @@ class TxtViewModel(
     val currentLineHeightSp: Int get() = lineHeightSp
 
     private var _onGoToPageListener: ((Int) -> Unit)? = null
+    private var _SplitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
 
 
+    fun setSplitPagesMode(mode: SplitPagesMode) {
+        _SplitPagesMode = mode
+    }
     /**
      * 处理 UI 事件
      */
@@ -146,7 +150,7 @@ class TxtViewModel(
                 reinitPagesIfNeeded()
             }
         } else {
-            Log.d(TAG, "全屏切换中，跳过重新分页")
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -174,8 +178,12 @@ class TxtViewModel(
         Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -188,8 +196,12 @@ class TxtViewModel(
         Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -254,7 +266,90 @@ class TxtViewModel(
     /**
      * 初始化分页（保证串行执行，避免并发问题）
      */
-    suspend fun initPages() {
+    private suspend fun initPages() {
+        when (_SplitPagesMode) {
+            SplitPagesMode.ByLayoutSize -> {
+                generateLayoutSizePages()
+            }
+            SplitPagesMode.ByCharsCount -> {
+                generateCharsCountPages()
+            }
+        }
+    }
+    private suspend fun generateCharsCountPages() {
+        // 重置分页状态
+        _isPagesReady.value = false
+        val charCountThreshold = 512
+
+        // 使用 Mutex 保证同一时间只有一个分页任务在执行
+        pagesMutex.withLock {
+
+            // 从 UI 状态中获取临时文件路径
+            val currentState = uiState.value
+            if (currentState !is BookUiState.Ready) {
+                Log.d(TAG, "文件未准备好，当前状态: $currentState")
+                return@withLock
+            }
+            if(_pages.value.isNotEmpty()){
+                Log.d(TAG, "分页已存在，对于该模式${_SplitPagesMode}，只需要分页一次，跳过分页")
+                return@withLock
+            }
+
+            try {
+                // 使用临时可变列表
+                val tempPages = mutableListOf<TextChunk>()
+                var index: Int = 0
+                var charOffset: Long = 0
+                val text = StringBuilder()
+
+                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
+                    if(text.isNotEmpty()){
+                        text.append("\n")
+                    }
+                    text.append(line)
+                    // 判断是否达到字符阈值
+                    if(text.length >= charCountThreshold){
+                        val chunk = TextChunk(
+                            content = text.toString(),
+                            index = index,
+                            startPos = charOffset,
+                            endPos = charOffset + text.length
+                        )
+                        tempPages.add(chunk)
+                        // 更新字符偏移量
+                        charOffset += text.length
+                        text.clear()
+                        index++
+                    }
+                }
+                // 剩余的内容
+                if(text.isNotEmpty()){
+                    val chunk = TextChunk(
+                        content = text.toString(),
+                        index = index,
+                        startPos = charOffset,
+                        endPos = charOffset + text.length
+                    )
+                    tempPages.add(chunk)
+                }
+
+                // 赋值不可变列表给 StateFlow
+                _pages.value = tempPages.toList()
+
+                // 标记分页完成
+                _isPagesReady.value = true
+
+                Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
+
+                // 根据保存的阅读进度恢复页码
+                restorePageFromProgress()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "分页失败", e)
+            }
+        }
+    }
+    private suspend fun generateLayoutSizePages() {
         // 重置分页状态
         _isPagesReady.value = false
 

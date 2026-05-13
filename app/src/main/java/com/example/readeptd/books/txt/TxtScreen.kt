@@ -59,6 +59,7 @@ import com.example.readeptd.utils.JumpToProgressDialog
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun TxtScreen(
@@ -120,6 +121,13 @@ fun TxtScreen(
 
             is BookUiState.Ready -> {
                 var lastClickTime by remember { mutableStateOf(0L)}
+                viewModel.setSplitPagesMode(
+                    if(config.isSwipeLayout){
+                        SplitPagesMode.ByLayoutSize
+                    } else {
+                        SplitPagesMode.ByCharsCount
+                    }
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -187,7 +195,7 @@ fun TxtScreen(
                                     )
                                 } else {
                                     contentViewModel.updateProgressText(
-                                        "${(viewModel.getProgress() * 100).toInt()}%"
+                                        "${(viewModel.getProgress() * 100).roundToInt()}%"
                                     )
                                 }
                             }
