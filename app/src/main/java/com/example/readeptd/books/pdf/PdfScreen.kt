@@ -299,18 +299,23 @@ fun PdfLazyViewer(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val scrollState = rememberScrollState()
-                var contentAlignment = Alignment.Center
-                var modifier: Modifier? = null
-                if(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE){
-                    modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
-                    contentAlignment = Alignment.TopCenter
-                } else {
-                    modifier = Modifier.fillMaxSize()
-                    contentAlignment = Alignment.Center
-                }
                 Box(
-                    contentAlignment = contentAlignment,
+                    contentAlignment = if(isLandscape){
+                        Alignment.TopCenter
+                    } else {
+                        Alignment.Center
+                    },
                 ) {
+                    val colorMatrix = remember{
+                        ColorMatrix(
+                            floatArrayOf(
+                                -1f, 0f, 0f, 0f, 255f,
+                                0f, -1f, 0f, 0f, 255f,
+                                0f, 0f, -1f, 0f, 255f,
+                                0f, 0f, 0f, 1f, 0f
+                            )
+                        )
+                    }
                     viewModel.renderPage(currentPage, 1)
                     val bitmap = viewModel.getPageBitmap( page)
                     if (bitmap != null) {
@@ -320,23 +325,16 @@ fun PdfLazyViewer(
                             contentScale = ContentScale.FillWidth,
                             colorFilter = if (config.isNightMode) {
                                 ColorFilter.colorMatrix(
-                                    ColorMatrix(
-                                        floatArrayOf(
-                                            -1f, 0f, 0f, 0f, 255f,
-                                            0f, -1f, 0f, 0f, 255f,
-                                            0f, 0f, -1f, 0f, 255f,
-                                            0f, 0f, 0f, 1f, 0f
-                                        )
-                                    )
+                                    colorMatrix
                                 )
                             } else null,
-                            modifier = modifier
+                            modifier = Modifier.fillMaxSize()
                                 .graphicsLayer(
                                     scaleX = scale,
                                     scaleY = scale,
                                     translationX = offset.x,
                                     translationY = offset.y,
-                                )
+                                ).verticalScroll(scrollState)
                         )
                     } else {
                         Log.d("PdfLazyViewer", "PDF page $page bmp is null")
