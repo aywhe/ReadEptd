@@ -37,7 +37,6 @@ const AppState = {
         this.handleSearchCompleted = null;
         this.isThemeRegistered = false;
         this.tableOfContents = [];
-        this.config = {};
     }
 };
 
@@ -580,14 +579,15 @@ const ReaderCore = {
 
     updateConfig(configJson){
         // 更新AppState.config
+        console.log('update config: ', configJson)
         try {
             const newConfig = JSON.parse(configJson);
             AppState.config = { ...AppState.config, ...newConfig };
-            console.log('Config updated:', AppState.config);
+            console.log('Config updated:', JSON.stringify(AppState.config));
         } catch (e) {
             console.error('Failed to parse config JSON:', e);
         }
-    }
+    },
 
     createBook(epubUrl) {
         console.log('Creating ePub instance...');
@@ -597,9 +597,16 @@ const ReaderCore = {
 
     createRendition() {
         console.log('Creating renderer...');
-        // 如果 AppState.config 为空，或者 AppState.config.flowMode === paginated
-        const flowMode = AppState.config.flowMode === 'scrolled' ? 'scrolled' : 'paginated';
-        const snapEnabled = AppState.config.flowMode === 'scrolled' ? false : true;
+
+        // ✅ 安全地读取配置，提供默认值
+        const config = AppState.config || {};
+        const flowMode = config.flowMode === 'scrolled' ? 'scrolled' : 'paginated';
+        const snapEnabled = config.flowMode === 'scrolled' ? false : true;
+
+        console.log('Renderer config:', {
+            flow: flowMode,
+            snap: snapEnabled
+        });
 
         AppState.rendition = AppState.book.renderTo("viewer", {
             width: "100%",
@@ -818,7 +825,7 @@ const ReaderCore = {
 // ============================================
 // 主题相关接口
 // ============================================
-const ThemeBridge{
+const ThemeBridge = {
 
     applyThemeToEpub() {
         try {
@@ -877,7 +884,7 @@ const ThemeBridge{
             console.error('Error applying theme to epub:', error.stack);
         }
     }
-}
+};
 
 // ============================================
 // 页面操作模块
