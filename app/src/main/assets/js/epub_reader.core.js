@@ -665,7 +665,7 @@ const ReaderCore = {
 
     setupRelocationListener() {
         AppState.rendition.on("relocated", UtilsTool.debounce((location) => {
-            console.log('Page relocated:', location);
+            console.log('Page relocated:', JSON.stringify(location));
             AndroidBridge.onPageChanged(JSON.stringify(location));
             UIManager.highlightCurrentChapter(location.end.href);
         },500));
