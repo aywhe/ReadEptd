@@ -90,6 +90,7 @@ import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import sh.calvin.reorderable.ReorderableItem
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -660,7 +661,7 @@ fun FileItemCard(
                         // 显示阅读进度
                         progress?.let { progress ->
                             Text(
-                                text = "${(progress * 100).toInt()}%",
+                                text = "${(progress * 100).roundToInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
