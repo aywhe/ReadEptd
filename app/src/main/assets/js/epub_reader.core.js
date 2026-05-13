@@ -603,9 +603,15 @@ const ReaderCore = {
         const flowMode = config.flowMode === 'scrolled' ? 'scrolled' : 'paginated';
         const snapEnabled = config.flowMode === 'scrolled' ? false : true;
 
+        // ✅ 从 CSS 变量读取 padding 值
+        const computedStyle = getComputedStyle(document.documentElement);
+        const paddingHorizontal = parseInt(computedStyle.getPropertyValue('--epub-padding-horizontal').trim()) || 20;
+        const paddingVertical = parseInt(computedStyle.getPropertyValue('--epub-padding-vertical').trim()) || 15;
+
         console.log('Renderer config:', {
             flow: flowMode,
-            snap: snapEnabled
+            snap: snapEnabled,
+            padding: { horizontal: paddingHorizontal, vertical: paddingVertical }
         });
 
         AppState.rendition = AppState.book.renderTo("viewer", {
@@ -614,8 +620,11 @@ const ReaderCore = {
             flow: flowMode,
             manager: "continuous",
             spread: "auto",
-            snap: snapEnabled
+            snap: snapEnabled,
+            // ✅ 设置 page 的内边距（仅对 paginated 模式有效）
+            gap: paddingHorizontal * 2  // epub.js 的 gap 是两页之间的间距
         });
+
         console.log('Renderer created');
     },
 
@@ -842,7 +851,7 @@ const ThemeBridge = {
                 return;
             }
 
-            // ✅ 从 CSS 文件中动态读取颜色值
+            // ✅ 从 CSS 文件中动态读取颜色值和 padding
             const computedStyle = getComputedStyle(document.documentElement);
             const colors = {
                 background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
@@ -852,11 +861,31 @@ const ThemeBridge = {
                 selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
             };
 
+            // ✅ 从 CSS 变量读取 padding 值
+            const paddingVertical = computedStyle.getPropertyValue('--epub-padding-vertical').trim() || '15px';
+            const paddingHorizontal = computedStyle.getPropertyValue('--epub-padding-horizontal').trim() || '20px';
+
+            console.log('Applying theme with padding:', {
+                vertical: paddingVertical,
+                horizontal: paddingHorizontal
+            });
+
             // ✅ 方式二：传入规则对象（符合官方文档）
             const rules = {
+                'html': {
+                    'padding': '0 !important',
+                    'margin': '0 !important'
+                },
                 'body': {
-                    'background-color': colors.background,
-                    'color': colors.textPrimary
+                    'background-color': colors.background + ' !important',
+                    'color': colors.textPrimary + ' !important',
+                    // ✅ 使用 !important 强制覆盖 EPUB 自带样式
+                    'padding': `${paddingVertical} ${paddingHorizontal} !important`,
+                    'margin': '0 !important',
+                    'box-sizing': 'border-box'
+                },
+                '*': {
+                    'box-sizing': 'inherit'
                 },
                 'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
                     'color': colors.textPrimary + ' !important',
@@ -880,6 +909,7 @@ const ThemeBridge = {
             AppState.isThemeRegistered = true;
 
             console.log(`Epub.js theme applied via rules object: ${themeName}`);
+            console.log(`Padding applied: ${paddingVertical} ${paddingHorizontal}`);
         } catch (error) {
             console.error('Error applying theme to epub:', error.stack);
         }
