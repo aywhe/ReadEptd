@@ -512,42 +512,46 @@ fun PdfScrollLayout(
             )
         )
     }
+
     // 使用 LazyColumn 实现垂直滚动布局，提升性能
-    LazyColumn(
-        state = lazyListState,
-        modifier = modifier.fillMaxSize()
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                translationX = offset.x,
-                translationY = offset.y,
-            )
+    Box(modifier = modifier.fillMaxSize()
+        .graphicsLayer(
+            scaleX = scale,
+            scaleY = scale,
+            translationX = offset.x,
+            translationY = offset.y,
+        )
     ) {
-        items(totalPages) { page ->
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                viewModel.renderPage(page, 1)
-                val bitmap = viewModel.getPageBitmap(page)
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "PDF_Page_$page",
-                        contentScale = ContentScale.FillWidth,
-                        colorFilter = if (config.isNightMode) {
-                            ColorFilter.colorMatrix(colorMatrix)
-                        } else null
-                    )
-                } else {
-                    Log.d("PdfLazyViewer", "PDF page $page bmp is null")
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(40.dp)
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(totalPages) { page ->
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    viewModel.renderPage(page, 1)
+                    val bitmap = viewModel.getPageBitmap(page)
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "PDF_Page_$page",
+                            contentScale = ContentScale.FillWidth,
+                            colorFilter = if (config.isNightMode) {
+                                ColorFilter.colorMatrix(colorMatrix)
+                            } else null
                         )
+                    } else {
+                        Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
                     }
                 }
             }
