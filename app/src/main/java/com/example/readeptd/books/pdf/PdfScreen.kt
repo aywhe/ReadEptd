@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -135,11 +134,11 @@ fun PdfLazyViewer(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
 
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
     // ✅ 根据当前屏幕方向获取对应的缩放状态
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -155,6 +154,7 @@ fun PdfLazyViewer(
 
     if (totalPages > 0) {
         var containerSize by remember { mutableStateOf(IntSize.Zero) }
+        var isShowJumpToPageDialog by remember { mutableStateOf(false) }
         var isShowSearchDialog by remember { mutableStateOf(false) }
 
         LaunchedEffect(currentPage) {
@@ -262,14 +262,6 @@ fun PdfLazyViewer(
                         }
                     }
             }
-            var touchStartTime by remember { mutableStateOf(0L) }
-            val longPressThreshold = 160L // 毫秒
-            val panDistanceThreshold = 20f // 像素
-            
-            // ✅ 用于跟踪拖曳过程中的累计移动距离
-            var totalPanDistance by remember { mutableFloatStateOf(0f) }
-            var isZoomMode by remember { mutableStateOf(false) }
-            
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -294,55 +286,21 @@ fun PdfLazyViewer(
                             }
                         )
                     }
-                    .graphicsLayer(
-                        scaleX = scale,
-                        scaleY = scale,
-                        translationX = offset.x,
-                        translationY = offset.y,
-                    )
             ) {
-                val config by contentViewModel.configData.collectAsStateWithLifecycle()
-                PdfLayoutWrapper(
-                    isSwipeLayout = config.isSwipeLayout,
-                    modifier = Modifier.fillMaxSize(),
-                    viewModel = viewModel,
-                    contentViewModel = contentViewModel
-                ){ page->
-                    Box(modifier = Modifier.fillMaxSize()
-                    ) {
-                        viewModel.renderPage(page, 1)
-                        val bitmap = viewModel.getPageBitmap(page)
-                        if (bitmap != null) {
-                            Image(
-                                modifier = Modifier,
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "PDF_Page_$page",
-                                contentScale = ContentScale.FillWidth,
-                                colorFilter = if (config.isNightMode) {
-                                    ColorFilter.colorMatrix(
-                                        ColorMatrix(
-                                            floatArrayOf(
-                                                -1f, 0f, 0f, 0f, 255f,
-                                                0f, -1f, 0f, 0f, 255f,
-                                                0f, 0f, -1f, 0f, 255f,
-                                                0f, 0f, 0f, 1f, 0f
-                                            )
-                                        )
-                                    )
-                                } else null
-                            )
-                        } else {
-                            Log.d("PdfLazyViewer", "PDF page $page bmp is null")
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                        }
-                    }
+                if(config.isSwipeLayout){
+                    PdfSwipeLayout(
+                        contentViewModel = contentViewModel,
+                        viewModel = viewModel,
+                        scale = scale,
+                        offset = offset
+                    )
+                } else {
+                    PdfScrollLayout(
+                        contentViewModel = contentViewModel,
+                        viewModel = viewModel,
+                        scale = scale,
+                        offset = offset
+                    )
                 }
             }
             if (isShowJumpToPageDialog) {
@@ -395,40 +353,18 @@ fun PdfLazyViewer(
 }
 
 @Composable
-private fun PdfLayoutWrapper(
-    isSwipeLayout: Boolean,
-    contentViewModel: ContentViewModel,
-    viewModel: PdfViewModel,
-    modifier: Modifier = Modifier,
-    pageContent: @Composable (Int) -> Unit
-) {
-    if (isSwipeLayout) {
-        SwipeLayout(
-            contentViewModel = contentViewModel,
-            viewModel = viewModel,
-            modifier = modifier,
-            itemContent = pageContent
-        )
-    } else {
-        ScrollLayout(
-            contentViewModel = contentViewModel,
-            viewModel = viewModel,
-            modifier = modifier,
-            itemContent = pageContent
-        )
-    }
-}
-@Composable
-fun SwipeLayout(
+fun PdfSwipeLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
-    itemContent: @Composable (Int) -> Unit
+    scale: Float,
+    offset: Offset,
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val initialPage = viewModel.getInitialPage()
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
 
@@ -453,33 +389,69 @@ fun SwipeLayout(
             }
         }
     }
+    val scrollState = rememberScrollState()
+    val colorMatrix = remember{
+        ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    }
     HorizontalPager(
         state = pagerState,
         modifier = Modifier.fillMaxSize()
     ) { page ->
-        val scrollState = rememberScrollState()
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-            contentAlignment =
-                if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                    Alignment.TopCenter
-                } else {
-                    Alignment.Center
-                },
+        Box(modifier = Modifier.fillMaxSize(),
+            contentAlignment = if(isLandscape){
+                Alignment.TopCenter
+            } else {
+                Alignment.Center
+            },
         ) {
-            itemContent(page)
+            viewModel.renderPage(page, 1)
+            val bitmap = viewModel.getPageBitmap(page)
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "PDF_Page_$page",
+                    contentScale = ContentScale.FillWidth,
+                    colorFilter = if (config.isNightMode) {
+                        ColorFilter.colorMatrix(colorMatrix)
+                    } else null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y,
+                        ).verticalScroll(scrollState)
+                )
+            } else {
+                Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-fun ScrollLayout(
+fun PdfScrollLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
-    itemContent: @Composable (Int) -> Unit
+    scale: Float,
+    offset: Offset
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val initialPage = viewModel.getInitialPage()
@@ -530,18 +502,54 @@ fun ScrollLayout(
     LaunchedEffect(centerPageIndex) {
         viewModel.onEvent(PdfEvent.OnPageChanged(centerPageIndex))
     }
-    
+    val colorMatrix = remember{
+        ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    }
     // 使用 LazyColumn 实现垂直滚动布局，提升性能
     LazyColumn(
         state = lazyListState,
         modifier = modifier.fillMaxSize()
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                translationX = offset.x,
+                translationY = offset.y,
+            )
     ) {
         items(totalPages) { page ->
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                itemContent(page)
+                viewModel.renderPage(page, 1)
+                val bitmap = viewModel.getPageBitmap(page)
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "PDF_Page_$page",
+                        contentScale = ContentScale.FillWidth,
+                        colorFilter = if (config.isNightMode) {
+                            ColorFilter.colorMatrix(colorMatrix)
+                        } else null
+                    )
+                } else {
+                    Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
             }
         }
     }
