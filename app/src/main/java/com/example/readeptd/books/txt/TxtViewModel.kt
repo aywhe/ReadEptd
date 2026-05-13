@@ -58,6 +58,9 @@ class TxtViewModel(
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
     private var jobSetAllowRePagination: Job? = null
+    
+    // 用于防抖的 Job，避免频繁重新分页
+    private var rePaginationDebounceJob: Job? = null
 
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -252,14 +255,34 @@ class TxtViewModel(
             return
         }
 
-        Log.d(TAG, "分页参数变化: $lastCharsParams -> $newCharsParams，开始重新分页")
+        Log.d(TAG, "分页参数变化: $lastCharsParams -> $newCharsParams，准备重新分页")
 
-        // 取消之前的分页任务
-        currentPageJob?.cancel()
+        // 取消之前的防抖任务
+        rePaginationDebounceJob?.cancel()
 
-        // 启动新的分页任务
-        currentPageJob = viewModelScope.launch {
-            initPages()
+        // 启动新的防抖任务，延迟 300ms 执行，等待视图稳定
+        rePaginationDebounceJob = viewModelScope.launch {
+            delay(300)
+            
+            // 再次检查参数是否真的变化了（防止在延迟期间又发生了变化）
+            val finalCharsParams = calculatePageCharsParams()
+            if (lastCharsParams != null &&
+                lastCharsParams?.avgCharsPerLine == finalCharsParams.avgCharsPerLine &&
+                lastCharsParams?.maxLinesPerPage == finalCharsParams.maxLinesPerPage
+            ) {
+                Log.d(TAG, "延迟后参数未变化，跳过重新分页")
+                return@launch
+            }
+            
+            Log.d(TAG, "视图已稳定，开始重新分页")
+            
+            // 取消之前正在执行的分页任务
+            currentPageJob?.cancel()
+            
+            // 启动新的分页任务
+            currentPageJob = launch {
+                initPages()
+            }
         }
     }
 
@@ -277,21 +300,21 @@ class TxtViewModel(
         }
     }
     private suspend fun generateCharsCountPages() {
-        // 重置分页状态
-        _isPagesReady.value = false
-        val charCountThreshold = 512
 
         // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
+            if(_pages.value.isNotEmpty()){
+                Log.d(TAG, "分页已存在，对于该模式${_SplitPagesMode}，只需要分页一次，跳过分页")
+                return@withLock
+            }
+            // 重置分页状态
+            _isPagesReady.value = false
+            val charCountThreshold = 512
 
             // 从 UI 状态中获取临时文件路径
             val currentState = uiState.value
             if (currentState !is BookUiState.Ready) {
                 Log.d(TAG, "文件未准备好，当前状态: $currentState")
-                return@withLock
-            }
-            if(_pages.value.isNotEmpty()){
-                Log.d(TAG, "分页已存在，对于该模式${_SplitPagesMode}，只需要分页一次，跳过分页")
                 return@withLock
             }
 
