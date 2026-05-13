@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -21,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -407,11 +410,56 @@ fun TxtSwipeLayout(
     }
 }
 
+@Composable
 fun TxtScrollLayout(
     modifier: Modifier = Modifier,
     initialPage: Int,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ) {
-
+    val scope = rememberCoroutineScope()
+    val totalPages = viewModel.getPagesCount()
+    val currentPage by viewModel.currentPage.collectAsState()
+    
+    // 创建 LazyListState 用于控制滚动
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
+        initialFirstVisibleItemScrollOffset = 0
+    )
+    // 监听滚动位置变化，更新当前页码（使用可见区域中间的页码）
+    val centerPageIndex by remember {
+        derivedStateOf {
+            val layoutInfo = lazyListState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            
+            if (visibleItems.isNotEmpty()) {
+                // 计算中间位置
+                val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+                
+                // 找到最接近视口中心的 item
+                val centerItem = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }
+                
+                centerItem?.index ?: 0
+            } else {
+                0
+            }
+        }
+    }
+    
+    LaunchedEffect(centerPageIndex) {
+        viewModel.onEvent(TxtEvent.OnPageChanged(centerPageIndex))
+    }
+    
+    // 使用 LazyColumn 实现垂直滚动布局，提升性能
+    LazyColumn(
+        state = lazyListState,
+        modifier = modifier.fillMaxSize()
+    ) {
+        items(totalPages) { page ->
+            itemContent(page)
+        }
+    }
 }
