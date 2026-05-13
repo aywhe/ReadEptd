@@ -28,6 +28,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     private var currentTheme: EpubTheme = EpubTheme.Light
+    private var currentFlowMode: EpubFlowMode = EpubFlowMode.Paginated
 
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
@@ -167,6 +168,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.init('$epubFilePath', $cfiParam)") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
+    }
+
+    fun initFlowMode(epubFlowMode: EpubFlowMode){
+        currentFlowMode = epubFlowMode
+        Log.d(TAG, "设置流式模式: $epubFlowMode")
+    }
+
+    private fun setFlowMode(epubFlowMode: EpubFlowMode) {
+        currentFlowMode = epubFlowMode
+        val flowMode = when (epubFlowMode) {
+            EpubFlowMode.Paginated -> "paginated"
+            EpubFlowMode.Scrolled -> "scrolled"
+        }
+        
+        // ✅ 构建 JSON 配置对象
+        val configJson = """{"flowMode":"$flowMode"}"""
+        
+        Log.d(TAG, "执行 JavaScript 设置流式模式: $flowMode")
+        executeJs("window.EpubReader.updateConfig('$configJson')")
     }
 
     /**
@@ -410,6 +430,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
+            setFlowMode(currentFlowMode)
             setTheme(currentTheme) // 设置当前主题
             loadEpub(epubFilePath)
         }
