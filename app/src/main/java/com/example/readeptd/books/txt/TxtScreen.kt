@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -417,7 +418,12 @@ fun TxtSwipeLayout(
         modifier = Modifier.fillMaxSize(),
         beyondViewportPageCount = 10
     ) { page ->
-        itemContent(page)
+
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            itemContent(page)
+        }
     }
 }
 
@@ -430,8 +436,7 @@ fun TxtScrollLayout(
 ) {
     val scope = rememberCoroutineScope()
     val totalPages = viewModel.getPagesCount()
-    val currentPage by viewModel.currentPage.collectAsState()
-    
+
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
@@ -472,14 +477,23 @@ fun TxtScrollLayout(
     LaunchedEffect(centerPageIndex) {
         viewModel.onEvent(TxtEvent.OnPageChanged(centerPageIndex))
     }
-    
+
     // 使用 LazyColumn 实现垂直滚动布局，提升性能
     LazyColumn(
         state = lazyListState,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 0.dp)
     ) {
-        items(totalPages) { page ->
-            itemContent(page)
+        items(
+            count = totalPages,
+            key = { index -> "txt_page_$index" }
+        ) { page ->
+
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemContent(page)
+            }
         }
     }
 }
