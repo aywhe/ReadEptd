@@ -65,7 +65,6 @@ fun TxtScreen(
     viewModel: TxtViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val initialPage by viewModel.initialPage.collectAsStateWithLifecycle()
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val context = LocalContext.current
@@ -73,13 +72,12 @@ fun TxtScreen(
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
-    val currentPage by viewModel.currentPage.collectAsState()
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = 16
-    val bottomPaddingDp = 16
+    val topPaddingDp = if(config.isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if(config.isSwipeLayout) 16 else 0
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
         end = rightPaddingDp.dp,
@@ -164,15 +162,12 @@ fun TxtScreen(
                             )
                         }
                     } else {
+                        // 分页成功
+                        val currentPage by viewModel.currentPage.collectAsState()
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            LaunchedEffect(initialPage) {
-                                if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
-                                    viewModel.goToPage(initialPage)
-                                }
-                            }
                             LaunchedEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
@@ -236,7 +231,6 @@ fun TxtScreen(
                             TxtLayoutWrapper(
                                 isSwipeLayout = config.isSwipeLayout,
                                 contentViewModel = contentViewModel,
-                                initialPage = initialPage,
                                 viewModel = viewModel
                             ){ page ->
                                 Log.d("TxtScreen", "当前页: $page")
@@ -363,7 +357,6 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
 @Composable
 fun TxtLayoutWrapper(
     modifier: Modifier = Modifier,
-    initialPage: Int = 0,
     isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
@@ -372,14 +365,12 @@ fun TxtLayoutWrapper(
         if (isSwipeLayout) {
             TxtSwipeLayout(
                 modifier = modifier,
-                initialPage = initialPage,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
         } else {
             TxtScrollLayout(
                 modifier = modifier,
-                initialPage = initialPage,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
@@ -389,10 +380,11 @@ fun TxtLayoutWrapper(
 @Composable
 fun TxtSwipeLayout(
     modifier: Modifier = Modifier,
-    initialPage: Int,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ){
+    val currentPage by viewModel.currentPage.collectAsState()
+    val initialPage = currentPage
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialPage.coerceIn(
@@ -430,13 +422,13 @@ fun TxtSwipeLayout(
 @Composable
 fun TxtScrollLayout(
     modifier: Modifier = Modifier,
-    initialPage: Int,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val totalPages = viewModel.getPagesCount()
-
+    val currentPage by viewModel.currentPage.collectAsState()
+    val initialPage = currentPage
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
@@ -456,17 +448,17 @@ fun TxtScrollLayout(
         derivedStateOf {
             val layoutInfo = lazyListState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
-            
+
             if (visibleItems.isNotEmpty()) {
                 // 计算中间位置
                 val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
-                
+
                 // 找到最接近视口中心的 item
                 val centerItem = visibleItems.minByOrNull { item ->
                     val itemCenter = item.offset + item.size / 2
                     kotlin.math.abs(itemCenter - viewportCenter)
                 }
-                
+
                 centerItem?.index ?: 0
             } else {
                 0

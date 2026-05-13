@@ -67,10 +67,6 @@ class TxtViewModel(
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
 
-    // 初始页码（用于恢复阅读进度）
-    private val _initialPage = MutableStateFlow(0)
-    val initialPage: StateFlow<Int> = _initialPage.asStateFlow()
-
     // 分页是否完成（独立于 BookUiState）
     private val _isPagesReady = MutableStateFlow(false)
     val isPagesReady: StateFlow<Boolean> = _isPagesReady.asStateFlow()
@@ -162,7 +158,6 @@ class TxtViewModel(
 
         Log.d(TAG, "翻页到: $pageIndex")
         _currentPage.value = pageIndex
-        _initialPage.value = pageIndex // 防止屏幕旋转时进度回到原来初始位置
         // 保存阅读进度
         saveTxtProgress(
             uri = currentFileUri ?: return,
@@ -329,7 +324,6 @@ class TxtViewModel(
         val savedState = currentReadingState
         if (savedState == null || _pages.value.isEmpty()) {
             Log.d(TAG, "没有保存的阅读状态或页面为空，从第一页开始")
-            _initialPage.value = 0
             _currentPage.value = 0
             return
         }
@@ -341,7 +335,6 @@ class TxtViewModel(
         val targetPageIndex = findPageByCharOffset(charOffset)
 
         Log.d(TAG, "字符偏移量对应的页码: $targetPageIndex")
-        _initialPage.value = targetPageIndex
         _currentPage.value = targetPageIndex
     }
 
