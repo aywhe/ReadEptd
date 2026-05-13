@@ -275,6 +275,7 @@ const UIManager = {
     },
 
     highlightCurrentChapter(currentHref) {
+        console.log('highlight chapter ', currentHref);
         const links = document.querySelectorAll('#toc-container a');
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
@@ -658,7 +659,7 @@ const ReaderCore = {
                     } catch (err) {
                         console.error('Error in scroll event:', err.stack);
                     }
-                },500));
+                },200));
             } else {
                 console.warn('Rendition manager not available, scroll listener not attached');
             }
@@ -670,13 +671,13 @@ const ReaderCore = {
             console.log('Page relocated:', JSON.stringify(location));
             AndroidBridge.onPageChanged(JSON.stringify(location));
             UIManager.highlightCurrentChapter(location.end.href);
-        },500));
+        },200));
     },
 
     setupResizeListener() {
-        AppState.rendition.on("resized", (size) => {
-            console.log('Renderer resized:', size);
-        });
+        AppState.rendition.on("resized", UtilsTool.debounce((size) => {
+            console.log('Renderer resized:', JSON.stringify(size));
+        },200));
     },
 
     setupRenderedListener() {
