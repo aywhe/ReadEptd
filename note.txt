@@ -99,3 +99,11 @@ reject 同理。
 所以直接在代码中，连续两次display，即 rendition.display(href).then(rendition.display(href).then(...))
 这样虽然会有闪烁，好歹正确定位了。先使用这样的方法吧。
 分页模式的话，虽然测试正常，但是担心不是一般情况，所以上面的方法也用到了分页模式中，没有区分是滚动还是分页，都使用两次display。
+
+- 问题： epub刚开始初始化以后，首次调用display显示上次阅读位置。旋转屏幕时，页面重建，不是全屏时，很正常。
+但是，当全屏状态下旋转屏幕时，display().then(..这里一直没有触发..)。
+原因是，当全屏状态下，旋转屏幕以后，会触发resize。epub.js内部resize与display如果同时运行，会导致递归调用进入display进入死循环。
+如果不是全屏的话，就不会触发resize，就不会有问题。我怀疑是旋转屏幕后，状态栏重新隐藏需要时间。
+如果是手动点击的话，此时并没有在运行display，也不会有问题。
+方法： 在 attached 事件触发后，延迟500ms再调用display，保佑500ms内resize完成。如果没有resize，也能正确显示。
+还有，在 resize 事件触发后，防抖后立即启动display。 自定义标记变量，保证首次display只执行一次，而且不影响其他地方的display。

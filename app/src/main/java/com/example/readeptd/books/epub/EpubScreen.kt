@@ -30,7 +30,6 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 
@@ -90,7 +89,7 @@ fun EpubScreen(
 
                                 // 设置起始位置 CFI
                                 setStartCfi(savedCfi)
-                                initTheme(
+                                setTheme(
                                     when(config.isNightMode) {
                                         true -> EpubTheme.Night
                                         false -> when(config.isDynamicColor) {
@@ -99,7 +98,7 @@ fun EpubScreen(
                                         }
                                     }
                                 )
-                                initFlowMode(
+                                setFlowMode(
                                     when(config.isSwipeLayout) {
                                         true -> EpubFlowMode.Paginated
                                         false -> EpubFlowMode.Scrolled

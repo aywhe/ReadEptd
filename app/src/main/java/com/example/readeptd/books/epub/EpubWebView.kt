@@ -145,6 +145,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         this.startCfi = cfi
         Log.d(TAG, "设置起始位置 CFI: ${cfi ?: "(无)"}")
     }
+
+    private fun setLastReadingCfi(cfi: String?) {
+        Log.d(TAG, "设置最后阅读位置 CFI: ${cfi ?: "(无)"}")
+        executeJs("window.EpubReader.setLastReadingCfi('$cfi')") { result ->
+            Log.d(TAG, "JavaScript 执行结果: $result")
+        }
+    }
     
     /**
      * 加载 EPUB 文件
@@ -165,17 +172,17 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             "null"
         }
         
-        executeJs("window.EpubReader.init('$epubFilePath', $cfiParam)") { result ->
+        executeJs("window.EpubReader.init('$epubFilePath')") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
     }
 
-    fun initFlowMode(epubFlowMode: EpubFlowMode){
+    fun setFlowMode(epubFlowMode: EpubFlowMode){
         currentFlowMode = epubFlowMode
         Log.d(TAG, "设置流式模式: $epubFlowMode")
     }
 
-    private fun setFlowMode(epubFlowMode: EpubFlowMode) {
+    private fun updateFlowMode(epubFlowMode: EpubFlowMode) {
         currentFlowMode = epubFlowMode
         val flowMode = when (epubFlowMode) {
             EpubFlowMode.Paginated -> "paginated"
@@ -193,12 +200,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * 设置主题
      * @param epubTheme 主题名称
      */
-    fun initTheme(epubTheme: EpubTheme) {
+    fun setTheme(epubTheme: EpubTheme) {
         currentTheme = epubTheme
         Log.d(TAG, "设置主题: $epubTheme")
     }
 
-    private fun setTheme(epubTheme: EpubTheme) {
+    private fun setHtmlTheme(epubTheme: EpubTheme) {
         currentTheme = epubTheme
         val theme = when (epubTheme) {
             EpubTheme.Night -> "dark"
@@ -430,8 +437,9 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
-            setFlowMode(currentFlowMode)
-            setTheme(currentTheme) // 设置当前主题
+            setLastReadingCfi(startCfi)
+            updateFlowMode(currentFlowMode)
+            setHtmlTheme(currentTheme) // 设置当前主题
             loadEpub(epubFilePath)
         }
 

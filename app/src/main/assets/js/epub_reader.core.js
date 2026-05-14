@@ -9,12 +9,14 @@ const AppState = {
     book: null,
     rendition: null,
     isLoaded: false,
+    isLoading: false,
     isGeneratedLocations: false,
     isSearching: false,
     handleSearchCompleted: null,
     tableOfContents: [],
     isThemeRegistered: false,
     isMappingHooked: false,
+    lastReadingCfi: '',
     config: {},
 
     // 按钮拖动状态
@@ -31,8 +33,25 @@ const AppState = {
         isTocButtonVisible: true
     },
 
+    setLastReadingCfi(lastReadingCfi){
+        this.lastReadingCfi = lastReadingCfi;
+    },
+
+    updateConfig(configJson){
+        // 更新AppState.config
+        console.log('update config: ', configJson)
+        try {
+            const newConfig = JSON.parse(configJson);
+            this.config = { ...AppState.config, ...newConfig };
+            console.log('Config updated:', JSON.stringify(AppState.config));
+        } catch (e) {
+            console.error('Failed to parse config JSON:', e);
+        }
+    },
+
     reset() {
         this.isLoaded = false;
+        this.isLoading = false;
         this.isGeneratedLocations = false;
         this.isSearching = false;
         this.handleSearchCompleted = null;
@@ -547,10 +566,9 @@ const UtilsTool = {
 // 阅读器核心模块
 // ============================================
 const ReaderCore = {
-    init(epubUrl, startCfi) {
+    init(epubUrl) {
         console.log('=== EPUB Reader Init Start ===');
         console.log('EPUB URL:', epubUrl);
-        console.log('Start CFI:', startCfi || '(none, will show first page)');
 
         try {
             this.validateLibraries();
@@ -566,7 +584,6 @@ const ReaderCore = {
             this.setupEventListeners();
             this.loadNavigation();
             this.generateLocationsAsync();
-            this.displayBook(startCfi);
 
         } catch (error) {
             console.error('Init error:', error);
@@ -577,18 +594,6 @@ const ReaderCore = {
     validateLibraries() {
         if (typeof ePub === 'undefined') {
             throw new Error('ePub library not loaded. Check js/epub.min.js file.');
-        }
-    },
-
-    updateConfig(configJson){
-        // 更新AppState.config
-        console.log('update config: ', configJson)
-        try {
-            const newConfig = JSON.parse(configJson);
-            AppState.config = { ...AppState.config, ...newConfig };
-            console.log('Config updated:', JSON.stringify(AppState.config));
-        } catch (e) {
-            console.error('Failed to parse config JSON:', e);
         }
     },
 
@@ -676,6 +681,8 @@ const ReaderCore = {
     setupResizeListener() {
         AppState.rendition.on("resized", UtilsTool.debounce((size) => {
             console.log('Renderer resized:', JSON.stringify(size));
+            // 如果resize先触发，那么这里执行display，attached中的display就会跳过
+            this.displayBookFirstTime();
         },200));
     },
 
@@ -712,6 +719,10 @@ const ReaderCore = {
     setupAttachedListener() {
         AppState.rendition.on("attached", () => {
             console.log('Rendition attached to DOM');
+            setTimeout(()=>{
+                // 等待resize结束，不然会display与resize会竞争，导致死循环
+                this.displayBookFirstTime();
+            },500);
         });
     },
 
@@ -761,9 +772,18 @@ const ReaderCore = {
         });
     },
 
-    displayBook(startCfi) {
+    displayBookFirstTime() {
+        if(AppState.isLoaded){
+            console.log('display has loaded');
+            return;
+        }
+        if(AppState.isLoading){
+            console.log('display is loading, skip this');
+            return;
+        }
+        AppState.isLoading = true;
+        let startCfi = AppState.lastReadingCfi;
         console.log('Displaying book...', startCfi ? 'at saved position: ' + startCfi : '(first page)');
-
         let displayCfi = null;
         if (startCfi && typeof startCfi === 'string' && startCfi.trim() !== '') {
             if (startCfi.startsWith('epubcfi(')) {
@@ -784,6 +804,7 @@ const ReaderCore = {
             console.log('Book displayed successfully');
             UIManager.hideLoading();
             AppState.isLoaded = true;
+            AppState.isLoading = false;
 
             AndroidBridge.onLoadComplete();
             
@@ -791,6 +812,7 @@ const ReaderCore = {
                 this.notifyPageChanged();
             }
         }).catch((error) => {
+            AppState.isLoading = false;
             console.error('Display error:', error);
             UIManager.showError("显示书籍失败: " + error.message);
         });
@@ -1267,5 +1289,6 @@ window.EpubReader = {
     toggleNavPanel: UIManager.toggleNavPanel.bind(UIManager),
     search: SearchManager.search.bind(SearchManager),
     highlight: HighlightManager.highlight.bind(HighlightManager),
-    updateConfig: ReaderCore.updateConfig.bind(ReaderCore)
+    updateConfig: AppState.updateConfig.bind(AppState),
+    setLastReadingCfi: AppState.updateConfig.bind(AppState)
 };
