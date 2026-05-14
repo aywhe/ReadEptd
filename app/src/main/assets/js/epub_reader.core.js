@@ -608,13 +608,12 @@ const ReaderCore = {
 
         // ✅ 从 CSS 变量读取 padding 值
         const computedStyle = getComputedStyle(document.documentElement);
-        const paddingHorizontal = parseInt(computedStyle.getPropertyValue('--epub-padding-horizontal').trim()) || 20;
-        const paddingVertical = parseInt(computedStyle.getPropertyValue('--epub-padding-vertical').trim()) || 15;
+        const paddingHorizontal = parseInt(computedStyle.getPropertyValue('--view-padding-horizontal').trim()) || 20;
 
         console.log('Renderer config:', {
             flow: flowMode,
             snap: snapEnabled,
-            padding: { horizontal: paddingHorizontal, vertical: paddingVertical }
+            gap: paddingHorizontal
         });
 
         // 注意： snap 和 gap 只在 paginated 时有效
@@ -873,8 +872,12 @@ const ThemeBridge = {
             };
 
             // ✅ 从 CSS 变量读取 padding 值
-            const paddingVertical = computedStyle.getPropertyValue('--epub-padding-vertical').trim() || '15px';
-            const paddingHorizontal = computedStyle.getPropertyValue('--epub-padding-horizontal').trim() || '20px';
+            let paddingVertical = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+            const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
+            if(AppState.config.flowMode === 'scrolled'){
+                paddingVertical = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+            }
+
 
             console.log('Applying theme with padding:', {
                 vertical: paddingVertical,
