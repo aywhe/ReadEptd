@@ -617,6 +617,7 @@ const ReaderCore = {
             padding: { horizontal: paddingHorizontal, vertical: paddingVertical }
         });
 
+        // 注意： snap 和 gap 只在 paginated 时有效
         AppState.rendition = AppState.book.renderTo("viewer", {
             width: "100%",
             height: "100%",
@@ -624,7 +625,6 @@ const ReaderCore = {
             manager: "continuous",
             spread: "auto",
             snap: snapEnabled,
-            // ✅ 设置 page 的内边距（仅对 paginated 模式有效）
             gap: paddingHorizontal * 2  // epub.js 的 gap 是两页之间的间距
         });
 
@@ -1048,11 +1048,16 @@ const ChapterManager = {
 
         if (AppState.rendition) {
             UIManager.closeNavPanel();
-
             setTimeout(() => {
                 AppState.rendition.display(href).then(() => {
-                    UIManager.highlightCurrentChapter(href);
-                    console.log('Chapter displayed:', href);
+                    console.log('first displayed chapter ', href);
+                    // 第二次显示
+                    AppState.rendition.display(href).then(() => {
+                        UIManager.highlightCurrentChapter(href);
+                        console.log('second displayed chapter ', href);
+                    }).catch((error) => {
+                        console.error('Failed to jump to chapter:', error);
+                    });
                 }).catch((error) => {
                     console.error('Failed to jump to chapter:', error);
                 });
