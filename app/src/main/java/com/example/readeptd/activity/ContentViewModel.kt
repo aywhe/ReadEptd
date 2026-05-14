@@ -29,7 +29,7 @@ class ContentViewModel(
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
-    
+
     // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
     private var currentFileUri: String? = null
 

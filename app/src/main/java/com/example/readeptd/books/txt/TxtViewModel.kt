@@ -58,6 +58,9 @@ class TxtViewModel(
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
     private var jobSetAllowRePagination: Job? = null
+    
+    // 用于防抖的 Job，避免频繁重新分页
+    private var rePaginationDebounceJob: Job? = null
 
     // 暴露分页状态
     private val _pages = MutableStateFlow<List<TextChunk>>(emptyList())
@@ -67,10 +70,6 @@ class TxtViewModel(
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
 
-    // 初始页码（用于恢复阅读进度）
-    private val _initialPage = MutableStateFlow(0)
-    val initialPage: StateFlow<Int> = _initialPage.asStateFlow()
-
     // 分页是否完成（独立于 BookUiState）
     private val _isPagesReady = MutableStateFlow(false)
     val isPagesReady: StateFlow<Boolean> = _isPagesReady.asStateFlow()
@@ -79,6 +78,13 @@ class TxtViewModel(
     val currentFontSizeSp: Int get() = fontSizeSp
     val currentLineHeightSp: Int get() = lineHeightSp
 
+    private var _onGoToPageListener: ((Int) -> Unit)? = null
+    private var _SplitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
+
+
+    fun setSplitPagesMode(mode: SplitPagesMode) {
+        _SplitPagesMode = mode
+    }
     /**
      * 处理 UI 事件
      */
@@ -147,7 +153,7 @@ class TxtViewModel(
                 reinitPagesIfNeeded()
             }
         } else {
-            Log.d(TAG, "全屏切换中，跳过重新分页")
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -159,7 +165,6 @@ class TxtViewModel(
 
         Log.d(TAG, "翻页到: $pageIndex")
         _currentPage.value = pageIndex
-        _initialPage.value = pageIndex // 防止屏幕旋转时进度回到原来初始位置
         // 保存阅读进度
         saveTxtProgress(
             uri = currentFileUri ?: return,
@@ -176,8 +181,12 @@ class TxtViewModel(
         Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -190,8 +199,12 @@ class TxtViewModel(
         Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
 
-        viewModelScope.launch {
-            reinitPagesIfNeeded()
+        if (allowRePagination) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        } else {
+            Log.d(TAG, "跳过重新分页")
         }
     }
 
@@ -242,21 +255,124 @@ class TxtViewModel(
             return
         }
 
-        Log.d(TAG, "分页参数变化: $lastCharsParams -> $newCharsParams，开始重新分页")
+        Log.d(TAG, "分页参数变化: $lastCharsParams -> $newCharsParams，准备重新分页")
 
-        // 取消之前的分页任务
-        currentPageJob?.cancel()
+        // 取消之前的防抖任务
+        rePaginationDebounceJob?.cancel()
 
-        // 启动新的分页任务
-        currentPageJob = viewModelScope.launch {
-            initPages()
+        // 启动新的防抖任务，延迟 300ms 执行，等待视图稳定
+        rePaginationDebounceJob = viewModelScope.launch {
+            delay(300)
+            
+            // 再次检查参数是否真的变化了（防止在延迟期间又发生了变化）
+            val finalCharsParams = calculatePageCharsParams()
+            if (lastCharsParams != null &&
+                lastCharsParams?.avgCharsPerLine == finalCharsParams.avgCharsPerLine &&
+                lastCharsParams?.maxLinesPerPage == finalCharsParams.maxLinesPerPage
+            ) {
+                Log.d(TAG, "延迟后参数未变化，跳过重新分页")
+                return@launch
+            }
+            
+            Log.d(TAG, "视图已稳定，开始重新分页")
+            
+            // 取消之前正在执行的分页任务
+            currentPageJob?.cancel()
+            
+            // 启动新的分页任务
+            currentPageJob = launch {
+                initPages()
+            }
         }
     }
 
     /**
      * 初始化分页（保证串行执行，避免并发问题）
      */
-    suspend fun initPages() {
+    private suspend fun initPages() {
+        when (_SplitPagesMode) {
+            SplitPagesMode.ByLayoutSize -> {
+                generateLayoutSizePages()
+            }
+            SplitPagesMode.ByCharsCount -> {
+                generateCharsCountPages()
+            }
+        }
+    }
+    private suspend fun generateCharsCountPages() {
+
+        // 使用 Mutex 保证同一时间只有一个分页任务在执行
+        pagesMutex.withLock {
+            if(_pages.value.isNotEmpty()){
+                Log.d(TAG, "分页已存在，对于该模式${_SplitPagesMode}，只需要分页一次，跳过分页")
+                return@withLock
+            }
+            // 重置分页状态
+            _isPagesReady.value = false
+            val charCountThreshold = 512
+
+            // 从 UI 状态中获取临时文件路径
+            val currentState = uiState.value
+            if (currentState !is BookUiState.Ready) {
+                Log.d(TAG, "文件未准备好，当前状态: $currentState")
+                return@withLock
+            }
+
+            try {
+                // 使用临时可变列表
+                val tempPages = mutableListOf<TextChunk>()
+                var index: Int = 0
+                var charOffset: Long = 0
+                val text = StringBuilder()
+
+                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
+                    if(text.isNotEmpty()){
+                        text.append("\n")
+                    }
+                    text.append(line)
+                    // 判断是否达到字符阈值
+                    if(text.length >= charCountThreshold){
+                        val chunk = TextChunk(
+                            content = text.toString(),
+                            index = index,
+                            startPos = charOffset,
+                            endPos = charOffset + text.length
+                        )
+                        tempPages.add(chunk)
+                        // 更新字符偏移量
+                        charOffset += text.length
+                        text.clear()
+                        index++
+                    }
+                }
+                // 剩余的内容
+                if(text.isNotEmpty()){
+                    val chunk = TextChunk(
+                        content = text.toString(),
+                        index = index,
+                        startPos = charOffset,
+                        endPos = charOffset + text.length
+                    )
+                    tempPages.add(chunk)
+                }
+
+                // 赋值不可变列表给 StateFlow
+                _pages.value = tempPages.toList()
+
+                // 标记分页完成
+                _isPagesReady.value = true
+
+                Log.d(TAG, "分页完成，共 ${_pages.value.size} 页")
+
+                // 根据保存的阅读进度恢复页码
+                restorePageFromProgress()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "分页失败", e)
+            }
+        }
+    }
+    private suspend fun generateLayoutSizePages() {
         // 重置分页状态
         _isPagesReady.value = false
 
@@ -326,7 +442,6 @@ class TxtViewModel(
         val savedState = currentReadingState
         if (savedState == null || _pages.value.isEmpty()) {
             Log.d(TAG, "没有保存的阅读状态或页面为空，从第一页开始")
-            _initialPage.value = 0
             _currentPage.value = 0
             return
         }
@@ -338,10 +453,21 @@ class TxtViewModel(
         val targetPageIndex = findPageByCharOffset(charOffset)
 
         Log.d(TAG, "字符偏移量对应的页码: $targetPageIndex")
-        _initialPage.value = targetPageIndex
         _currentPage.value = targetPageIndex
     }
 
+    fun getProgress(): Float{
+        val savedState = currentReadingState
+        if (savedState == null || _pages.value.isEmpty()) {
+            return 0f
+        }
+        return savedState.progress
+    }
+
+    fun findPageByProgress(progress: Float): Int {
+        val charOffset = (progress * _pages.value.last().endPos).toLong()
+        return findPageByCharOffset(charOffset)
+    }
     /**
      * 根据字符偏移量查找对应的页码
      */
@@ -392,7 +518,8 @@ class TxtViewModel(
         pageIndex: Int
     ) {
         val progress =
-            if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
+            if (_pages.value.isNotEmpty()) _pages.value[pageIndex].startPos.toFloat() / _pages.value.last().endPos else 0f
+            //if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
         val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
         val state = ReadingState.Txt(
@@ -402,6 +529,17 @@ class TxtViewModel(
             lastReadTime = System.currentTimeMillis()
         )
         saveProgress(state)
+    }
+
+    fun setOnGoToPageListener(listener: (Int) -> Unit) {
+        _onGoToPageListener = listener
+    }
+
+    fun goToPage(pageIndex: Int) {
+        if (pageIndex in _pages.value.indices) {
+            _currentPage.value = pageIndex
+            _onGoToPageListener?.invoke(pageIndex)
+        }
     }
 
     fun search(

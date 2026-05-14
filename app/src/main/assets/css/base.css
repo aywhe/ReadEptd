@@ -13,6 +13,11 @@
     --nav-panel-width: 80%;
     --nav-panel-max-width: 400px;
     
+    /* ✅ EPUB 内容内边距（默认值） */
+    --view-padding-vertical: 16px;
+    --view-padding-horizontal: 12px;
+    --scrolled-view-padding-vertical: 0px;
+
     /* 动画 */
     --transition-fast: 0.2s;
     --transition-normal: 0.3s;
@@ -47,6 +52,8 @@ body, html {
     z-index: 1;
     /* ✅ 确保 viewer 也有背景色 */
     background-color: var(--color-background, #ffffff);
+    /* 根据不同模式在js中动态设置，这里不用设置 */
+    /* padding: var(--view-padding-vertical) var(--view-padding-horizontal); */
 }
 
 .epub-container {

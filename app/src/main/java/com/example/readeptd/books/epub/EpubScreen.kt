@@ -99,6 +99,12 @@ fun EpubScreen(
                                         }
                                     }
                                 )
+                                initFlowMode(
+                                    when(config.isSwipeLayout) {
+                                        true -> EpubFlowMode.Paginated
+                                        false -> EpubFlowMode.Scrolled
+                                    }
+                                )
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->

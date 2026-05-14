@@ -14,6 +14,8 @@ const AppState = {
     handleSearchCompleted: null,
     tableOfContents: [],
     isThemeRegistered: false,
+    isMappingHooked: false,
+    config: {},
 
     // 按钮拖动状态
     dragState: {
@@ -35,6 +37,8 @@ const AppState = {
         this.isSearching = false;
         this.handleSearchCompleted = null;
         this.isThemeRegistered = false;
+        this.tableOfContents = [];
+        this.isMappingHooked = false;
     }
 };
 
@@ -271,6 +275,7 @@ const UIManager = {
     },
 
     highlightCurrentChapter(currentHref) {
+        console.log('highlight chapter ', currentHref);
         const links = document.querySelectorAll('#toc-container a');
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
@@ -499,6 +504,46 @@ const UIManager = {
 };
 
 // ============================================
+// 工具类模块
+// ============================================
+const UtilsTool = {
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+
+    debounceWithImmediate(func, wait) {
+        let timeout;
+        let isFirstCall = true;
+
+        return function(...args) {
+            if (isFirstCall) {
+                isFirstCall = false;
+                func.apply(this, args);
+                return;
+            }
+
+            const later = () => {
+                clearTimeout(timeout);
+                func.apply(this, args);
+                isFirstCall = true;
+            };
+
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+}
+
+// ============================================
 // 阅读器核心模块
 // ============================================
 const ReaderCore = {
@@ -535,6 +580,18 @@ const ReaderCore = {
         }
     },
 
+    updateConfig(configJson){
+        // 更新AppState.config
+        console.log('update config: ', configJson)
+        try {
+            const newConfig = JSON.parse(configJson);
+            AppState.config = { ...AppState.config, ...newConfig };
+            console.log('Config updated:', JSON.stringify(AppState.config));
+        } catch (e) {
+            console.error('Failed to parse config JSON:', e);
+        }
+    },
+
     createBook(epubUrl) {
         console.log('Creating ePub instance...');
         AppState.book = ePub(epubUrl);
@@ -543,14 +600,33 @@ const ReaderCore = {
 
     createRendition() {
         console.log('Creating renderer...');
+
+        // ✅ 安全地读取配置，提供默认值
+        const config = AppState.config || {};
+        const flowMode = config.flowMode === 'scrolled' ? 'scrolled' : 'paginated';
+        const snapEnabled = config.flowMode === 'scrolled' ? false : true;
+
+        // ✅ 从 CSS 变量读取 padding 值
+        const computedStyle = getComputedStyle(document.documentElement);
+        const paddingHorizontal = parseInt(computedStyle.getPropertyValue('--view-padding-horizontal').trim()) || 20;
+
+        console.log('Renderer config:', {
+            flow: flowMode,
+            snap: snapEnabled,
+            gap: paddingHorizontal
+        });
+
+        // 注意： snap 和 gap 只在 paginated 时有效
         AppState.rendition = AppState.book.renderTo("viewer", {
             width: "100%",
             height: "100%",
-            flow: "paginated",
+            flow: flowMode,
             manager: "continuous",
             spread: "auto",
-            snap: true
+            snap: snapEnabled,
+            gap: paddingHorizontal * 2  // epub.js 的 gap 是两页之间的间距
         });
+
         console.log('Renderer created');
     },
 
@@ -567,9 +643,10 @@ const ReaderCore = {
     setupStartListener() {
         AppState.rendition.on("started", () => {
             console.log('Rendition started');
+            ThemeBridge.applyThemeToEpub();
             if(AppState.rendition.manager){
                 this.hookMappingFunctions();
-                AppState.rendition.manager.on("scroll", (position) => {
+                AppState.rendition.manager.on("scroll", UtilsTool.debounce((position) => {
                     console.log('View scroll');
                     try {
                         const location = AppState.rendition.currentLocation();
@@ -581,7 +658,7 @@ const ReaderCore = {
                     } catch (err) {
                         console.error('Error in scroll event:', err.stack);
                     }
-                });
+                },200));
             } else {
                 console.warn('Rendition manager not available, scroll listener not attached');
             }
@@ -589,95 +666,46 @@ const ReaderCore = {
     },
 
     setupRelocationListener() {
-        AppState.rendition.on("relocated", (location) => {
-            console.log('Page relocated:', location);
+        AppState.rendition.on("relocated", UtilsTool.debounce((location) => {
+            console.log('Page relocated:', JSON.stringify(location));
             AndroidBridge.onPageChanged(JSON.stringify(location));
             UIManager.highlightCurrentChapter(location.end.href);
-        });
+        },200));
     },
 
     setupResizeListener() {
-        AppState.rendition.on("resized", (size) => {
-            console.log('Renderer resized:', size);
-        });
+        AppState.rendition.on("resized", UtilsTool.debounce((size) => {
+            console.log('Renderer resized:', JSON.stringify(size));
+        },200));
     },
 
     setupRenderedListener() {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
             this.setupDoubleClickHandler(view);
-            this.applyThemeToEpub();
         });
     },
 
-    applyThemeToEpub() {
-        try {
-            if (!AppState.rendition || !AppState.rendition.themes) {
-                console.warn('Rendition or themes API not available');
-                return;
-            }
-
-            const themeName = "my-theme";
-
-            // ✅ 如果主题已注册，直接返回，不做任何操作
-            if (AppState.isThemeRegistered) {
-                console.log('Theme already registered, skip');
-                return;
-            }
-
-            // ✅ 从 CSS 文件中动态读取颜色值
-            const computedStyle = getComputedStyle(document.documentElement);
-            const colors = {
-                background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
-                textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
-                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
-                highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
-                selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
-            };
-
-            // ✅ 方式二：传入规则对象（符合官方文档）
-            const rules = {
-                'body': {
-                    'background-color': colors.background,
-                    'color': colors.textPrimary
-                },
-                'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
-                    'color': colors.textPrimary + ' !important',
-                    'background-color': 'transparent !important'
-                },
-                'a': {
-                    'color': colors.primary + ' !important'
-                },
-                'img': {
-                    'background-color': 'transparent !important'
-                },
-                '::selection': {
-                    'background-color': colors.selection + ' !important',
-                    'color': colors.textPrimary + ' !important'
-                }
-            };
-
-            // ✅ 注册并选择主题
-            AppState.rendition.themes.register(themeName, rules);
-            AppState.rendition.themes.select(themeName);
-            AppState.isThemeRegistered = true;
-
-            console.log(`Epub.js theme applied via rules object: ${themeName}`);
-        } catch (error) {
-            console.error('Error applying theme to epub:', error.stack);
-        }
-    },
     setupDoubleClickHandler(view) {
         const contents = view.contents;
         if (contents && contents.window) {
+            // ✅ 检查是否已经注册过
+            if (contents._doubleClickHandlerRegistered) {
+                console.log('Double click handler already registered for this view');
+                return;
+            }
+
             contents.window.addEventListener('dblclick', (e) => {
                 console.log('Double click detected!');
                 const navPanel = document.getElementById('nav-panel');
                 if (navPanel.style.display === 'block') { return; }
-                
+
                 AndroidBridge.onDoubleClick();
                 e.preventDefault();
             });
+
+            // ✅ 标记为已注册
+            contents._doubleClickHandlerRegistered = true;
         }
     },
 
@@ -782,9 +810,15 @@ const ReaderCore = {
     },
 
     hookMappingFunctions() {
+        // ✅ 防止重复绑定
+        if (AppState.isMappingHooked) {
+            console.log('Mapping functions already hooked, skip');
+            return;
+        }
         if (AppState.rendition && AppState.rendition.manager) {
             console.log('Hooking manager updateLayout to replace mapping functions...');
             const originalUpdateLayout = AppState.rendition.manager.updateLayout.bind(AppState.rendition.manager);
+
             AppState.rendition.manager.updateLayout = function() {
                 originalUpdateLayout();
                 if (this.mapping) {
@@ -801,6 +835,97 @@ const ReaderCore = {
                     };
                 }
             };
+            // ✅ 标记为已绑定
+            this.isMappingHooked = true;
+        }
+    }
+};
+
+// ============================================
+// 主题相关接口
+// ============================================
+const ThemeBridge = {
+
+    applyThemeToEpub() {
+        try {
+            if (!AppState.rendition || !AppState.rendition.themes) {
+                console.warn('Rendition or themes API not available');
+                return;
+            }
+
+            const themeName = "my-theme";
+
+            // ✅ 如果主题已注册，直接返回，不做任何操作
+            if (AppState.isThemeRegistered) {
+                console.log('Theme already registered, skip');
+                return;
+            }
+
+            // ✅ 从 CSS 文件中动态读取颜色值和 padding
+            const computedStyle = getComputedStyle(document.documentElement);
+            const colors = {
+                background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
+                textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
+                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
+                highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
+                selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
+            };
+
+            // ✅ 从 CSS 变量读取 padding 值
+            let paddingVertical = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+            const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
+            if(AppState.config.flowMode === 'scrolled'){
+                paddingVertical = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+            }
+
+
+            console.log('Applying theme with padding:', {
+                vertical: paddingVertical,
+                horizontal: paddingHorizontal
+            });
+
+            // ✅ 方式二：传入规则对象（符合官方文档）
+            const rules = {
+                'html': {
+                    'padding': '0 !important',
+                    'margin': '0 !important'
+                },
+                'body': {
+                    'background-color': colors.background + ' !important',
+                    'color': colors.textPrimary + ' !important',
+                    // ✅ 使用 !important 强制覆盖 EPUB 自带样式
+                    'padding': `${paddingVertical} ${paddingHorizontal} !important`,
+                    'margin': '0 !important',
+                    'box-sizing': 'border-box'
+                },
+                '*': {
+                    'box-sizing': 'inherit'
+                },
+                'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
+                    'color': colors.textPrimary + ' !important',
+                    'background-color': 'transparent !important'
+                },
+                'a': {
+                    'color': colors.primary + ' !important'
+                },
+                'img': {
+                    'background-color': 'transparent !important'
+                },
+                '::selection': {
+                    'background-color': colors.selection + ' !important',
+                    'color': colors.textPrimary + ' !important'
+                }
+            };
+
+            // ✅ 注册并选择主题
+            AppState.rendition.themes.register(themeName, rules);
+            AppState.rendition.themes.select(themeName);
+            AppState.isThemeRegistered = true;
+
+            console.log(`Epub.js theme applied via rules object: ${themeName}`);
+            console.log(`Padding applied: ${paddingVertical} ${paddingHorizontal}`);
+        } catch (error) {
+            console.error('Error applying theme to epub:', error.stack);
         }
     }
 };
@@ -926,11 +1051,16 @@ const ChapterManager = {
 
         if (AppState.rendition) {
             UIManager.closeNavPanel();
-
             setTimeout(() => {
                 AppState.rendition.display(href).then(() => {
-                    UIManager.highlightCurrentChapter(href);
-                    console.log('Chapter displayed:', href);
+                    console.log('first displayed chapter ', href);
+                    // 第二次显示
+                    AppState.rendition.display(href).then(() => {
+                        UIManager.highlightCurrentChapter(href);
+                        console.log('second displayed chapter ', href);
+                    }).catch((error) => {
+                        console.error('Failed to jump to chapter:', error);
+                    });
                 }).catch((error) => {
                     console.error('Failed to jump to chapter:', error);
                 });
@@ -1134,5 +1264,6 @@ window.EpubReader = {
     closeNavPanel: UIManager.closeNavPanel.bind(UIManager),
     toggleNavPanel: UIManager.toggleNavPanel.bind(UIManager),
     search: SearchManager.search.bind(SearchManager),
-    highlight: HighlightManager.highlight.bind(HighlightManager)
+    highlight: HighlightManager.highlight.bind(HighlightManager),
+    updateConfig: ReaderCore.updateConfig.bind(ReaderCore)
 };

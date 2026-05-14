@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -21,11 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,9 +52,14 @@ import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.AppMemoryStore
+import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.JumpToProgressDialog
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun TxtScreen(
@@ -60,19 +70,19 @@ fun TxtScreen(
     viewModel: TxtViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val initialPage by viewModel.initialPage.collectAsStateWithLifecycle()
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = 16
-    val bottomPaddingDp = 16
+    val topPaddingDp = if(config.isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if(config.isSwipeLayout) 16 else 0
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
         end = rightPaddingDp.dp,
@@ -111,6 +121,13 @@ fun TxtScreen(
 
             is BookUiState.Ready -> {
                 var lastClickTime by remember { mutableStateOf(0L)}
+                viewModel.setSplitPagesMode(
+                    if(config.isSwipeLayout){
+                        SplitPagesMode.ByLayoutSize
+                    } else {
+                        SplitPagesMode.ByCharsCount
+                    }
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -157,23 +174,12 @@ fun TxtScreen(
                             )
                         }
                     } else {
+                        // 分页成功
+                        val currentPage by viewModel.currentPage.collectAsState()
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            val pagerState = rememberPagerState(
-                                initialPage = initialPage.coerceIn(
-                                    0,
-                                    viewModel.getPagesCount() - 1
-                                ),
-                                pageCount = { viewModel.getPagesCount() }
-                            )
-
-                            LaunchedEffect(initialPage) {
-                                if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
-                                    pagerState.scrollToPage(initialPage)
-                                }
-                            }
                             LaunchedEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
@@ -182,12 +188,16 @@ fun TxtScreen(
                                     isShowSearchDialog = !isShowSearchDialog
                                 }
                             }
-
-                            LaunchedEffect(pagerState.currentPage) {
-                                viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
-                                contentViewModel.updateProgressText(
-                                    "${pagerState.currentPage + 1}/${viewModel.getPagesCount()}"
-                                )
+                            LaunchedEffect(currentPage) {
+                                if(config.isSwipeLayout){
+                                    contentViewModel.updateProgressText(
+                                        "${currentPage + 1}/${viewModel.getPagesCount()}"
+                                    )
+                                } else {
+                                    contentViewModel.updateProgressText(
+                                        "${(viewModel.getProgress() * 100).roundToInt()}%"
+                                    )
+                                }
                             }
 
                             DisposableEffect(Unit) {
@@ -195,16 +205,15 @@ fun TxtScreen(
                                 // 当 TTS 开始朗读时,获取当前页文本并开始朗读
                                 ttsModel.setOnRequestSpeechStartListener {
                                     Log.d("TxtScreen", "开始朗读")
-                                    val text = viewModel.getPageContent(pagerState.currentPage)
+                                    val text = viewModel.getPageContent(currentPage)
                                     if (text.isNotBlank()) {
-                                        ttsModel.speak(text, "txt_${pagerState.currentPage}")
+                                        ttsModel.speak(text, "txt_${currentPage}")
                                     }
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
                                     val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                                    val currentPage = pagerState.currentPage
-                                    
+
                                     // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
                                     val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
                                         // 用户手动翻页，从当前页继续
@@ -219,7 +228,7 @@ fun TxtScreen(
                                         scope.launch {
                                             // 如果需要翻页（目标页不是当前页），先滚动
                                             if (targetPage != currentPage) {
-                                                pagerState.scrollToPage(targetPage)
+                                                viewModel.goToPage(targetPage)
                                             }
 
                                             // 朗读目标页
@@ -235,16 +244,21 @@ fun TxtScreen(
                                     ttsModel.clearCallbacks()
                                 }
                             }
+
                             var currentKeyword by remember { mutableStateOf("") }
-                            HorizontalPager(
-                                state = pagerState,
-                                modifier = Modifier.fillMaxSize(),
-                                beyondViewportPageCount = 10
-                            ) { page ->
+                            TxtLayoutWrapper(
+                                isSwipeLayout = config.isSwipeLayout,
+                                contentViewModel = contentViewModel,
+                                viewModel = viewModel
+                            ){ page ->
                                 Log.d("TxtScreen", "当前页: $page")
-                                val pageContent = viewModel.getPageContent(page)
+                                // 注意：TextChunk保留不同TextChunk之间的换行信息，但是显示的时候，每个页面独立，不需要拼接，所以删除末尾的换行信息
+                                val pageContent = viewModel.getPageContent(page).trimEnd()
                                 val pageAnnotatedContent =
-                                    if(isShowSearchDialog) highLightText(pageContent, currentKeyword)
+                                    if (isShowSearchDialog) highLightText(
+                                        pageContent,
+                                        currentKeyword
+                                    )
                                     else highLightText(pageContent, "")
                                 PageContent(
                                     pageAnnotatedContent = pageAnnotatedContent,
@@ -254,29 +268,44 @@ fun TxtScreen(
                                 )
                             }
                             if(isShowJumpToPageDialog){
-                                JumpToPageDialog(
-                                    currentPage = pagerState.currentPage,
-                                    totalPages = viewModel.getPagesCount(),
-                                    onDismiss = {
-                                        isShowJumpToPageDialog = false
-                                    },
-                                    onConfirm = {
-                                        scope.launch {
-                                            pagerState.scrollToPage(it)
+                                if(config.isSwipeLayout) {
+                                    JumpToPageDialog(
+                                        currentPage = currentPage,
+                                        totalPages = viewModel.getPagesCount(),
+                                        onDismiss = {
+                                            isShowJumpToPageDialog = false
+                                        },
+                                        onConfirm = {
+                                            scope.launch {
+                                                viewModel.goToPage(it)
+                                            }
+                                            isShowJumpToPageDialog = false
                                         }
-                                        isShowJumpToPageDialog = false
-                                    }
-                                )
+                                    )
+                                } else {
+                                    JumpToProgressDialog(
+                                        progress = viewModel.getProgress(),
+                                        onDismiss = {
+                                            isShowJumpToPageDialog = false
+                                        },
+                                        onConfirm = {
+                                            scope.launch {
+                                                viewModel.goToPage(viewModel.findPageByProgress(it))
+                                            }
+                                            isShowJumpToPageDialog = false
+                                        }
+                                    )
+                                }
                             }
                             SlideInSearchPanel(
                                 initialVisible = isShowSearchDialog,
                                 onClose =  {isShowSearchDialog =  false},
-                                getCurrentPosition = {pagerState.currentPage},
+                                getCurrentPosition = {currentPage},
                                 onResultClick = {
                                     scope.launch {
                                         try{
                                             val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
-                                            pagerState.scrollToPage(pageIndex)
+                                            viewModel.goToPage(pageIndex)
                                         } catch (e: Exception){
                                             Log.e("TxtScreen", "跳转页失败: ${e.message}")
                                         }
@@ -355,6 +384,141 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
     } else {
         buildAnnotatedString {
             append(content)
+        }
+    }
+}
+
+@Composable
+fun TxtLayoutWrapper(
+    modifier: Modifier = Modifier,
+    isSwipeLayout: Boolean,
+    contentViewModel: ContentViewModel,
+    viewModel: TxtViewModel,
+    pageContent: @Composable (Int) -> Unit
+    ) {
+        if (isSwipeLayout) {
+            TxtSwipeLayout(
+                modifier = modifier,
+                viewModel = viewModel,
+                itemContent = pageContent
+            )
+        } else {
+            TxtScrollLayout(
+                modifier = modifier,
+                viewModel = viewModel,
+                itemContent = pageContent
+            )
+        }
+}
+
+@Composable
+fun TxtSwipeLayout(
+    modifier: Modifier = Modifier,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+){
+    val currentPage by viewModel.currentPage.collectAsState()
+    val initialPage = currentPage
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.coerceIn(
+            0,
+            viewModel.getPagesCount() - 1
+        ),
+        pageCount = { viewModel.getPagesCount() }
+    )
+
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                pagerState.scrollToPage(it)
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+    }
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+        beyondViewportPageCount = 10
+    ) { page ->
+
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            itemContent(page)
+        }
+    }
+}
+
+@Composable
+fun TxtScrollLayout(
+    modifier: Modifier = Modifier,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val totalPages = viewModel.getPagesCount()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val initialPage = currentPage
+    // 创建 LazyListState 用于控制滚动
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
+        initialFirstVisibleItemScrollOffset = 0
+    )
+
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                lazyListState.scrollToItem(it)
+            }
+        }
+    }
+
+    // 使用 snapshotFlow 监听滚动位置变化
+    LaunchedEffect(lazyListState) {
+        snapshotFlow { 
+            val layoutInfo = lazyListState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            
+            if (visibleItems.isNotEmpty()) {
+                val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+                
+                val centerItem = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }
+                
+                centerItem?.index
+            } else {
+                null
+            }
+        }
+        .filterNotNull()
+        .distinctUntilChanged()
+        .collect { centerIndex ->
+            viewModel.onEvent(TxtEvent.OnPageChanged(centerIndex))
+        }
+    }
+
+    // 使用 LazyColumn 实现垂直滚动布局，提升性能
+    LazyColumn(
+        state = lazyListState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 0.dp)
+    ) {
+        items(
+            count = totalPages,
+            key = { index -> "txt_page_$index" }
+        ) { page ->
+
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemContent(page)
+            }
         }
     }
 }

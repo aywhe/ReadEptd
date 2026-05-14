@@ -168,3 +168,8 @@ sealed interface EpubTheme {
     object Night : EpubTheme
     object EyeCare: EpubTheme
 }
+
+sealed interface EpubFlowMode {
+    object Paginated : EpubFlowMode
+    object Scrolled : EpubFlowMode
+}
