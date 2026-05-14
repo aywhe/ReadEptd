@@ -14,7 +14,7 @@
     --nav-panel-max-width: 400px;
     
     /* ✅ EPUB 内容内边距（默认值） */
-    --epub-padding-vertical: 0px;
+    --epub-padding-vertical: 12px;
     --epub-padding-horizontal: 8px;
 
     /* 动画 */
