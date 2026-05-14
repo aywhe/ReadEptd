@@ -56,6 +56,7 @@ import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.JumpToProgressDialog
+import com.example.readeptd.utils.LayoutSettingDialog
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -75,6 +76,7 @@ fun TxtScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
@@ -183,6 +185,9 @@ fun TxtScreen(
                             LaunchedEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
+                                }
+                                contentViewModel.setOnLongPressProgressInfoCallback { progressText ->
+                                    isShowLayoutSettingDialog = true
                                 }
                                 contentViewModel.setOnClickSearchButtonCallback {
                                     isShowSearchDialog = !isShowSearchDialog
@@ -296,6 +301,10 @@ fun TxtScreen(
                                         }
                                     )
                                 }
+                            }
+                            if(isShowLayoutSettingDialog){
+                                LayoutSettingDialog(
+                                )
                             }
                             SlideInSearchPanel(
                                 initialVisible = isShowSearchDialog,

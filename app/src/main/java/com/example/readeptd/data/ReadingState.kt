@@ -11,6 +11,7 @@ sealed interface ReadingState {
     val lastReadTime: Long
     val mimeType: String
     val progress: Float
+    val isSwipeLayout: Boolean = true
     
     /**
      * 将阅读状态转换为 JSON 字符串

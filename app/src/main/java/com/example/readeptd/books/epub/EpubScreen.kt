@@ -32,6 +32,7 @@ import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.LayoutSettingDialog
 
 @Composable
 fun EpubScreen(
@@ -72,6 +73,7 @@ fun EpubScreen(
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
+                var isShowLayoutSettingDialog by remember { mutableStateOf(false)}
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
@@ -122,7 +124,10 @@ fun EpubScreen(
 
                                 setOnLoadCompleteListener {
                                     contentViewModel.setOnClickProgressInfoCallback {
-                                        toggleNavPanel();
+                                        toggleNavPanel()
+                                    }
+                                    contentViewModel.setOnLongPressProgressInfoCallback {
+                                        isShowLayoutSettingDialog = true
                                     }
                                     contentViewModel.setOnClickSearchButtonCallback {
                                         isShowSearchDialog = !isShowSearchDialog
@@ -196,6 +201,10 @@ fun EpubScreen(
                                 webView?.goToPercentage(progress.toDouble())
                                 isShowJumpToProgressDialog = false
                             }
+                        )
+                    }
+                    if(isShowLayoutSettingDialog){
+                        LayoutSettingDialog(
                         )
                     }
                     

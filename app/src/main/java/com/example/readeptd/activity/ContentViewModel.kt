@@ -28,6 +28,7 @@ class ContentViewModel(
     private val _progressText = MutableStateFlow("-%")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
+    private var _onLongPressProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
 
     // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
@@ -56,6 +57,7 @@ class ContentViewModel(
     override fun onCleared() {
         super.onCleared()
         _onClickProgressInfoCallback = null
+        _onLongPressProgressInfoCallback = null
         _onClickSearchButtonCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
@@ -65,6 +67,9 @@ class ContentViewModel(
             is ContentUiEvent.Initialize -> handleInitialize(event.fileInfo)
             is ContentUiEvent.OnClickProgressInfo -> {
                 _onClickProgressInfoCallback?.invoke(event.progressText)
+            }
+            is ContentUiEvent.OnLongPressProgressInfo -> {
+                _onLongPressProgressInfoCallback?.invoke(event.progressText)
             }
             is ContentUiEvent.OnClickSearchButton -> {
                 _onClickSearchButtonCallback?.invoke()
@@ -88,6 +93,9 @@ class ContentViewModel(
 
     fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onClickProgressInfoCallback = callback
+    }
+    fun setOnLongPressProgressInfoCallback(callback: ((String) -> Unit)?) {
+        _onLongPressProgressInfoCallback = callback
     }
 
     fun setOnClickSearchButtonCallback(callback: (() -> Unit)?) {

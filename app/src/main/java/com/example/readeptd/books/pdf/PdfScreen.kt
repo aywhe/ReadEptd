@@ -61,6 +61,7 @@ import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.LayoutSettingDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
@@ -155,6 +156,7 @@ fun PdfLazyViewer(
     if (totalPages > 0) {
         var containerSize by remember { mutableStateOf(IntSize.Zero) }
         var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+        var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
         var isShowSearchDialog by remember { mutableStateOf(false) }
 
         LaunchedEffect(currentPage) {
@@ -166,6 +168,9 @@ fun PdfLazyViewer(
                 if (totalPages > 0) {
                     isShowJumpToPageDialog = true
                 }
+            }
+            contentViewModel.setOnLongPressProgressInfoCallback { progressText ->
+                isShowLayoutSettingDialog = true
             }
             contentViewModel.setOnClickSearchButtonCallback {
                 isShowSearchDialog = !isShowSearchDialog
@@ -316,6 +321,10 @@ fun PdfLazyViewer(
                         }
                         isShowJumpToPageDialog = false
                     }
+                )
+            }
+            if(isShowLayoutSettingDialog){
+                LayoutSettingDialog(
                 )
             }
             SlideInSearchPanel(
