@@ -292,9 +292,11 @@ class TxtViewModel(
     private suspend fun initPages() {
         when (_SplitPagesMode) {
             SplitPagesMode.ByLayoutSize -> {
+                Log.d(TAG, "使用布局尺寸分页")
                 generateLayoutSizePages()
             }
             SplitPagesMode.ByCharsCount -> {
+                Log.d(TAG, "使用字符数分页")
                 generateCharsCountPages()
             }
         }
@@ -321,40 +323,19 @@ class TxtViewModel(
             try {
                 // 使用临时可变列表
                 val tempPages = mutableListOf<TextChunk>()
-                var index: Int = 0
-                var charOffset: Long = 0
-                val text = StringBuilder()
 
-                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
-                    if(text.isNotEmpty()){
-                        text.append("\n")
-                    }
-                    text.append(line)
-                    // 判断是否达到字符阈值
-                    if(text.length >= charCountThreshold){
-                        val chunk = TextChunk(
-                            content = text.toString(),
-                            index = index,
-                            startPos = charOffset,
-                            endPos = charOffset + text.length
-                        )
-                        tempPages.add(chunk)
-                        // 更新字符偏移量
-                        charOffset += text.length
-                        text.clear()
-                        index++
-                    }
-                }
-                // 剩余的内容
-                if(text.isNotEmpty()){
-                    val chunk = TextChunk(
-                        content = text.toString(),
-                        index = index,
-                        startPos = charOffset,
-                        endPos = charOffset + text.length
-                    )
+                val splitter = TextSplitter(
+                    minChunkSize = charCountThreshold
+                ) { chunk ->
                     tempPages.add(chunk)
                 }
+
+                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
+                    splitter.processLine(line)
+                }
+
+                // 处理剩余内容
+                splitter.flushRemaining()
 
                 // 赋值不可变列表给 StateFlow
                 _pages.value = tempPages.toList()

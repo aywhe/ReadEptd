@@ -14,8 +14,9 @@ data class TextChunk(
  * 负责将文本行分割成适合显示的页面
  */
 class TextSplitter(
-    private val avgCharsPerLine: Int,
-    private val maxLinesPerPage: Int,
+    private val avgCharsPerLine: Int = 0,
+    private val maxLinesPerPage: Int = 0,
+    private val minChunkSize: Int = 0,
     private val emitCallback: suspend (TextChunk) -> Unit
 ) {
     private var index = 0
@@ -29,6 +30,28 @@ class TextSplitter(
     private val chunkSize = avgCharsPerLine * maxLinesPerPage
 
     suspend fun processLine(line: String) {
+        if(avgCharsPerLine > 0 && maxLinesPerPage > 0){
+            processLineByLines(line)
+        } else if(minChunkSize > 0){
+            processLineBySize(line)
+        } else {
+            processLineBySingleLine(line)
+        }
+    }
+
+    suspend fun processLineBySingleLine(line: String) {
+        appendLineToCurrentPage(line)
+        flushCurrentPage()
+    }
+
+    suspend fun processLineBySize(line: String) {
+        appendLineToCurrentPage(line)
+        if(currentContent.length >= minChunkSize){
+            flushCurrentPage()
+        }
+    }
+
+    suspend fun processLineByLines(line: String) {
 
         val linesNeeded = calculateLinesNeeded(line)
 
