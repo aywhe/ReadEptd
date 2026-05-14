@@ -1290,5 +1290,5 @@ window.EpubReader = {
     search: SearchManager.search.bind(SearchManager),
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
-    setLastReadingCfi: AppState.updateConfig.bind(AppState)
+    setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState)
 };
