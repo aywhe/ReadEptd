@@ -314,6 +314,7 @@ fun MainScreen(
                         • 定时关闭功能
                         • 自动保存阅读进度
                         • 关键词搜索功能
+                        • 支持左右分页及垂直滚动
                         
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyMedium
