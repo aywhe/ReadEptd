@@ -772,6 +772,8 @@ const ReaderCore = {
             } else {
                 console.warn('Invalid CFI format:', startCfi, '- will show first page instead');
             }
+        } else {
+            console.warn('Invalid startCfi :', startCfi, '- will show first page instead');
         }
 
         const displayPromise = displayCfi 
