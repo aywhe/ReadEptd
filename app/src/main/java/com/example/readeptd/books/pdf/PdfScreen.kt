@@ -140,7 +140,7 @@ fun PdfLazyViewer(
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
-    val isSwipeLayout = viewModel.getCurrentState()?.isSwipeLayout ?: true
+    var isSwipeLayout by remember { mutableStateOf(viewModel.getCurrentState()?.isSwipeLayout ?: true) }
 
     // ✅ 根据当前屏幕方向获取对应的缩放状态
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -329,6 +329,7 @@ fun PdfLazyViewer(
                     isSwipeLayout = isSwipeLayout,
                     onSwipeLayoutChange = { newValue ->
                         // 更新阅读状态中的 isSwipeLayout
+                        isSwipeLayout = newValue
                         viewModel.getCurrentState()?.let { currentState ->
                             val newState = currentState.copy(isSwipeLayout = newValue)
                             viewModel.saveProgress(newState)

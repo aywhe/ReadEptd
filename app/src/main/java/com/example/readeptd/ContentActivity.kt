@@ -285,14 +285,28 @@ fun ToolTip(
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
     if (progressText.isNotBlank()) {
-        TextButton(
-            onClick = {
-                viewModel.onEvent(
-                    ContentUiEvent.OnClickProgressInfo(
-                        progressText
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            viewModel.onEvent(
+                                ContentUiEvent.OnClickProgressInfo(
+                                    progressText
+                                )
+                            )
+                        },
+                        onLongPress = {
+                            viewModel.onEvent(
+                                ContentUiEvent.OnLongPressProgressInfo(
+                                    progressText
+                                )
+                            )
+                        }
                     )
-                )
-            }
+                }
+
         ) {
             Text(
                 text = progressText,
@@ -336,7 +350,6 @@ fun ToolTip(
                             }
                         },
                         onLongPress = {
-                            Log.d("ContentActivity", "长按按钮被点击")
                             onLongPressSpeak()
                         }
                     )

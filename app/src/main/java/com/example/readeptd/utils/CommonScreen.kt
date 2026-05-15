@@ -282,6 +282,7 @@ fun LayoutSettingDialog(
     onSwipeLayoutChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
+    var isSwipeLayoutState by remember { mutableStateOf(isSwipeLayout) }
     AlertDialog(
         onDismissRequest = { onDismiss() },
         title = { Text("布局设置") },
@@ -299,8 +300,9 @@ fun LayoutSettingDialog(
                 ) {
                     Text("左右分页")
                     Switch(
-                        checked = isSwipeLayout,
+                        checked = isSwipeLayoutState,
                         onCheckedChange = { newValue ->
+                            isSwipeLayoutState = newValue
                             onSwipeLayoutChange(newValue)
                         }
                     )
