@@ -197,7 +197,7 @@ fun TxtScreen(
                                     isShowSearchDialog = !isShowSearchDialog
                                 }
                             }
-                            LaunchedEffect(currentPage) {
+                            LaunchedEffect(currentPage, isSwipeLayout) {
                                 if(isSwipeLayout){
                                     contentViewModel.updateProgressText(
                                         "${currentPage + 1}/${viewModel.getPagesCount()}"
