@@ -280,9 +280,12 @@ fun TimerDialog(
 fun LayoutSettingDialog(
     isSwipeLayout: Boolean,
     onSwipeLayoutChange: (Boolean) -> Unit = {},
+    isRtl: Boolean? = null,
+    onRtlChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
     var isSwipeLayoutState by remember { mutableStateOf(isSwipeLayout) }
+    var isRtlState by remember { mutableStateOf(isRtl) }
     AlertDialog(
         onDismissRequest = { onDismiss() },
         title = { Text("布局设置") },
@@ -306,6 +309,22 @@ fun LayoutSettingDialog(
                             onSwipeLayoutChange(newValue)
                         }
                     )
+                }
+                if(isRtlState != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("文言文模式")
+                        Switch(
+                            checked = isRtlState == true,
+                            onCheckedChange = { newValue ->
+                                isRtlState = newValue
+                                onRtlChange(newValue)
+                            }
+                        )
+                    }
                 }
             }
         },

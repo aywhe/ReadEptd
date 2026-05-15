@@ -12,19 +12,21 @@ sealed interface ReadingState {
     val mimeType: String
     val progress: Float
     val isSwipeLayout: Boolean
-    
+    val isRtl: Boolean
+
     /**
      * 将阅读状态转换为 JSON 字符串
      */
     fun toJson(): String
-    
+
     companion object {
         private const val KEY_MIME_TYPE = "mimeType"
         private const val KEY_URI = "uri"
         private const val KEY_LAST_READ_TIME = "lastReadTime"
         private const val KEY_PROGRESS = "progress"
         private const val KEY_IS_SWIPE_LAYOUT = "isSwipeLayout"
-        
+        private const val KEY_IS_RTL = "isRtl"
+
         /**
          * 从 JSON 字符串恢复阅读状态
          */
@@ -35,19 +37,24 @@ sealed interface ReadingState {
             val lastReadTime = jsonObject.optLong(KEY_LAST_READ_TIME, System.currentTimeMillis())
             val progress = jsonObject.optDouble(KEY_PROGRESS, 0.0).toFloat()
             val isSwipeLayout = jsonObject.optBoolean(KEY_IS_SWIPE_LAYOUT, true)
-            
+            val isRtl = jsonObject.optBoolean(KEY_IS_RTL, false)
+
             return when {
                 mimeType == "application/epub+zip" || mimeType.contains("epub") -> {
                     Epub(
                         uri = uri,
                         cfi = if (jsonObject.has(Epub.KEY_CFI)) jsonObject.getString(Epub.KEY_CFI) else null,
                         page = if (jsonObject.has(Epub.KEY_PAGE)) jsonObject.getInt(Epub.KEY_PAGE) else null,
-                        totalPages = if (jsonObject.has(Epub.KEY_TOTAL_PAGES)) jsonObject.getInt(Epub.KEY_TOTAL_PAGES) else null,
+                        totalPages = if (jsonObject.has(Epub.KEY_TOTAL_PAGES)) jsonObject.getInt(
+                            Epub.KEY_TOTAL_PAGES
+                        ) else null,
                         progress = progress,
                         lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout
+                        isSwipeLayout = isSwipeLayout,
+                        isRtl = isRtl
                     )
                 }
+
                 mimeType == "application/pdf" -> {
                     Pdf(
                         uri = uri,
@@ -55,30 +62,35 @@ sealed interface ReadingState {
                         totalPages = jsonObject.optInt(Pdf.KEY_TOTAL_PAGES, 1),
                         progress = progress,
                         lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout
+                        isSwipeLayout = isSwipeLayout,
+                        isRtl = isRtl
                     )
                 }
+
                 mimeType == "text/plain" -> {
                     Txt(
                         uri = uri,
                         charOffset = jsonObject.optLong(Txt.KEY_CHAR_OFFSET, 0),
                         progress = progress,
                         lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout
+                        isSwipeLayout = isSwipeLayout,
+                        isRtl = isRtl
                     )
                 }
+
                 else -> {
                     Unknown(
                         uri = uri,
                         progress = progress,
                         lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout
+                        isSwipeLayout = isSwipeLayout,
+                        isRtl = isRtl
                     )
                 }
             }
         }
     }
-    
+
     /**
      * EPUB 格式的阅读状态
      * 支持 CFI 定位和页码导航
@@ -91,14 +103,15 @@ sealed interface ReadingState {
         override val progress: Float = 0f,          // 阅读进度 0.0-1.0
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/epub+zip",
-        override val isSwipeLayout: Boolean = true
+        override val isSwipeLayout: Boolean = true,
+        override val isRtl: Boolean = false
     ) : ReadingState {
         companion object {
             const val KEY_CFI = "cfi"
             const val KEY_PAGE = "page"
             const val KEY_TOTAL_PAGES = "totalPages"
         }
-        
+
         override fun toJson(): String {
             return JSONObject().apply {
                 put(KEY_MIME_TYPE, mimeType)
@@ -106,14 +119,15 @@ sealed interface ReadingState {
                 put(KEY_LAST_READ_TIME, lastReadTime)
                 put(KEY_PROGRESS, progress)
                 put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
-                
+                put(KEY_IS_RTL, isRtl)
+
                 cfi?.let { put(KEY_CFI, it) }
                 page?.let { put(KEY_PAGE, it) }
                 totalPages?.let { put(KEY_TOTAL_PAGES, it) }
             }.toString()
         }
     }
-    
+
     /**
      * PDF 格式的阅读状态
      * 基于页码和缩放比例
@@ -125,13 +139,14 @@ sealed interface ReadingState {
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf",
-        override val isSwipeLayout: Boolean = true
+        override val isSwipeLayout: Boolean = true,
+        override val isRtl: Boolean = false
     ) : ReadingState {
         companion object {
             const val KEY_PAGE = "page"
             const val KEY_TOTAL_PAGES = "totalPages"
         }
-        
+
         override fun toJson(): String {
             return JSONObject().apply {
                 put(KEY_MIME_TYPE, mimeType)
@@ -139,12 +154,13 @@ sealed interface ReadingState {
                 put(KEY_LAST_READ_TIME, lastReadTime)
                 put(KEY_PROGRESS, progress)
                 put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
+                put(KEY_IS_RTL, isRtl)
                 put(KEY_PAGE, page)
                 put(KEY_TOTAL_PAGES, totalPages)
             }.toString()
         }
     }
-    
+
     /**
      * TXT 纯文本格式的阅读状态
      * 基于字符偏移量或行号
@@ -155,12 +171,13 @@ sealed interface ReadingState {
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "text/plain",
-        override val isSwipeLayout: Boolean = true
+        override val isSwipeLayout: Boolean = true,
+        override val isRtl: Boolean = false
     ) : ReadingState {
         companion object {
             const val KEY_CHAR_OFFSET = "charOffset"
         }
-        
+
         override fun toJson(): String {
             return JSONObject().apply {
                 put(KEY_MIME_TYPE, mimeType)
@@ -168,11 +185,12 @@ sealed interface ReadingState {
                 put(KEY_LAST_READ_TIME, lastReadTime)
                 put(KEY_PROGRESS, progress)
                 put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
+                put(KEY_IS_RTL, isRtl)
                 put(KEY_CHAR_OFFSET, charOffset)
             }.toString()
         }
     }
-    
+
     /**
      * 未知或不支持格式的阅读状态
      * 仅记录基本信息
@@ -182,7 +200,8 @@ sealed interface ReadingState {
         override val progress: Float = 0f,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/octet-stream",
-        override val isSwipeLayout: Boolean = true
+        override val isSwipeLayout: Boolean = true,
+        override val isRtl: Boolean = false
     ) : ReadingState {
         override fun toJson(): String {
             return JSONObject().apply {
@@ -191,6 +210,7 @@ sealed interface ReadingState {
                 put(KEY_LAST_READ_TIME, lastReadTime)
                 put(KEY_PROGRESS, progress)
                 put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
+                put(KEY_IS_RTL, isRtl)
             }.toString()
         }
     }
