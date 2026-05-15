@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -286,8 +288,9 @@ fun ToolTip(
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
     if (progressText.isNotBlank()) {
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .padding(horizontal = 4.dp)
+                .padding(start = 8.dp, end = 4.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -337,7 +340,7 @@ fun ToolTip(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .padding(start = 4.dp, end = 16.dp)
+                .padding(start = 4.dp, end = 8.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -487,6 +490,7 @@ fun DraggableFloatingToolTip(
                     )
                 }
         ) {
+            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
             // 工具提示内容
             if (showTip && !isCollapsed) {
                 var cachedIsButtonOnRightSide by remember { mutableStateOf(isButtonOnRightSide) }
@@ -519,7 +523,7 @@ fun DraggableFloatingToolTip(
                 Surface(
                     shape = toolTipShape,
                     color = surfaceColor,
-                    modifier = toolTipModifier
+                    modifier = toolTipModifier.height(iconSizeDp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -533,7 +537,7 @@ fun DraggableFloatingToolTip(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .padding(horizontal = 4.dp)
+                                .padding(end = 8.dp)
                                 .pointerInput(Unit) {
                                     detectTapGestures(
                                         onTap = {
@@ -568,8 +572,6 @@ fun DraggableFloatingToolTip(
                 )
                 else -> CircleShape
             }
-
-            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
 
             Surface(
                 shape = buttonShape,
