@@ -349,6 +349,8 @@ class TxtViewModel(
                 // ✅ 确保全文内容已加载
                 ensureEntireTextLoaded(currentState.tempFilePath.toUri())
                 
+                val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
+                
                 // 使用临时可变列表
                 val tempPages = mutableListOf<TextChunk>()
 
@@ -358,10 +360,8 @@ class TxtViewModel(
                     tempPages.add(chunk)
                 }
 
-                // ✅ 使用 extractTextRaw 进行流式分页（不依赖 entireText）
-                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
-                    splitter.processLine(line)
-                }
+                // ✅ 直接处理全文（无需再次读取文件）
+                splitter.processFullText(fullText)
 
                 // 处理剩余内容
                 splitter.flushRemaining()
@@ -422,6 +422,8 @@ class TxtViewModel(
                 // ✅ 确保全文内容已加载
                 ensureEntireTextLoaded(currentState.tempFilePath.toUri())
                 
+                val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
+                
                 // 使用临时可变列表
                 val tempPages = mutableListOf<TextChunk>()
 
@@ -432,9 +434,8 @@ class TxtViewModel(
                     tempPages.add(chunk)
                 }
 
-                textExtractor.extractTextRaw(currentState.tempFilePath.toUri()).collect { line ->
-                    splitter.processLine(line)
-                }
+                // ✅ 直接处理全文（无需再次读取文件）
+                splitter.processFullText(fullText)
 
                 // 处理剩余内容
                 splitter.flushRemaining()

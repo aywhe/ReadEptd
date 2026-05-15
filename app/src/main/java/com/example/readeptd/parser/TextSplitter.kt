@@ -150,4 +150,15 @@ class TextSplitter(
     fun getRemainContent(): String {
         return currentContent.toString()
     }
+    
+    /**
+     * ✅ 新增：直接处理完整文本（用于基于全文的分页）
+     * @param fullText 完整文本内容
+     */
+    suspend fun processFullText(fullText: String) {
+        val lines = fullText.split("\n")
+        for (line in lines) {
+            processLine(line)
+        }
+    }
 }
