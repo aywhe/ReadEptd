@@ -301,7 +301,8 @@ class TxtViewModel(
 
         // 启动新的防抖任务，延迟 300ms 执行，等待视图稳定
         rePaginationDebounceJob = viewModelScope.launch {
-            delay(300)
+            // 外部做防抖
+            //delay(300)
             
             // 再次检查参数是否真的变化了（防止在延迟期间又发生了变化）
             val finalCharsParams = calculatePageCharsParams()

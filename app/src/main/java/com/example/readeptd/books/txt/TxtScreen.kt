@@ -55,11 +55,15 @@ import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.utils.LayoutSettingDialog
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+@OptIn(FlowPreview::class)
 @Composable
 fun TxtScreen(
     fileInfo: FileInfo,
@@ -94,6 +98,23 @@ fun TxtScreen(
         top = topPaddingDp.dp,
         bottom = bottomPaddingDp.dp
     )
+
+    // ✅ 创建防抖的 SharedFlow，用于减少 onSizeChanged 调用频率
+    val sizeChangeFlow = remember { 
+        MutableSharedFlow<TxtEvent.OnViewMetricsChanged>(
+            replay = 0,
+            extraBufferCapacity = 1
+        )
+    }
+    
+    // ✅ 监听防抖后的尺寸变化事件
+    LaunchedEffect(Unit) {
+        sizeChangeFlow
+            .debounce(500) // 500ms 防抖，等待布局稳定
+            .collect { event ->
+                viewModel.onEvent(event)
+            }
+    }
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
@@ -145,15 +166,18 @@ fun TxtScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .onSizeChanged { size ->
-                            viewModel.onEvent(
-                                TxtEvent.OnViewMetricsChanged(
-                                    size = size,
-                                    leftPaddingDp = leftPaddingDp,
-                                    rightPaddingDp = rightPaddingDp,
-                                    topPaddingDp = topPaddingDp,
-                                    bottomPaddingDp = bottomPaddingDp
+                            // ✅ 发送事件到防抖 Flow，而不是直接调用 ViewModel
+                            scope.launch {
+                                sizeChangeFlow.emit(
+                                    TxtEvent.OnViewMetricsChanged(
+                                        size = size,
+                                        leftPaddingDp = leftPaddingDp,
+                                        rightPaddingDp = rightPaddingDp,
+                                        topPaddingDp = topPaddingDp,
+                                        bottomPaddingDp = bottomPaddingDp
+                                    )
                                 )
-                            )
+                            }
                         }
                         .pointerInput(Unit) {
                             awaitEachGesture {
