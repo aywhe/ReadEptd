@@ -126,15 +126,16 @@ fun TxtScreen(
 
             is BookUiState.Ready -> {
                 var lastClickTime by remember { mutableStateOf(0L)}
-                
+                var readingStateReady by remember { mutableStateOf(false) }
                 // ✅ 只在 readingState 加载完成后才设置分页模式，避免无效分页
                 LaunchedEffect(readingState) {
-                    if (readingState != null) {
+                    if (readingState != null && (!readingStateReady)) {
                         val mode = if (readingState!!.isSwipeLayout) {
                             SplitPagesMode.ByLayoutSize
                         } else {
                             SplitPagesMode.ByCharsCount
                         }
+                        readingStateReady = true
                         Log.d("TxtScreen", "readingState 已加载，设置分页模式: $mode")
                         viewModel.setSplitPagesMode(mode)
                     }
