@@ -107,3 +107,9 @@ reject 同理。
 如果是手动点击的话，此时并没有在运行display，也不会有问题。
 方法： 在 attached 事件触发后，延迟500ms再调用display，保佑500ms内resize完成。如果没有resize，也能正确显示。
 还有，在 resize 事件触发后，防抖后立即启动display。 自定义标记变量，保证首次display只执行一次，而且不影响其他地方的display。
+
+- 问题： compose 没有针对文字的文言文竖排的upright阅读方式
+方法： 放弃txt的upright方式。因为pdf是图片，只需要排列就行，与文本处理的逻辑不同。
+
+- 问题： epub 的upright配置一直配置不好，参数组合与css都试过了，还是不行，显示都是异常的。
+方法： 放弃epub的upright方式
