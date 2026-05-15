@@ -79,7 +79,10 @@ fun TxtScreen(
     var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
-    val isSwipeLayout = viewModel.getCurrentState()?.isSwipeLayout ?: true
+    
+    // ✅ 使用 readingState Flow 获取 isSwipeLayout
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isSwipeLayout = readingState?.isSwipeLayout ?: true
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
@@ -307,8 +310,8 @@ fun TxtScreen(
                                 LayoutSettingDialog(
                                     isSwipeLayout = isSwipeLayout,
                                     onSwipeLayoutChange = { newValue ->
-                                        // 更新阅读状态中的 isSwipeLayout
-                                        viewModel.getCurrentState()?.let { currentState ->
+                                        // ✅ 直接从 readingState 创建新状态并保存
+                                        viewModel.readingState.value?.let { currentState ->
                                             val newState = currentState.copy(isSwipeLayout = newValue)
                                             viewModel.saveProgress(newState)
                                         }

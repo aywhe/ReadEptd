@@ -32,6 +32,7 @@ class PdfViewModel(
 
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
+
     // ✅ 使用 LinkedHashMap 实现 LRU 缓存,最多保留10页
     private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(10, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
@@ -217,7 +218,7 @@ class PdfViewModel(
         _currentPage.value = page
 
         // 保存阅读进度
-        savePdfProgress(
+        updatePdfProgress(
             uri = currentFileUri ?: return,
             pageIndex = page
         )
@@ -227,7 +228,7 @@ class PdfViewModel(
      * 获取初始页码（用于恢复阅读进度）
      */
     fun getInitialPage(): Int {
-        val savedState = currentReadingState
+        val savedState = readingState.value
         return if (savedState != null && savedState.page >= 0) {
             val page = savedState.page.coerceIn(0, _totalPages.value - 1)
             Log.d(TAG, "恢复上次阅读进度: $page")
@@ -239,21 +240,39 @@ class PdfViewModel(
     }
 
     /**
-     * 保存 PDF 阅读进度
+     * 更新 PDF 阅读进度（update 方式）
+     * 基于当前状态更新指定字段，保留其他字段（如 isSwipeLayout）
      */
-    fun savePdfProgress(
+    fun updatePdfProgress(
         uri: String,
         pageIndex: Int
     ) {
+        // ✅ 获取当前状态，如果不存在则创建新状态
+        val currentState = readingState.value
+
         val progress = if (_totalPages.value > 0) pageIndex.toFloat() / _totalPages.value else 0f
-        val state = ReadingState.Pdf(
-            uri = uri,
-            page = pageIndex,
-            totalPages = _totalPages.value,
-            progress = progress,
-            lastReadTime = System.currentTimeMillis()
-        )
-        saveProgress(state)
+
+        val newState = currentState?.let {
+            // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段
+            it.copy(
+                page = pageIndex,
+                totalPages = _totalPages.value,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis()
+            )
+        } ?: run {
+            // 如果没有当前状态，创建新状态（默认 isSwipeLayout = true）
+            ReadingState.Pdf(
+                uri = uri,
+                page = pageIndex,
+                totalPages = _totalPages.value,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis(),
+                isSwipeLayout = true
+            )
+        }
+
+        saveProgress(newState)
     }
 
     /**
@@ -381,7 +400,7 @@ class PdfViewModel(
     override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "PdfViewModel 清除，清理资源")
-        _onGoToPageListener =  null
+        _onGoToPageListener = null
         cleanupRenderer()
     }
 

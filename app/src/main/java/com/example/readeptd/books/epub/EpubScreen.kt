@@ -68,9 +68,10 @@ fun EpubScreen(
                 }
             }
             is BookUiState.Ready -> {
-                // 获取上次阅读位置
-                val savedCfi = viewModel.getCurrentState()?.cfi
-                val isSwipeLayout = viewModel.getCurrentState()?.isSwipeLayout ?: true
+                // ✅ 使用 readingState Flow 获取上次阅读位置
+                val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+                val savedCfi = readingState?.cfi
+                val isSwipeLayout = readingState?.isSwipeLayout ?: true
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
@@ -114,7 +115,7 @@ fun EpubScreen(
                                     contentViewModel.updateProgressText("${(epubLocation.start.percentage * 100).toInt()}%")
                                     Log.d("EpubScreen", "保存进度: $epubLocation")
                                     // 并保存进度
-                                    viewModel.saveEpubProgress(
+                                    viewModel.updateEpubProgress(
                                         uri = fileInfo.uri,
                                         cfi = epubLocation.start.cfi,
                                         page = epubLocation.start.displayed.page,
@@ -208,8 +209,8 @@ fun EpubScreen(
                         LayoutSettingDialog(
                             isSwipeLayout = isSwipeLayout,
                             onSwipeLayoutChange = { newValue ->
-                                // 更新阅读状态中的 isSwipeLayout
-                                viewModel.getCurrentState()?.let { currentState ->
+                                // ✅ 直接从 readingState 创建新状态并保存
+                                viewModel.readingState.value?.let { currentState ->
                                     val newState = currentState.copy(isSwipeLayout = newValue)
                                     viewModel.saveProgress(newState)
                                 }

@@ -166,7 +166,7 @@ class TxtViewModel(
         Log.d(TAG, "翻页到: $pageIndex")
         _currentPage.value = pageIndex
         // 保存阅读进度
-        saveTxtProgress(
+        updateTxtProgress(
             uri = currentFileUri ?: return,
             pageIndex = pageIndex
         )
@@ -420,7 +420,7 @@ class TxtViewModel(
      * 根据保存的阅读进度恢复页码
      */
     private fun restorePageFromProgress() {
-        val savedState = currentReadingState
+        val savedState = readingState.value
         if (savedState == null || _pages.value.isEmpty()) {
             Log.d(TAG, "没有保存的阅读状态或页面为空，从第一页开始")
             _currentPage.value = 0
@@ -438,7 +438,7 @@ class TxtViewModel(
     }
 
     fun getProgress(): Float{
-        val savedState = currentReadingState
+        val savedState = readingState.value
         if (savedState == null || _pages.value.isEmpty()) {
             return 0f
         }
@@ -492,9 +492,10 @@ class TxtViewModel(
     }
 
     /**
-     * 保存 TXT 阅读进度
+     * 更新 TXT 阅读进度（update 方式）
+     * 基于当前状态更新指定字段，保留其他字段（如 isSwipeLayout）
      */
-    fun saveTxtProgress(
+    fun updateTxtProgress(
         uri: String,
         pageIndex: Int
     ) {
@@ -503,13 +504,29 @@ class TxtViewModel(
             //if (_pages.value.isNotEmpty()) pageIndex.toFloat() / _pages.value.size else 0f
         val charOffset = _pages.value.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
-        val state = ReadingState.Txt(
-            uri = uri,
-            charOffset = charOffset,
-            progress = progress,
-            lastReadTime = System.currentTimeMillis()
-        )
-        saveProgress(state)
+        
+        // ✅ 获取当前状态，如果不存在则创建新状态
+        val currentState = readingState.value
+        
+        val newState = currentState?.let {
+            // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段
+            it.copy(
+                charOffset = charOffset,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis()
+            )
+        } ?: run {
+            // 如果没有当前状态，创建新状态（默认 isSwipeLayout = true）
+            ReadingState.Txt(
+                uri = uri,
+                charOffset = charOffset,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis(),
+                isSwipeLayout = true
+            )
+        }
+        
+        saveProgress(newState)
     }
 
     fun setOnGoToPageListener(listener: (Int) -> Unit) {

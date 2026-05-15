@@ -140,7 +140,12 @@ fun PdfLazyViewer(
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
-    var isSwipeLayout by remember { mutableStateOf(viewModel.getCurrentState()?.isSwipeLayout ?: true) }
+    
+    // ✅ 使用 StateFlow 获取阅读状态
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    
+    // ✅ 从 readingState 中提取 isSwipeLayout，默认为 true
+    val isSwipeLayout = readingState?.isSwipeLayout ?: true
 
     // ✅ 根据当前屏幕方向获取对应的缩放状态
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -220,8 +225,8 @@ fun PdfLazyViewer(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
         ) {
-            // ✅ 从 AppMemoryStore 获取当前文件的缩放信息（包含横竖屏两种状态）
-            val fileUri = viewModel.getCurrentState()?.uri ?: ""
+            // ✅ 从 readingState 获取当前文件的 URI
+            val fileUri = readingState?.uri ?: ""
 
             val pdfZoomInfo by AppMemoryStore.pdfZoomInfoStateFlow(fileUri).collectAsStateWithLifecycle()
             // ✅ 使用 rememberSaveable 或者直接用 mutableStateOf，初始值从 AppMemoryStore 获取
@@ -328,9 +333,8 @@ fun PdfLazyViewer(
                 LayoutSettingDialog(
                     isSwipeLayout = isSwipeLayout,
                     onSwipeLayoutChange = { newValue ->
-                        // 更新阅读状态中的 isSwipeLayout
-                        isSwipeLayout = newValue
-                        viewModel.getCurrentState()?.let { currentState ->
+                        // ✅ 直接从 readingState 创建新状态并保存
+                        readingState?.let { currentState ->
                             val newState = currentState.copy(isSwipeLayout = newValue)
                             viewModel.saveProgress(newState)
                         }

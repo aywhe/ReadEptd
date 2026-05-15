@@ -44,8 +44,10 @@ abstract class BookViewModel<T : ReadingState>(
     protected var currentTempFile: File? = null
     private var processedUri: String? = null
     
-    // 当前阅读状态（使用泛型）
-    protected var currentReadingState: T? = null
+    // ✅ 使用 StateFlow 管理阅读状态（替代 currentReadingState）
+    private val _readingState = MutableStateFlow<T?>(null)
+    val readingState: StateFlow<T?> = _readingState.asStateFlow()
+    
     protected var currentFileUri: String? = null
     
     // 用于防抖的 Flow
@@ -101,7 +103,7 @@ abstract class BookViewModel<T : ReadingState>(
      * 重置状态（用于重新加载）
      */
     fun reset() {
-        currentReadingState = null
+        _readingState.value = null
         _uiState.value = BookUiState.Loading
     }
 
@@ -116,15 +118,16 @@ abstract class BookViewModel<T : ReadingState>(
             // 检查状态类型是否匹配
             if (state != null && stateClass.isInstance(state)) {
                 @Suppress("UNCHECKED_CAST")
-                currentReadingState = state as T
+                val typedState = state as T
+                _readingState.value = typedState  // ✅ 更新 StateFlow
                 Log.d(getViewModelName(), "恢复阅读状态: $state")
             } else {
-                currentReadingState = null
+                _readingState.value = null
                 Log.d(getViewModelName(), "未找到阅读状态或类型不匹配，从头开始")
             }
         } catch (e: Exception) {
             Log.e(getViewModelName(), "加载阅读状态失败", e)
-            currentReadingState = null
+            _readingState.value = null
         }
     }
     
@@ -134,8 +137,8 @@ abstract class BookViewModel<T : ReadingState>(
      */
     @OptIn(FlowPreview::class)
     fun saveProgress(readingState: T) {
-        // 更新内存中的状态
-        currentReadingState = readingState
+        // ✅ 更新 StateFlow
+        _readingState.value = readingState
         currentFileUri = readingState.uri
         
         // 发送到防抖 Flow
@@ -175,7 +178,7 @@ abstract class BookViewModel<T : ReadingState>(
      * 立即保存（用于退出时）
      */
     fun saveProgressImmediately() {
-        currentReadingState?.let {
+        _readingState.value?.let {
             viewModelScope.launch {
                 persistReadingState(it)
             }
@@ -183,10 +186,12 @@ abstract class BookViewModel<T : ReadingState>(
     }
     
     /**
-     * 获取当前阅读状态
+     * 获取当前阅读状态（保留向后兼容）
+     * @deprecated 建议使用 readingState.collectAsStateWithLifecycle()
      */
+    @Deprecated("Use readingState StateFlow instead", ReplaceWith("readingState"))
     fun getCurrentState(): T? {
-        return currentReadingState
+        return _readingState.value
     }
 
     override fun onCleared() {
