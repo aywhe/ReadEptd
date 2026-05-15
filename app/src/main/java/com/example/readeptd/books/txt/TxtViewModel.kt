@@ -85,7 +85,20 @@ class TxtViewModel(
 
 
     fun setSplitPagesMode(mode: SplitPagesMode) {
+        if (_SplitPagesMode == mode) {
+            Log.d(TAG, "分页模式未变化，跳过")
+            return
+        }
+        
+        Log.d(TAG, "分页模式变化: $_SplitPagesMode -> $mode")
         _SplitPagesMode = mode
+        
+        // ✅ 切换模式后触发重新分页
+        if (allowRePagination && viewSize.width > 0 && viewSize.height > 0) {
+            viewModelScope.launch {
+                reinitPagesIfNeeded()
+            }
+        }
     }
     
     /**
