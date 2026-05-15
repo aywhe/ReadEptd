@@ -431,11 +431,7 @@ fun PdfSwipeLayout(
         modifier = Modifier.fillMaxSize()
     ) { page ->
         Box(modifier = Modifier.fillMaxSize(),
-            contentAlignment = if(isLandscape){
-                Alignment.TopCenter
-            } else {
-                Alignment.Center
-            },
+            Alignment.Center
         ) {
             viewModel.renderPage(page, 1)
             val bitmap = viewModel.getPageBitmap(page)
@@ -443,7 +439,6 @@ fun PdfSwipeLayout(
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
-                    contentScale = ContentScale.FillWidth,
                     colorFilter = if (config.isNightMode) {
                         ColorFilter.colorMatrix(colorMatrix)
                     } else null,
@@ -454,7 +449,7 @@ fun PdfSwipeLayout(
                             scaleY = scale,
                             translationX = offset.x,
                             translationY = offset.y,
-                        ).verticalScroll(scrollState)
+                        )
                 )
             } else {
                 Log.d("PdfLazyViewer", "PDF page $page bmp is null")
