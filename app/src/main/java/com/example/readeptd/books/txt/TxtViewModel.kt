@@ -568,8 +568,11 @@ class TxtViewModel(
         
         val page = pages[pageIndex]
         try {
-            // ✅ 使用位置信息从全文中截取
-            val content = entireText.substring(page.startPos.toInt(), page.endPos.toInt())
+            // ✅ 使用位置信息从全文中截取，确保不越界
+            val safeStartPos = page.startPos.toInt().coerceAtLeast(0).coerceAtMost(entireText.length)
+            val safeEndPos = page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
+            
+            val content = entireText.substring(safeStartPos, safeEndPos)
             Log.d(TAG, "获取页码 $pageIndex 的内容: ${content.take(50)} ...")
             return content
         } catch (e: Exception) {

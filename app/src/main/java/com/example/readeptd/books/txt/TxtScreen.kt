@@ -448,8 +448,8 @@ fun TxtSwipeLayout(
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ){
-    val currentPage by viewModel.currentPage.collectAsState()
-    val initialPage = currentPage
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialPage.coerceIn(
@@ -492,8 +492,8 @@ fun TxtScrollLayout(
 ) {
     val scope = rememberCoroutineScope()
     val totalPages = viewModel.getPagesCount()
-    val currentPage by viewModel.currentPage.collectAsState()
-    val initialPage = currentPage
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
