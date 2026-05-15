@@ -7,7 +7,6 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.books.BookViewModel
-import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.parser.TextSplitter
@@ -102,15 +101,7 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnDoubleClickScreen -> {
-//                // 只有在退出全屏或者屏幕旋转时才允许重新分页
-//                if(currentFileUri == null || AppMemoryStore.isFullScreen(currentFileUri!!)) {
-//                    allowRePagination = false
-//                    jobSetAllowRePagination?.cancel()
-//                    jobSetAllowRePagination = viewModelScope.launch {
-//                        delay(5000)
-//                        allowRePagination = true
-//                    }
-//                }
+                // 这里先不用做什么
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {

@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,7 +42,6 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
@@ -53,19 +51,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
 
 @Composable
 fun PdfScreen(
@@ -227,54 +221,9 @@ fun PdfLazyViewer(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
         ) {
-            // ✅ 从 readingState 获取当前文件的 URI
-            val fileUri = readingState?.uri ?: ""
-
-            val pdfZoomInfo by AppMemoryStore.pdfZoomInfoStateFlow(fileUri).collectAsStateWithLifecycle()
-            // ✅ 使用 rememberSaveable 或者直接用 mutableStateOf，初始值从 AppMemoryStore 获取
-            // 注意：这里的关键是 LaunchedEffect 会在 pdfZoomInfo 变化时同步更新
             var scale by remember { mutableFloatStateOf(1f) }
             var offset by remember { mutableStateOf(Offset.Zero) }
 
-            // ✅ 【关键】监听 pdfZoomInfo 和 isLandscape 的变化，同步更新本地状态
-            // 这会在以下情况触发：
-            // 1. 初次加载时，pdfZoomInfo 从 AppMemoryStore 获取数据
-            // 2. 离开再返回时，pdfZoomInfo 更新为保存的值
-            // 3. 屏幕方向改变时，isLandscape 变化
-            LaunchedEffect(pdfZoomInfo, isLandscape) {
-                val newScale = pdfZoomInfo.getZoom(isLandscape)
-                val newOffset = pdfZoomInfo.getOffset(isLandscape)
-
-                // 只有当值真正不同时才更新，避免循环更新
-                if (scale != newScale || offset != newOffset) {
-                    scale = newScale
-                    offset = newOffset
-                    Log.d("PdfLazyViewer", "从 AppMemoryStore 恢复缩放状态: zoom=$newScale, offset=$newOffset")
-                }
-            }
-            // ✅ 创建用于防抖的 StateFlow
-            val zoomUpdateFlow = remember { MutableStateFlow<Pair<Float, Offset>>(Pair(scale, offset)) }
-            // ✅ 当本地 scale/offset 变化时，更新到 Flow（不直接写入 AppMemoryStore）
-            LaunchedEffect(scale, offset) {
-                zoomUpdateFlow.value = Pair(scale, offset)
-            }
-            // ✅ 使用防抖机制，延迟写入 AppMemoryStore
-            LaunchedEffect(fileUri, isLandscape) {
-                @OptIn(FlowPreview::class)
-                zoomUpdateFlow
-                    .debounce(500)  // 500ms 防抖，用户停止操作后才保存
-                    .collect { (zoom, off) ->
-                        if (fileUri.isNotEmpty()) {
-                            AppMemoryStore.updatePdfZoomAndOffset(
-                                fileUri,
-                                isLandscape,
-                                zoom,
-                                off
-                            )
-                            Log.d("PdfLazyViewer", "防抖保存缩放状态: zoom=$zoom, offset=$off")
-                        }
-                    }
-            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
