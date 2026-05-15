@@ -96,7 +96,7 @@ class TxtViewModel(
         // ✅ 切换模式后触发重新分页
         if (allowRePagination && viewSize.width > 0 && viewSize.height > 0) {
             viewModelScope.launch {
-                reinitPagesIfNeeded()
+                rebuildPagesIfNeeded()
             }
         }
     }
@@ -178,7 +178,7 @@ class TxtViewModel(
 
         if (allowRePagination) {
             viewModelScope.launch {
-                reinitPagesIfNeeded()
+                rebuildPagesIfNeeded()
             }
         } else {
             Log.d(TAG, "跳过重新分页")
@@ -212,7 +212,7 @@ class TxtViewModel(
 
         if (allowRePagination) {
             viewModelScope.launch {
-                reinitPagesIfNeeded()
+                rebuildPagesIfNeeded()
             }
         } else {
             Log.d(TAG, "跳过重新分页")
@@ -230,7 +230,7 @@ class TxtViewModel(
 
         if (allowRePagination) {
             viewModelScope.launch {
-                reinitPagesIfNeeded()
+                rebuildPagesIfNeeded()
             }
         } else {
             Log.d(TAG, "跳过重新分页")
@@ -267,7 +267,7 @@ class TxtViewModel(
     /**
      * 根据参数变化判断是否需要重新分页
      */
-    private suspend fun reinitPagesIfNeeded() {
+    private suspend fun rebuildPagesIfNeeded() {
         if (viewSize.width <= 0 || viewSize.height <= 0) {
             Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
             return
@@ -313,27 +313,27 @@ class TxtViewModel(
             
             // 启动新的分页任务
             currentPageJob = launch {
-                initPages()
+                buildPages()
             }
         }
     }
 
     /**
-     * 初始化分页（保证串行执行，避免并发问题）
+     * 构建分页（保证串行执行，避免并发问题）
      */
-    private suspend fun initPages() {
+    private suspend fun buildPages() {
         when (_SplitPagesMode) {
             SplitPagesMode.ByLayoutSize -> {
                 Log.d(TAG, "使用布局尺寸分页")
-                generateLayoutSizePages()
+                buildPagesByLayoutSize()
             }
             SplitPagesMode.ByCharsCount -> {
                 Log.d(TAG, "使用字符数分页")
-                generateCharsCountPages()
+                buildPagesByCharsCount()
             }
         }
     }
-    private suspend fun generateCharsCountPages() {
+    private suspend fun buildPagesByCharsCount() {
         // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
             val charCountThreshold = 512
@@ -396,7 +396,7 @@ class TxtViewModel(
             }
         }
     }
-    private suspend fun generateLayoutSizePages() {
+    private suspend fun buildPagesByLayoutSize() {
         // 重置分页状态
         _isPagesReady.value = false
 
