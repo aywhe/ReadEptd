@@ -79,12 +79,13 @@ fun TxtScreen(
     var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    val isSwipeLayout = viewModel.getCurrentState()?.isSwipeLayout ?: true
 
     // 定义 padding（UI 层决定）
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = if(config.isSwipeLayout) 16 else 0
-    val bottomPaddingDp = if(config.isSwipeLayout) 16 else 0
+    val topPaddingDp = if(isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if(isSwipeLayout) 16 else 0
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
         end = rightPaddingDp.dp,
@@ -124,7 +125,7 @@ fun TxtScreen(
             is BookUiState.Ready -> {
                 var lastClickTime by remember { mutableStateOf(0L)}
                 viewModel.setSplitPagesMode(
-                    if(config.isSwipeLayout){
+                    if(isSwipeLayout){
                         SplitPagesMode.ByLayoutSize
                     } else {
                         SplitPagesMode.ByCharsCount
@@ -194,7 +195,7 @@ fun TxtScreen(
                                 }
                             }
                             LaunchedEffect(currentPage) {
-                                if(config.isSwipeLayout){
+                                if(isSwipeLayout){
                                     contentViewModel.updateProgressText(
                                         "${currentPage + 1}/${viewModel.getPagesCount()}"
                                     )
@@ -252,7 +253,7 @@ fun TxtScreen(
 
                             var currentKeyword by remember { mutableStateOf("") }
                             TxtLayoutWrapper(
-                                isSwipeLayout = config.isSwipeLayout,
+                                isSwipeLayout = isSwipeLayout,
                                 contentViewModel = contentViewModel,
                                 viewModel = viewModel
                             ){ page ->
@@ -273,7 +274,7 @@ fun TxtScreen(
                                 )
                             }
                             if(isShowJumpToPageDialog){
-                                if(config.isSwipeLayout) {
+                                if(isSwipeLayout) {
                                     JumpToPageDialog(
                                         currentPage = currentPage,
                                         totalPages = viewModel.getPagesCount(),
@@ -304,6 +305,17 @@ fun TxtScreen(
                             }
                             if(isShowLayoutSettingDialog){
                                 LayoutSettingDialog(
+                                    isSwipeLayout = isSwipeLayout,
+                                    onSwipeLayoutChange = { newValue ->
+                                        // 更新阅读状态中的 isSwipeLayout
+                                        viewModel.getCurrentState()?.let { currentState ->
+                                            val newState = currentState.copy(isSwipeLayout = newValue)
+                                            viewModel.saveProgress(newState)
+                                        }
+                                    },
+                                    onDismiss = {
+                                        isShowLayoutSettingDialog = false
+                                    }
                                 )
                             }
                             SlideInSearchPanel(

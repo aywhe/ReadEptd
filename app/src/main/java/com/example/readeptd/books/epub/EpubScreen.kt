@@ -70,6 +70,7 @@ fun EpubScreen(
             is BookUiState.Ready -> {
                 // 获取上次阅读位置
                 val savedCfi = viewModel.getCurrentState()?.cfi
+                val isSwipeLayout = viewModel.getCurrentState()?.isSwipeLayout ?: true
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
@@ -101,7 +102,7 @@ fun EpubScreen(
                                     }
                                 )
                                 setFlowMode(
-                                    when(config.isSwipeLayout) {
+                                    when(isSwipeLayout) {
                                         true -> EpubFlowMode.Paginated
                                         false -> EpubFlowMode.Scrolled
                                     }
@@ -205,6 +206,17 @@ fun EpubScreen(
                     }
                     if(isShowLayoutSettingDialog){
                         LayoutSettingDialog(
+                            isSwipeLayout = isSwipeLayout,
+                            onSwipeLayoutChange = { newValue ->
+                                // 更新阅读状态中的 isSwipeLayout
+                                viewModel.getCurrentState()?.let { currentState ->
+                                    val newState = currentState.copy(isSwipeLayout = newValue)
+                                    viewModel.saveProgress(newState)
+                                }
+                            },
+                            onDismiss = {
+                                isShowLayoutSettingDialog = false
+                            }
                         )
                     }
                     

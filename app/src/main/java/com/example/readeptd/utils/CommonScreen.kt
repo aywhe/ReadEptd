@@ -279,12 +279,12 @@ fun TimerDialog(
 @Composable
 fun LayoutSettingDialog(
     isSwipeLayout: Boolean,
-    onDismiss: () -> Unit = {},
-    onConfirm: () -> Unit = {}
+    onSwipeLayoutChange: (Boolean) -> Unit = {},
+    onDismiss: () -> Unit = {}
 ) {
     AlertDialog(
         onDismissRequest = { onDismiss() },
-        title = { Text("文件名") },
+        title = { Text("布局设置") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -300,7 +300,8 @@ fun LayoutSettingDialog(
                     Text("左右分页")
                     Switch(
                         checked = isSwipeLayout,
-                        onCheckedChange = {
+                        onCheckedChange = { newValue ->
+                            onSwipeLayoutChange(newValue)
                         }
                     )
                 }
