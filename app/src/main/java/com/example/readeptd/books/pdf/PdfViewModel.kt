@@ -116,6 +116,7 @@ class PdfViewModel(
         currentPage: Int,
         keepNeighbourNumber: Int = 1,
         bitMapWhScale: Int = 3,
+        maxScaleSize: Int = 2400,
         callback: (Bitmap?) -> Unit = {}
     ) {
         val renderer = pdfRenderer
@@ -123,7 +124,7 @@ class PdfViewModel(
             // 检查是否已渲染，避免重复渲染
             if (!pageBitmaps.containsKey(currentPage)) {
                 // 优先渲染当前页
-                renderOnePage(renderer, currentPage, bitMapWhScale)
+                renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
             }
             try {
                 for (offset in 1..keepNeighbourNumber) {
@@ -132,12 +133,12 @@ class PdfViewModel(
 
                     // 渲染前一页（如果在范围内）
                     if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
-                        renderOnePage(renderer, prevPage, bitMapWhScale)
+                        renderOnePage(renderer, prevPage, bitMapWhScale, maxScaleSize)
                     }
 
                     // 渲染后一页（如果在范围内）
                     if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
-                        renderOnePage(renderer, nextPage, bitMapWhScale)
+                        renderOnePage(renderer, nextPage, bitMapWhScale, maxScaleSize)
                     }
                 }
             } catch (e: Exception) {
@@ -154,15 +155,32 @@ class PdfViewModel(
     /**
      * 渲染单个页面（内部辅助函数，需在锁内调用）
      */
-    private fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int) {
+    private fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int, maxScaleSize: Int = 2400) {
         // 检查是否已渲染，防止重复渲染
         if (pageBitmaps.containsKey(pageIndex)) {
             return
         }
 
+        
         try {
             val page = renderer.openPage(pageIndex)
-            val bitmap = createBitmap(page.width * bitMapWhScale, page.height * bitMapWhScale)
+            var actualScale = bitMapWhScale
+            if(bitMapWhScale <= 0){
+                actualScale = 1
+            }
+            
+            val scaledWidth = page.width * actualScale
+            val scaledHeight = page.height * actualScale
+            
+            val finalScale = if (scaledWidth > maxScaleSize || scaledHeight > maxScaleSize) {
+                val widthRatio = maxScaleSize.toFloat() / page.width
+                val heightRatio = maxScaleSize.toFloat() / page.height
+                minOf(widthRatio, heightRatio)
+            } else {
+                actualScale.toFloat()
+            }
+            
+            val bitmap = createBitmap((page.width * finalScale).toInt(), (page.height * finalScale).toInt())
             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             page.close()
 
