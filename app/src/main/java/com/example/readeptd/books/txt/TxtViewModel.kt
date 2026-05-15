@@ -45,6 +45,8 @@ class TxtViewModel(
     private var topPaddingDp: Int = 0
     private var bottomPaddingDp: Int = 0
 
+    private val charCountThreshold: Int = 512
+
     // ✅ 全文内容缓存（只加载一次）
     private var entireText: String? = null
     
@@ -273,9 +275,16 @@ class TxtViewModel(
             return
         }
 
-        val newCharsParams = calculatePageCharsParams()
-        val newKey = buildLayoutSizeKey(newCharsParams.avgCharsPerLine, newCharsParams.maxLinesPerPage)
-
+        // ✅ 根据当前分页模式构建正确的 key
+        val newKey = when (_SplitPagesMode) {
+            SplitPagesMode.ByLayoutSize -> {
+                val charsParams = calculatePageCharsParams()
+                buildLayoutSizeKey(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage)
+            }
+            SplitPagesMode.ByCharsCount -> {
+                buildCharsCountKey(charCountThreshold)
+            }
+        }
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
             Log.d(TAG, "分页结果已缓存，key=$newKey，直接使用")
@@ -336,7 +345,6 @@ class TxtViewModel(
     private suspend fun buildPagesByCharsCount() {
         // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
-            val charCountThreshold = 512
             val key = buildCharsCountKey(charCountThreshold)
             
             // ✅ 如果缓存中已有，直接使用
