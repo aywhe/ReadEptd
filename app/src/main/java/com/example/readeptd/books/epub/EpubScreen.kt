@@ -80,6 +80,17 @@ fun EpubScreen(
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
+                LaunchedEffect(isSwipeLayout) {
+                    webView?.setFlowMode(
+                        when(isSwipeLayout) {
+                            true -> EpubFlowMode.Paginated
+                            false -> EpubFlowMode.Scrolled
+                        }
+                    )
+                    webView?.setStartCfi(savedCfi)
+                    webView?.startEpubWebsite()
+                }
+
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
                     AndroidView(

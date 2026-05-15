@@ -157,7 +157,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * 加载 EPUB 文件
      * @param epubFilePath EPUB 文件的绝对路径
      */
-    fun loadEpub(epubFilePath: String) {
+    private fun initEpubWebSite(epubFilePath: String) {
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
         Log.d(TAG, "起始位置 CFI: ${startCfi ?: "(无，将显示首页)"}")
@@ -175,6 +175,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.init('$epubFilePath')") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
+    }
+
+    fun startEpubWebsite(){
+        setLastReadingCfi(startCfi)
+        updateFlowMode(currentFlowMode)
+        setHtmlTheme(currentTheme) // 设置当前主题
+        initEpubWebSite(epubFilePath)
     }
 
     fun setFlowMode(epubFlowMode: EpubFlowMode){
@@ -437,10 +444,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
-            setLastReadingCfi(startCfi)
-            updateFlowMode(currentFlowMode)
-            setHtmlTheme(currentTheme) // 设置当前主题
-            loadEpub(epubFilePath)
+            startEpubWebsite()
         }
 
         @JavascriptInterface
