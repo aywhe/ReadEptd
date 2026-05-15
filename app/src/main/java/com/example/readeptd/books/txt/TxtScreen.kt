@@ -100,13 +100,13 @@ fun TxtScreen(
     )
 
     // ✅ 创建防抖的 SharedFlow，用于减少 onSizeChanged 调用频率
-    val sizeChangeFlow = remember { 
+    val sizeChangeFlow = remember {
         MutableSharedFlow<TxtEvent.OnViewMetricsChanged>(
             replay = 0,
             extraBufferCapacity = 1
         )
     }
-    
+
     // ✅ 监听防抖后的尺寸变化事件
     LaunchedEffect(Unit) {
         sizeChangeFlow
@@ -161,7 +161,7 @@ fun TxtScreen(
                         viewModel.setSplitPagesMode(mode)
                     }
                 }
-                
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -217,7 +217,7 @@ fun TxtScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            LaunchedEffect(Unit) {
+                            DisposableEffect(Unit) {
                                 contentViewModel.setOnClickProgressInfoCallback { progressText ->
                                     isShowJumpToPageDialog = true
                                 }
@@ -226,6 +226,12 @@ fun TxtScreen(
                                 }
                                 contentViewModel.setOnClickSearchButtonCallback {
                                     isShowSearchDialog = !isShowSearchDialog
+                                }
+
+                                onDispose {
+                                    contentViewModel.setOnClickProgressInfoCallback(null)
+                                    contentViewModel.setOnLongPressProgressInfoCallback(null)
+                                    contentViewModel.setOnClickSearchButtonCallback(null)
                                 }
                             }
                             LaunchedEffect(currentPage, isSwipeLayout) {
