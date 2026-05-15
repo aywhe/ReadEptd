@@ -301,7 +301,7 @@ fun LayoutSettingDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("左右分页")
+                    Text("分页")
                     Switch(
                         checked = isSwipeLayoutState,
                         onCheckedChange = { newValue ->
@@ -316,7 +316,7 @@ fun LayoutSettingDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("文言文模式")
+                        Text("文言文")
                         Switch(
                             checked = isRtlState == true,
                             onCheckedChange = { newValue ->
