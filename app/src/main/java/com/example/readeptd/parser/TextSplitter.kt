@@ -5,7 +5,8 @@ import kotlin.math.ceil
 data class TextChunk(
     val index: Int,
     val startPos: Long,
-    val endPos: Long
+    val endPos: Long,
+    val content: String? = null  // ✅ 可选的 content 字段，默认不包含
 )
 
 /**
@@ -16,6 +17,7 @@ class TextSplitter(
     private val avgCharsPerLine: Int = 0,
     private val maxLinesPerPage: Int = 0,
     private val minChunkSize: Int = 0,
+    private val includeContent: Boolean = false,  // ✅ 控制 TextChunk 是否包含 content
     private val emitCallback: suspend (TextChunk) -> Unit
 ) {
     private var index = 0
@@ -89,7 +91,8 @@ class TextSplitter(
             TextChunk(
                 index = getCurrentIndex(),
                 startPos = startPos,
-                endPos =endPos
+                endPos = endPos,
+                content = if (includeContent) pageText else null  // ✅ 根据配置决定是否包含 content
             )
         )
         incrementIndex()
