@@ -215,6 +215,9 @@ fun PdfLazyViewer(
 
             onDispose {
                 ttsModel.clearCallbacks()
+                contentViewModel.setOnClickProgressInfoCallback(null)
+                contentViewModel.setOnLongPressProgressInfoCallback(null)
+                contentViewModel.setOnClickSearchButtonCallback(null)
             }
         }
         Box(modifier = modifier
