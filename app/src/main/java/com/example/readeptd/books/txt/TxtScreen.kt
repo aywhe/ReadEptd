@@ -80,6 +80,7 @@ fun TxtScreen(
     
     // ✅ 使用 readingState Flow 获取 isSwipeLayout
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    // ✅ 只在 readingState 加载完成后才使用实际值，否则使用默认值（但不触发分页）
     val isSwipeLayout = readingState?.isSwipeLayout ?: true
 
     // 定义 padding（UI 层决定）
@@ -125,13 +126,20 @@ fun TxtScreen(
 
             is BookUiState.Ready -> {
                 var lastClickTime by remember { mutableStateOf(0L)}
-                viewModel.setSplitPagesMode(
-                    if(isSwipeLayout){
-                        SplitPagesMode.ByLayoutSize
-                    } else {
-                        SplitPagesMode.ByCharsCount
+                
+                // ✅ 只在 readingState 加载完成后才设置分页模式，避免无效分页
+                LaunchedEffect(readingState) {
+                    if (readingState != null) {
+                        val mode = if (readingState!!.isSwipeLayout) {
+                            SplitPagesMode.ByLayoutSize
+                        } else {
+                            SplitPagesMode.ByCharsCount
+                        }
+                        Log.d("TxtScreen", "readingState 已加载，设置分页模式: $mode")
+                        viewModel.setSplitPagesMode(mode)
                     }
-                )
+                }
+                
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
