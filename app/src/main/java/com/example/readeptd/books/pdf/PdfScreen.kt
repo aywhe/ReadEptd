@@ -1,6 +1,7 @@
 package com.example.readeptd.books.pdf
 
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -395,14 +396,18 @@ fun PdfSwipeLayout(
         state = pagerState,
         modifier = Modifier.fillMaxSize()
     ) { page ->
+        LaunchedEffect(page) {
+            viewModel.renderPageAsync(page, 2)
+        }
+        
+        val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
+        
         Box(modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            viewModel.renderPage(page, 1)
-            val bitmap = viewModel.getPageBitmap(page)
-            if (bitmap != null) {
+            if (bitmap != null && !bitmap!!.isRecycled) {
                 Image(
-                    bitmap = bitmap.asImageBitmap(),
+                    bitmap = bitmap!!.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
                     colorFilter = if (config.isNightMode) {
                         ColorFilter.colorMatrix(colorMatrix)
@@ -417,7 +422,7 @@ fun PdfSwipeLayout(
                         )
                 )
             } else {
-                Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                Log.d("PdfLazyViewer", "PDF page $page bmp is null or recycled")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -511,22 +516,26 @@ fun PdfScrollLayout(
         )
     ) {
         val item: @Composable (page:Int)-> Unit ={ page->
+            LaunchedEffect(page) {
+                viewModel.renderPageAsync(page, 2)
+            }
+            
+            val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
+            
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                viewModel.renderPage(page, 1)
-                val bitmap = viewModel.getPageBitmap(page)
-                if (bitmap != null) {
+                if (bitmap != null && !bitmap!!.isRecycled) {
                     Image(
-                        bitmap = bitmap.asImageBitmap(),
+                        bitmap = bitmap!!.asImageBitmap(),
                         contentDescription = "PDF_Page_$page",
                         colorFilter = if (config.isNightMode) {
                             ColorFilter.colorMatrix(colorMatrix)
                         } else null
                     )
                 } else {
-                    Log.d("PdfLazyViewer", "PDF page $page bmp is null")
+                    Log.d("PdfLazyViewer", "PDF page $page bmp is null or recycled")
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

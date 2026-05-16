@@ -33,12 +33,19 @@ class PdfViewModel(
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
 
-    // ✅ 使用 LinkedHashMap 实现 LRU 缓存,最多保留10页
-    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(10, 0.75f, true) {
+    // ✅ 使用 LinkedHashMap 实现 LRU 缓存,增加到15页以改善滚动体验
+    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(15, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
-            if (size > 10) {
-                eldest?.value?.recycle()  // 回收被移除的 Bitmap
-                Log.d(TAG, "LRU缓存已满,回收页面 ${eldest?.key} 的Bitmap")
+            if (size > 15) {
+                val pageIndex = eldest?.key
+                eldest?.value?.recycle()
+                
+                // ✅ 同步更新 StateFlow，通知 UI bitmap 已被回收
+                if (pageIndex != null) {
+                    _pageBitmapStates[pageIndex]?.value = null
+                }
+                
+                Log.d(TAG, "LRU缓存已满,回收页面 ${pageIndex} 的Bitmap")
                 return true
             }
             return false
@@ -55,11 +62,65 @@ class PdfViewModel(
     val totalPages: StateFlow<Int> = _totalPages.asStateFlow()
     private var _onGoToPageListener: ((Int) -> Unit)? = null
 
+    // ✅ 页面渲染状态流：key 为 pageIndex，value 为对应的 Bitmap
+    private val _pageBitmapStates = mutableMapOf<Int, MutableStateFlow<Bitmap?>>()
+    
+    /**
+     * 获取指定页面的位图状态流
+     */
+    fun getPageBitmapState(pageIndex: Int): StateFlow<Bitmap?> {
+        return _pageBitmapStates.getOrPut(pageIndex) {
+            MutableStateFlow(pageBitmaps[pageIndex])
+        }
+    }
+
     /**
      * 获取指定页面的位图（供 UI 调用）
      */
     fun getPageBitmap(pageIndex: Int): Bitmap? {
         return pageBitmaps[pageIndex]
+    }
+
+    /**
+     * 渲染指定页面及其周围页面（异步版本）
+     */
+    fun renderPageAsync(
+        currentPage: Int,
+        keepNeighbourNumber: Int = 2,
+        bitMapWhScale: Int = 3,
+        maxScaleSize: Int = 2400
+    ) {
+        val renderer = pdfRenderer
+        if (renderer == null || currentPage < 0 || currentPage >= renderer.pageCount) {
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.Default) {
+            // 优先渲染当前页
+            if (!pageBitmaps.containsKey(currentPage)) {
+                renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
+            }
+
+            // 异步预加载周围页面
+            try {
+                for (offset in 1..keepNeighbourNumber) {
+                    val prevPage = currentPage - offset
+                    val nextPage = currentPage + offset
+
+                    // 预加载前一页
+                    if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
+                        renderOnePage(renderer, prevPage, bitMapWhScale, maxScaleSize)
+                    }
+
+                    // 预加载后一页
+                    if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
+                        renderOnePage(renderer, nextPage, bitMapWhScale, maxScaleSize)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "预加载页面失败", e)
+            }
+        }
     }
 
     fun onEvent(event: PdfEvent) {
@@ -102,8 +163,16 @@ class PdfViewModel(
      * 清理渲染器资源
      */
     fun cleanupRenderer() {
+        // ✅ 先清空所有 StateFlow，避免 UI 使用已回收的 bitmap
+        _pageBitmapStates.values.forEach { it.value = null }
+        
+        // 回收所有 bitmap
         pageBitmaps.values.forEach { it.recycle() }
         pageBitmaps.clear()
+        
+        // 清空状态流映射
+        _pageBitmapStates.clear()
+        
         pdfRenderer?.close()
         pdfRenderer = null
         Log.d(TAG, "PDF 渲染器资源已释放")
@@ -185,6 +254,10 @@ class PdfViewModel(
             page.close()
 
             pageBitmaps[pageIndex] = bitmap
+            
+            // ✅ 更新 StateFlow，通知 UI
+            _pageBitmapStates[pageIndex]?.value = bitmap
+            
             Log.d(TAG, "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
         } catch (e: Exception) {
             Log.e(TAG, "渲染页面 $pageIndex 失败", e)
