@@ -81,6 +81,7 @@ import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
 import com.example.readeptd.data.AppMemoryStore
+import com.example.readeptd.search.SearchHistoryDialog
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.TimerDialog
 import com.example.readeptd.utils.Utils
@@ -286,6 +287,9 @@ fun ToolTip(
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    var isShowSearchHistoryDialog by remember {
+        mutableStateOf(false)
+    }
     if (progressText.isNotBlank()) {
         Box(
             contentAlignment = Alignment.Center,
@@ -325,6 +329,9 @@ fun ToolTip(
                 detectTapGestures(
                     onTap = {
                         viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
+                    },
+                    onLongPress = {
+                        isShowSearchHistoryDialog = true
                     }
                 )
             }
@@ -364,6 +371,16 @@ fun ToolTip(
                 tint = MaterialTheme.colorScheme.onSurface
             )
         }
+    }
+    if(isShowSearchHistoryDialog){
+        SearchHistoryDialog(
+            onDismiss = {
+                isShowSearchHistoryDialog = false
+            },
+            onClickKeyword = { keyword ->
+                isShowSearchHistoryDialog = false
+            }
+        )
     }
 }
 

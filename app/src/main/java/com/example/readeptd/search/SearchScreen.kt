@@ -99,13 +99,13 @@ fun SlideInSearchPanel(
         //viewModel.clearCache()
         //viewModel.clearResults()
     }
-    DisposableEffect(visible) {
+    DisposableEffect(Unit) {
         viewModel.setOnClickHistoryKeyword {
             keyword = it
             visible = true
+            isCollapsed = false
             viewModel.onSearch(keyword, searchExecutor)
             lastKeyword = keyword
-            isCollapsed = false
         }
         onDispose {
             viewModel.setOnClickHistoryKeyword(null)
@@ -483,7 +483,7 @@ fun SearchHistoryDialog(
                             onClick = {
                                 // ✅ 从缓存中恢复搜索结果
                                 viewModel.onEvent(SearchEvent.onClickHistoryKeyword(keyword))
-                                onDismiss()
+                                onClickKeyword(keyword)
                             },
                             modifier = Modifier.wrapContentHeight()
                         ) {
