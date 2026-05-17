@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,11 +31,14 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -44,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -454,7 +459,7 @@ fun SearchHistoryDialog(
     onDismiss: () -> Unit = {},
     onClickKeyword: (String) -> Unit = {},
 ){
-    val keywords = viewModel.getKeywords()
+    var keywords by remember { mutableStateOf(viewModel.getKeywords()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -481,20 +486,38 @@ fun SearchHistoryDialog(
                     keywords.forEach { keyword ->
                         Card(
                             onClick = {
+                                onClickKeyword(keyword)
                                 // ✅ 从缓存中恢复搜索结果
                                 viewModel.onEvent(SearchEvent.onClickHistoryKeyword(keyword))
-                                onClickKeyword(keyword)
                             },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            ),
                             modifier = Modifier.wrapContentHeight()
                         ) {
                             Text(
                                 text = keyword,
                                 style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
                     }
                 }
+            }
+        },
+        dismissButton =  {
+            TextButton(
+                onClick = {
+                    viewModel.clearCache()
+                    keywords = emptyList()
+                },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("清空")
             }
         },
         confirmButton = {
