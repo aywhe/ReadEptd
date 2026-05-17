@@ -476,8 +476,14 @@ fun PdfScrollLayout(
             val visibleItems = layoutInfo.visibleItemsInfo
 
             if (visibleItems.isNotEmpty()) {
-                // 计算中间位置
-                val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+                // ✅ 根据滚动方向计算中心位置
+                val viewportCenter = if (isRtl) {
+                    // 横向滚动：使用宽度
+                    layoutInfo.viewportStartOffset + layoutInfo.viewportSize.width / 2
+                } else {
+                    // 纵向滚动：使用高度
+                    layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+                }
 
                 // 找到最接近视口中心的 item
                 val centerItem = visibleItems.minByOrNull { item ->
