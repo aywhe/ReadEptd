@@ -403,7 +403,7 @@ fun DraggableFloatingToolTip(
     var isCollapsed by remember { mutableStateOf(false) }
     var showTip by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
-    var showConfirmDialog by remember { mutableStateOf(false) }
+    //var showConfirmDialog by remember { mutableStateOf(false) }
 
     val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -425,30 +425,6 @@ fun DraggableFloatingToolTip(
             0
         }
         offset = IntOffset(targetX, offset.y)
-    }
-
-    // 确认对话框
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text("隐藏悬浮球") },
-            text = { Text("是否隐藏悬浮球？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showConfirmDialog = false
-                    onDismiss()
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showConfirmDialog = false
-                }) {
-                    Text("取消")
-                }
-            }
-        )
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -541,7 +517,7 @@ fun DraggableFloatingToolTip(
                                 .pointerInput(Unit) {
                                     detectTapGestures(
                                         onTap = {
-                                            showConfirmDialog = true
+                                            onDismiss()
                                         }
                                     )
                                 }
