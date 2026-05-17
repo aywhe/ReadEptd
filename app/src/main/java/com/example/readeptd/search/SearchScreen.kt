@@ -7,6 +7,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -37,6 +40,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,11 +92,24 @@ fun SlideInSearchPanel(
     val isSearching by viewModel.isSearching.collectAsState()  // ✅ 监听搜索状态
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    
+    var lastKeyword by remember { mutableStateOf("") }
+
     // ✅ 监听屏幕旋转，清除搜索结果
     LaunchedEffect(configuration.orientation) {
         //viewModel.clearCache()
         //viewModel.clearResults()
+    }
+    DisposableEffect(visible) {
+        viewModel.setOnClickHistoryKeyword {
+            keyword = it
+            visible = true
+            viewModel.onSearch(keyword, searchExecutor)
+            lastKeyword = keyword
+            isCollapsed = false
+        }
+        onDispose {
+            viewModel.setOnClickHistoryKeyword(null)
+        }
     }
     
     // ✅ 搜索完成后，主动获取当前位置并滚动到最近的结果
@@ -181,7 +198,6 @@ fun SlideInSearchPanel(
                 .wrapContentHeight()
                 .padding(4.dp)
         ) {
-            var lastKeyword by remember { mutableStateOf("") }
             // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
             val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == lastKeyword
 
@@ -431,3 +447,60 @@ fun SearchResultCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SearchHistoryDialog(
+    viewModel: SearchViewModel = viewModel(),
+    onDismiss: () -> Unit = {},
+    onClickKeyword: (String) -> Unit = {},
+){
+    val keywords = viewModel.getKeywords()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "搜索历史",
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            if(keywords.isEmpty()){
+                Text(
+                    text = "无搜索历史",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    keywords.forEach { keyword ->
+                        Card(
+                            onClick = {
+                                // ✅ 从缓存中恢复搜索结果
+                                viewModel.onEvent(SearchEvent.onClickHistoryKeyword(keyword))
+                                onDismiss()
+                            },
+                            modifier = Modifier.wrapContentHeight()
+                        ) {
+                            Text(
+                                text = keyword,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        }
+    )
+}

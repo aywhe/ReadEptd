@@ -41,6 +41,8 @@ class SearchViewModel(
         }
     }
 
+    private var _onClickHistoryKeyword: ((String) -> Unit)? = null
+
     /**
      * 执行搜索
      */
@@ -210,6 +212,10 @@ class SearchViewModel(
         return if (idx in results.indices) results[idx] else null
     }
 
+    fun getKeywords(): List<String>{
+        return searchCache.keys.toList()
+    }
+
     /**
      * 设置当前选中的索引
      */
@@ -217,6 +223,17 @@ class SearchViewModel(
         val results = _searchResults.value
         if (index in results.indices) {
             _currentIndex.value = index
+        }
+    }
+
+    fun setOnClickHistoryKeyword(onClickHistoryKeyword: ((String) -> Unit)?) {
+        _onClickHistoryKeyword = onClickHistoryKeyword
+    }
+    fun onEvent(event: SearchEvent) {
+        when (event) {
+            is SearchEvent.onClickHistoryKeyword -> {
+                _onClickHistoryKeyword?.invoke(event.keyword)
+            }
         }
     }
 
@@ -247,6 +264,7 @@ class SearchViewModel(
         super.onCleared()
         clearCache()
         clearResults()
+        _onClickHistoryKeyword = null
         Log.d("SearchViewModel", "onCleared")
     }
 }

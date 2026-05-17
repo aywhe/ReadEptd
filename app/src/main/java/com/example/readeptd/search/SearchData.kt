@@ -48,3 +48,7 @@ class SearchData {
         override val sortKey: Long = pageIndex.toLong()
     ) : SearchResult
 }
+
+sealed interface SearchEvent{
+    data class onClickHistoryKeyword(val keyword: String): SearchEvent
+}
