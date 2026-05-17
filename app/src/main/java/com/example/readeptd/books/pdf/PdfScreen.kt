@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -161,6 +162,7 @@ fun PdfLazyViewer(
         var isShowJumpToPageDialog by remember { mutableStateOf(false) }
         var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
         var isShowSearchDialog by remember { mutableStateOf(false) }
+        var showNoTextHint by remember { mutableStateOf(false) }
 
         LaunchedEffect(currentPage) {
             Log.d("PdfLazyViewer", "当前页: $currentPage")
@@ -183,6 +185,8 @@ fun PdfLazyViewer(
                 val text = viewModel.getPageText(currentPage)
                 if (!text.isNullOrBlank()) {
                     ttsModel.speak(text, "pdf_${currentPage}")
+                } else {
+                    showNoTextHint = true
                 }
             }
 
@@ -323,6 +327,30 @@ fun PdfLazyViewer(
                     isShowSearchDialog = false
                 }
             )
+            
+            if (showNoTextHint) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 32.dp)
+                        .background(
+                            MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
+                            shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "没有文本",
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                
+                LaunchedEffect(Unit) {
+                    delay(1500)
+                    showNoTextHint = false
+                }
+            }
         }
     } else {
         Column(
