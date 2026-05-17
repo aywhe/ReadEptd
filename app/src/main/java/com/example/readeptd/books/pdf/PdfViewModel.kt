@@ -38,14 +38,25 @@ class PdfViewModel(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
             if (size > 15) {
                 val pageIndex = eldest?.key
-                eldest?.value?.recycle()
+                val bitmap = eldest?.value
+                
+                // ✅ 安全检查:确保 bitmap 未被回收后再回收
+                if (bitmap != null && !bitmap.isRecycled) {
+                    try {
+                        bitmap.recycle()
+                        Log.d(TAG, "LRU缓存已满,回收页面 $pageIndex 的Bitmap")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "回收页面 $pageIndex 的Bitmap失败", e)
+                    }
+                } else {
+                    Log.w(TAG, "页面 $pageIndex 的Bitmap已回收或为null,跳过回收")
+                }
                 
                 // ✅ 同步更新 StateFlow，通知 UI bitmap 已被回收
                 if (pageIndex != null) {
                     _pageBitmapStates[pageIndex]?.value = null
                 }
                 
-                Log.d(TAG, "LRU缓存已满,回收页面 ${pageIndex} 的Bitmap")
                 return true
             }
             return false
