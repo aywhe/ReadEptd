@@ -460,7 +460,7 @@ fun SearchHistoryDialog(
     onClickKeyword: (String) -> Unit = {},
 ){
     var keywords by remember { mutableStateOf(viewModel.getKeywords()) }
-
+    var isShowConfirmDialog by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -475,7 +475,7 @@ fun SearchHistoryDialog(
                     text = "无搜索历史",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                 )
             } else {
                 FlowRow(
@@ -508,16 +508,17 @@ fun SearchHistoryDialog(
             }
         },
         dismissButton =  {
-            TextButton(
-                onClick = {
-                    viewModel.clearCache()
-                    keywords = emptyList()
-                },
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("清空")
+            if(keywords.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        isShowConfirmDialog = true
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("清空")
+                }
             }
         },
         confirmButton = {
@@ -526,4 +527,44 @@ fun SearchHistoryDialog(
             }
         }
     )
+    if(isShowConfirmDialog){
+        AlertDialog(
+            onDismissRequest = {
+                isShowConfirmDialog = false
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isShowConfirmDialog = false
+                        viewModel.clearCache()
+                        keywords = emptyList()
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        isShowConfirmDialog = false
+                    }
+                ) {
+                    Text("取消")
+                }
+            },
+            title = {
+                Text(
+                    text = "清空搜索历史",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            },
+            text = {
+                Text(
+                    text = "确定要清空搜索历史吗？",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        )
+    }
 }
