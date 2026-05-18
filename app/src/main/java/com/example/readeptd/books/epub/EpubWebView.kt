@@ -316,6 +316,14 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
 
     /**
+     * ✅ 取消正在进行的搜索
+     */
+    fun cancelSearch() {
+        Log.d(TAG, "执行 JavaScript 取消搜索...")
+        executeJs("window.EpubReader.cancelSearch()")
+    }
+
+    /**
      * ✅ 使用协程执行 JavaScript（自动切换到主线程）
      * @param script JavaScript 代码
      * @param callback 可选的回调，接收执行结果

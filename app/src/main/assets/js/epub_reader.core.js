@@ -1203,6 +1203,18 @@ const SearchManager = {
     async search(query) {
         await this.stopSearchAndWait();
         this.searchInBook(AppState.book, query);
+    },
+
+    /**
+     * ✅ 取消正在进行的搜索（暴露给 Android）
+     */
+    cancelSearch() {
+        if (AppState.isSearching) {
+            console.log('Android 请求取消搜索...');
+            AppState.isSearching = false;
+        } else {
+            console.log('没有正在进行的搜索');
+        }
     }
 };
 
@@ -1288,6 +1300,7 @@ window.EpubReader = {
     closeNavPanel: UIManager.closeNavPanel.bind(UIManager),
     toggleNavPanel: UIManager.toggleNavPanel.bind(UIManager),
     search: SearchManager.search.bind(SearchManager),
+    cancelSearch: SearchManager.cancelSearch.bind(SearchManager),
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
     setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState)
