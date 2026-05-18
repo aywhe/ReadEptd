@@ -319,10 +319,11 @@ fun SlideInSearchPanel(
                 textStyle = MaterialTheme.typography.bodySmall
             )
 
-            Spacer(modifier = Modifier.height(2.dp))
-
             // ✅ 搜索状态提示
             if (isSearching && results.isEmpty()) {
+
+                Spacer(modifier = Modifier.height(2.dp))
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

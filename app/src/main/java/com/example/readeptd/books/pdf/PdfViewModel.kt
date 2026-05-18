@@ -71,9 +71,7 @@ class PdfViewModel(
      * 获取指定页面的位图状态流
      */
     fun getPageBitmapState(pageIndex: Int): StateFlow<Bitmap?> {
-        return _pageBitmapStates.getOrPut(pageIndex) {
-            MutableStateFlow(pageBitmaps[pageIndex])
-        }
+        return _pageBitmapStates.getOrPut(pageIndex) { MutableStateFlow(null) }
     }
 
     /**
