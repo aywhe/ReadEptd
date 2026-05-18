@@ -98,7 +98,6 @@ fun SlideInSearchPanel(
     val isSearching by viewModel.isSearching.collectAsState()  // ✅ 监听搜索状态
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var lastKeyword by remember { mutableStateOf("") }
 
     // ✅ 监听屏幕旋转，清除搜索结果
     LaunchedEffect(configuration.orientation) {
@@ -111,7 +110,6 @@ fun SlideInSearchPanel(
             visible = true
             isCollapsed = false
             viewModel.onSearch(keyword, searchExecutor)
-            lastKeyword = keyword
         }
         onDispose {
             viewModel.setOnClickHistoryKeyword(null)
@@ -204,8 +202,9 @@ fun SlideInSearchPanel(
                 .wrapContentHeight()
                 .padding(4.dp)
         ) {
-            // ✅ 判断是否应该显示搜索结果：只有当 keyword 与 lastKeyword 一致时才显示
-            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == lastKeyword
+            // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
+            val currentSearchKeyword = results.firstOrNull()?.keyword
+            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == currentSearchKeyword
 
             // 标题栏（更紧凑）
             Row(
@@ -234,9 +233,9 @@ fun SlideInSearchPanel(
                     }
                     // 关闭按钮（更小）
                     IconButton(
-                        onClick = {
-                            onClose()
+                        onClick = { 
                             viewModel.stopSearching()
+                            onClose() 
                         },
                         modifier = Modifier.size(24.dp),
                     ) {
@@ -251,14 +250,13 @@ fun SlideInSearchPanel(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // ✅ 判断是否执行过搜索：keyword 不为空且与 lastKeyword 一致
-            val hasSearched = keyword.isNotBlank() && keyword == lastKeyword
+            // ✅ 判断是否执行过搜索：keyword 不为空且与结果中的关键词一致
+            val hasSearched = keyword.isNotBlank() && results.isNotEmpty() && keyword == results.firstOrNull()?.keyword
             
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = keyword,
                 onValueChange = { newValue ->
-                    viewModel.clearResults()
                     keyword = newValue
                     onKeywordChange(newValue)
                 },
@@ -283,7 +281,6 @@ fun SlideInSearchPanel(
                         IconButton(
                             onClick = {
                                 viewModel.onSearch(keyword, searchExecutor)
-                                lastKeyword = keyword
                                 isCollapsed = false
                             },
                             modifier = Modifier.size(24.dp)
