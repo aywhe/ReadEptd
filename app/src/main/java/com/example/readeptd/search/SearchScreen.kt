@@ -83,11 +83,11 @@ fun SlideInSearchPanel(
     getCurrentPosition: () -> Int = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
     visible: Boolean = true,
-    keyword: String = "",
+    initKeyword: String = "",
     viewModel: SearchViewModel = viewModel()
 ) {
     var isVisible by remember(visible) { mutableStateOf(visible) }
-    var currentKeyword by remember { mutableStateOf(keyword) }
+    var currentKeyword by remember { mutableStateOf(initKeyword) }
     var isCollapsed by remember { mutableStateOf(false) }
     var isOnRight by remember { mutableStateOf(true) }
     val density = LocalDensity.current
