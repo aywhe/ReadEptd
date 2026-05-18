@@ -98,6 +98,7 @@ fun SlideInSearchPanel(
     val isSearching by viewModel.isSearching.collectAsState()  // ✅ 监听搜索状态
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    var isFullScreen by remember {  mutableStateOf( false) }
 
     // ✅ 监听屏幕旋转，清除搜索结果
     LaunchedEffect(configuration.orientation) {
@@ -140,25 +141,25 @@ fun SlideInSearchPanel(
     val screenHeightDp = configuration.screenHeightDp
     Log.d("SlideInSearchPanel", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
     val panelWidthDp = (screenWidthDp * 2 / 5).coerceIn(128,212)
-    val panelHeightDp = screenHeightDp
+    val panelHeightDp = if (isFullScreen) screenHeightDp else screenHeightDp
     Log.d("SlideInSearchPanel", "panelWidthDp: $panelWidthDp, panelHeightDp: $panelHeightDp")
     // ✅ 统一使用 px 进行计算
     val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
 
-    val panelWidthPx = with(density) { panelWidthDp.dp.toPx() }
+    val panelWidthPx = with(density) { if (isFullScreen) screenWidthDp.dp.toPx() else panelWidthDp.dp.toPx() }
     val panelHeightPx = screenHeightPx
     Log.d("SlideInSearchPanel", "screenWidthPx: $screenWidthPx, screenHeightPx: $screenHeightPx")
     Log.d("SlideInSearchPanel", "panelWidthPx: $panelWidthPx, panelHeightPx: $panelHeightPx")
     // ✅ 面板位置使用 px
-    val panelVisiblePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight) {
+    val panelVisiblePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight, isFullScreen) {
         mutableStateOf(
             if (isOnRight) IntOffset((screenWidthPx - panelWidthPx).toInt(), 0)
             else IntOffset(0, 0)
         )
     }
 
-    val panelHidePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight) {
+    val panelHidePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight, isFullScreen) {
         mutableStateOf(
             if (isOnRight) IntOffset(screenWidthPx.toInt(), 0)
             else IntOffset((-panelWidthPx).toInt(), 0)
@@ -181,7 +182,7 @@ fun SlideInSearchPanel(
 
     Box(
         modifier = Modifier
-            .width(panelWidthDp.dp)
+            .width(if (isFullScreen) screenWidthDp.dp else panelWidthDp.dp)
             .wrapContentHeight()
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
@@ -208,7 +209,14 @@ fun SlideInSearchPanel(
 
             // 标题栏（更紧凑）
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                    .pointerInput( Unit){
+                        detectTapGestures(
+                            onDoubleTap = {
+                                isFullScreen = !isFullScreen
+                            }
+                        )
+                    },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -217,19 +225,28 @@ fun SlideInSearchPanel(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                 )
+                if(isFullScreen) {
+                    Text(
+                        text = "${results.size}条结果",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // ✅ 左右切换按钮（更小）
-                    IconButton(
-                        onClick = { isOnRight = !isOnRight },
-                        modifier = Modifier.size(24.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
-                            modifier = Modifier.size(16.dp)
-                        )
+                    if(!isFullScreen) {
+                        // ✅ 左右切换按钮（更小）
+                        IconButton(
+                            onClick = { isOnRight = !isOnRight },
+                            modifier = Modifier.size(24.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                     // 关闭按钮（更小）
                     IconButton(
@@ -321,7 +338,7 @@ fun SlideInSearchPanel(
             }
 
             // 搜索结果数量（更紧凑）
-            if (shouldShowResults) {
+            if (shouldShowResults && !isFullScreen) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
