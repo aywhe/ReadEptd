@@ -110,6 +110,16 @@ class SearchViewModel(
         }
     }
 
+    fun stopSearching(keyword: String? = null){
+        searchJob?.cancel()
+        _isSearching.value = false
+        if (keyword != null) {
+            clearCache(keyword)
+        } else {
+            clearCache()
+        }
+    }
+
     /**
      * 清除缓存
      */

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -217,13 +218,6 @@ fun SlideInSearchPanel(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                 )
-                // ✅ 搜索中提示（放在按钮后面）
-                if (isSearching && shouldShowResults) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -268,14 +262,30 @@ fun SlideInSearchPanel(
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
                 singleLine = true,
                 trailingIcon = {
-                    IconButton(
-                        onClick = {
-                            viewModel.onSearch(keyword, searchExecutor)
-                            lastKeyword = keyword
-                            isCollapsed = false
-                        },
-                        modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(16.dp))
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp)
+                                .pointerInput( Unit){
+                                    detectTapGestures(
+                                        onTap = {
+                                            // 搜索取消
+                                            viewModel.stopSearching()
+                                        }
+                                    )
+                                },
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(
+                            onClick = {
+                                viewModel.onSearch(keyword, searchExecutor)
+                                lastKeyword = keyword
+                                isCollapsed = false
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(16.dp))
+                        }
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
