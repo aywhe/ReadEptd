@@ -36,15 +36,19 @@ class SearchViewModel(
     
     // ✅ 3. 当前正在搜索的关键词
     private var currentSearchingKeyword: String? = null
+    
+    // ✅ 4. 最后搜索完成的关键词（用于判断是否执行过搜索）
+    private val _lastSearchedKeyword = MutableStateFlow("")
+    val lastSearchedKeyword: StateFlow<String> = _lastSearchedKeyword.asStateFlow()
 
-    // ✅ 4. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
+    // ✅ 5. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
     private val searchCache = object : LinkedHashMap<String, List<SearchData.SearchResult>>(5, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchData.SearchResult>>?): Boolean {
             return size > 5  // 超过5个就移除最久未使用的
         }
     }
 
-    // ✅ 5. 搜索历史记录（使用 LRU Map，key=keyword, value=时间戳）
+    // ✅ 6. 搜索历史记录（使用 LRU Map，key=keyword, value=时间戳）
     private val historyKeywordsMap = object : LinkedHashMap<String, Long>(20, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean {
             return size > 20  // 超过20个就移除最久未使用的
@@ -65,6 +69,7 @@ class SearchViewModel(
             _searchResults.value = emptyList()
             _currentIndex.value = -1
             currentSearchingKeyword = null
+            _lastSearchedKeyword.value = ""
             return
         }
 
@@ -77,6 +82,7 @@ class SearchViewModel(
             _searchResults.value = cachedResults
             _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
             currentSearchingKeyword = null
+            _lastSearchedKeyword.value = keyword
             return
         }
 
@@ -88,7 +94,7 @@ class SearchViewModel(
 
         // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
-            _isSearching.value = true  // ✅ 标记搜索开始
+            _isSearching.value = true
             _searchResults.value = emptyList()
             _currentIndex.value = -1
 
@@ -97,8 +103,8 @@ class SearchViewModel(
             val results = mutableListOf<SearchData.SearchResult>()
             var lastUpdateTime = System.currentTimeMillis()
             var lastUpdateCount = 0
-            val updateIntervalMs = 2000L  // UI 更新时间间隔（毫秒）
-            val updateItemCount = 20     // UI 更新数量间隔（条数）
+            val updateIntervalMs = 2000L
+            val updateItemCount = 20
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
@@ -131,11 +137,14 @@ class SearchViewModel(
                     _searchResults.value = emptyList()
                 }
                 
+                // ✅ 设置最后搜索的关键词（无论有无结果）
+                _lastSearchedKeyword.value = keyword
+                
                 // ✅ 只有在当前关键词仍然是这个 keyword 时才清除（避免新搜索覆盖）
                 if (currentSearchingKeyword == keyword) {
                     currentSearchingKeyword = null
                 }
-                _isSearching.value = false  // ✅ 标记搜索结束
+                _isSearching.value = false
             }
         }
     }
@@ -168,7 +177,7 @@ class SearchViewModel(
         currentSearchingKeyword = null
         _isSearching.value = false
         
-        // ✅ 注意：不清空 _searchResults，保留已搜索到的部分结果供用户查看
+        // ✅ 注意：不清空 _searchResults 和 _lastSearchedKeyword，保留已搜索到的部分结果供用户查看
     }
 
     /**

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -95,7 +96,8 @@ fun SlideInSearchPanel(
     val configuration = LocalConfiguration.current
     val results by viewModel.searchResults.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
-    val isSearching by viewModel.isSearching.collectAsState()  // ✅ 监听搜索状态
+    val isSearching by viewModel.isSearching.collectAsState()
+    val lastSearchedKeyword by viewModel.lastSearchedKeyword.collectAsState()
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
@@ -183,24 +185,26 @@ fun SlideInSearchPanel(
     Box(
         modifier = Modifier
             .width(if (isFullScreen) screenWidthDp.dp else panelWidthDp.dp)
-            .wrapContentHeight()
+            .then(if (isFullScreen) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
             .heightIn(max = panelHeightDp.dp)
             .offset { animatedOffsetPx }
             .shadow(24.dp)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .pointerInput(Unit){
                 detectDragGestures { change, dragAmount ->
-                    panelPositionPx = IntOffset(
-                        (panelPositionPx.x + dragAmount.x).roundToInt(),
-                        (panelPositionPx.y + dragAmount.y).roundToInt()
-                    )
+                    if(!isFullScreen) {
+                        panelPositionPx = IntOffset(
+                            (panelPositionPx.x + dragAmount.x).roundToInt(),
+                            (panelPositionPx.y + dragAmount.y).roundToInt()
+                        )
+                    }
                 }
             }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .wrapContentHeight()
+                .then(if (isFullScreen) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
                 .padding(4.dp)
         ) {
             // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
@@ -225,7 +229,7 @@ fun SlideInSearchPanel(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                 )
-                if(isFullScreen) {
+                if(isFullScreen && shouldShowResults) {
                     Text(
                         text = "${results.size}条结果",
                         style = MaterialTheme.typography.labelSmall,
@@ -267,8 +271,8 @@ fun SlideInSearchPanel(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // ✅ 判断是否执行过搜索：keyword 不为空且与结果中的关键词一致
-            val hasSearched = keyword.isNotBlank() && results.isNotEmpty() && keyword == results.firstOrNull()?.keyword
+            // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
+            val hasSearched = keyword.isNotBlank() && !isSearching && keyword == lastSearchedKeyword
             
             // 搜索输入框（更紧凑）
             OutlinedTextField(
