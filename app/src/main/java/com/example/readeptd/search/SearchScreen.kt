@@ -40,7 +40,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -50,7 +49,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,7 +61,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -82,14 +79,15 @@ fun SlideInSearchPanel(
     searchExecutor: (String) -> Flow<SearchData.SearchResult> = { emptyFlow() },
     onResultClick: (SearchData.SearchResult) -> Unit = {},
     onKeywordChange: (String) -> Unit = {},
+    onVisibleChange: (Boolean) -> Unit = {},
     getCurrentPosition: () -> Int = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
-    initialVisible: Boolean = true,
-    initialKeyword: String = "",
+    visible: Boolean = true,
+    keyword: String = "",
     viewModel: SearchViewModel = viewModel()
 ) {
-    var visible by remember(initialVisible) { mutableStateOf(initialVisible) }
-    var keyword by remember(initialKeyword) { mutableStateOf(initialKeyword) }
+    var isVisible by remember(visible) { mutableStateOf(visible) }
+    var currentKeyword by remember { mutableStateOf(keyword) }
     var isCollapsed by remember { mutableStateOf(false) }
     var isOnRight by remember { mutableStateOf(true) }
     val density = LocalDensity.current
@@ -102,19 +100,20 @@ fun SlideInSearchPanel(
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
 
-    // ✅ 监听屏幕旋转，清除搜索结果
-    LaunchedEffect(configuration.orientation) {
-        //viewModel.clearCache()
-        //viewModel.clearResults()
-    }
     DisposableEffect(Unit) {
+        Log.d("SlideInSearchPanel", "DisposableEffect: 设置 onClickHistoryKeyword 回调")
         viewModel.setOnClickHistoryKeyword {
-            keyword = it
-            visible = true
+            Log.d("SlideInSearchPanel", "onClickHistoryKeyword 被调用: keyword=$it, visible 原来是 $isVisible")
+            currentKeyword = it
+            onKeywordChange(it)
+            isVisible = true
+            onVisibleChange(true)
+            Log.d("SlideInSearchPanel", "visible 现在是 $isVisible, 开始搜索")
+            viewModel.onSearch(currentKeyword, searchExecutor)
             isCollapsed = false
-            viewModel.onSearch(keyword, searchExecutor)
         }
         onDispose {
+            Log.d("SlideInSearchPanel", "DisposableEffect: 清理 onClickHistoryKeyword 回调")
             viewModel.setOnClickHistoryKeyword(null)
         }
     }
@@ -172,8 +171,8 @@ fun SlideInSearchPanel(
     var panelPositionPx by remember { mutableStateOf(panelHidePositionPx) }
 
     // ✅ 根据 visible 状态更新面板位置
-    LaunchedEffect(visible, panelVisiblePositionPx, panelHidePositionPx) {
-        panelPositionPx = if (visible) panelVisiblePositionPx else panelHidePositionPx
+    LaunchedEffect(isVisible, panelVisiblePositionPx, panelHidePositionPx) {
+        panelPositionPx = if (isVisible) panelVisiblePositionPx else panelHidePositionPx
     }
 
 
@@ -209,7 +208,7 @@ fun SlideInSearchPanel(
         ) {
             // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
             val currentSearchKeyword = results.firstOrNull()?.keyword
-            val shouldShowResults = keyword.isNotBlank() && results.isNotEmpty() && keyword == currentSearchKeyword
+            val shouldShowResults = currentKeyword.isNotBlank() && results.isNotEmpty() && currentKeyword == currentSearchKeyword
 
             // 标题栏（更紧凑）
             Row(
@@ -272,13 +271,13 @@ fun SlideInSearchPanel(
             Spacer(modifier = Modifier.height(4.dp))
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
-            val hasSearched = keyword.isNotBlank() && !isSearching && keyword == lastSearchedKeyword
+            val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
             
             // 搜索输入框（更紧凑）
             OutlinedTextField(
-                value = keyword,
+                value = currentKeyword,
                 onValueChange = { newValue ->
-                    keyword = newValue
+                    currentKeyword = newValue
                     onKeywordChange(newValue)
                 },
                 label = null,
@@ -301,7 +300,7 @@ fun SlideInSearchPanel(
                     } else {
                         IconButton(
                             onClick = {
-                                viewModel.onSearch(keyword, searchExecutor)
+                                viewModel.onSearch(currentKeyword, searchExecutor)
                                 isCollapsed = false
                             },
                             modifier = Modifier.size(24.dp)
@@ -518,6 +517,7 @@ fun SearchHistoryDialog(
                     keywords.forEach { keyword ->
                         Card(
                             onClick = {
+                                Log.d("SearchHistoryDialog", "点击历史关键词: $keyword")
                                 onClickKeyword(keyword)
                                 // ✅ 从缓存中恢复搜索结果
                                 viewModel.onEvent(SearchEvent.onClickHistoryKeyword(keyword))

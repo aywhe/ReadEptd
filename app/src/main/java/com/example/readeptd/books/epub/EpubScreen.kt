@@ -233,7 +233,8 @@ fun EpubScreen(
                     }
                     
                     SlideInSearchPanel(
-                        initialVisible = isShowSearchDialog,
+                        visible = isShowSearchDialog,
+                        onVisibleChange =  {isShowSearchDialog = it},
                         onClose = {
                             isShowSearchDialog = false
                             viewModel.removeAllHighlights(epubWebView = webView)

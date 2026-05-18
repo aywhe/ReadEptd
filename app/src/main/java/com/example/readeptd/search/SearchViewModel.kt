@@ -315,8 +315,10 @@ class SearchViewModel(
 
     fun setOnClickHistoryKeyword(onClickHistoryKeyword: ((String) -> Unit)?) {
         _onClickHistoryKeyword = onClickHistoryKeyword
+        Log.d("SearchViewModel", "setOnClickHistoryKeyword: ${onClickHistoryKeyword != null}")
     }
     fun onEvent(event: SearchEvent) {
+        Log.d("SearchViewModel", "onEvent: $event, _onClickHistoryKeyword is null: ${_onClickHistoryKeyword == null}")
         when (event) {
             is SearchEvent.onClickHistoryKeyword -> {
                 _onClickHistoryKeyword?.invoke(event.keyword)
