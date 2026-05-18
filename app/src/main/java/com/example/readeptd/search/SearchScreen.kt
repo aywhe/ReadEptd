@@ -234,7 +234,10 @@ fun SlideInSearchPanel(
                     }
                     // 关闭按钮（更小）
                     IconButton(
-                        onClick = { onClose() },
+                        onClick = {
+                            onClose()
+                            viewModel.stopSearching()
+                        },
                         modifier = Modifier.size(24.dp),
                     ) {
                         Icon(
@@ -255,6 +258,7 @@ fun SlideInSearchPanel(
             OutlinedTextField(
                 value = keyword,
                 onValueChange = { newValue ->
+                    viewModel.clearResults()
                     keyword = newValue
                     onKeywordChange(newValue)
                 },

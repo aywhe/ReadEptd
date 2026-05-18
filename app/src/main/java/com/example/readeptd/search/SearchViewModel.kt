@@ -33,11 +33,21 @@ class SearchViewModel(
 
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
+    
+    // ✅ 3. 当前正在搜索的关键词
+    private var currentSearchingKeyword: String? = null
 
-    // ✅ 3. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
+    // ✅ 4. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
     private val searchCache = object : LinkedHashMap<String, List<SearchData.SearchResult>>(5, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchData.SearchResult>>?): Boolean {
             return size > 5  // 超过5个就移除最久未使用的
+        }
+    }
+
+    // ✅ 5. 搜索历史记录（使用 LRU Map，key=keyword, value=时间戳）
+    private val historyKeywordsMap = object : LinkedHashMap<String, Long>(20, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean {
+            return size > 20  // 超过20个就移除最久未使用的
         }
     }
 
@@ -54,19 +64,27 @@ class SearchViewModel(
         if (searchFun == null || keyword.isBlank()) {
             _searchResults.value = emptyList()
             _currentIndex.value = -1
+            currentSearchingKeyword = null
             return
         }
+
+        // ✅ 添加到搜索历史（LRU 自动管理）
+        addToHistory(keyword)
 
         // ✅ 检查缓存，如果已存在则直接返回
         val cachedResults = searchCache[keyword]
         if (cachedResults != null) {
             _searchResults.value = cachedResults
             _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
+            currentSearchingKeyword = null
             return
         }
 
         // ✅ 取消上一次的搜索任务
         searchJob?.cancel()
+
+        // ✅ 记录当前正在搜索的关键词（在启动新协程之前设置）
+        currentSearchingKeyword = keyword
 
         // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
@@ -105,19 +123,44 @@ class SearchViewModel(
                     _searchResults.value = emptyList()
                 }
                 
+                // ✅ 只有在当前关键词仍然是这个 keyword 时才清除（避免新搜索覆盖）
+                if (currentSearchingKeyword == keyword) {
+                    currentSearchingKeyword = null
+                }
                 _isSearching.value = false  // ✅ 标记搜索结束
             }
         }
     }
 
-    fun stopSearching(keyword: String? = null){
+    /**
+     * 添加关键词到历史记录（LRU 自动管理）
+     */
+    private fun addToHistory(keyword: String) {
+        // ✅ LinkedHashMap 会自动将访问过的 key 移到末尾（accessOrder=true）
+        historyKeywordsMap[keyword] = System.currentTimeMillis()
+    }
+
+    /**
+     * 停止搜索
+     */
+    fun stopSearching() {
+        // ✅ 在取消 Job 之前，先保存当前关键词（避免竞态条件）
+        val keywordToClear = currentSearchingKeyword
+        
+        // ✅ 取消搜索任务
         searchJob?.cancel()
-        _isSearching.value = false
-        if (keyword != null) {
-            clearCache(keyword)
-        } else {
-            clearCache()
+        searchJob = null
+        
+        // ✅ 使用保存的关键词清理缓存（允许重新搜索）
+        if (keywordToClear != null) {
+            clearCache(keywordToClear)
         }
+        
+        // ✅ 重置状态
+        currentSearchingKeyword = null
+        _isSearching.value = false
+        
+        // ✅ 注意：不清空 _searchResults，保留已搜索到的部分结果供用户查看
     }
 
     /**
@@ -137,6 +180,20 @@ class SearchViewModel(
      */
     fun clearCache(keyword: String) {
         searchCache.remove(keyword)
+    }
+
+    /**
+     * 清空搜索历史
+     */
+    fun clearHistory() {
+        historyKeywordsMap.clear()
+    }
+
+    /**
+     * 删除单条历史记录
+     */
+    fun removeHistoryKeyword(keyword: String) {
+        historyKeywordsMap.remove(keyword)
     }
 
     /**
@@ -222,8 +279,11 @@ class SearchViewModel(
         return if (idx in results.indices) results[idx] else null
     }
 
+    /**
+     * 获取搜索历史关键词列表（按访问时间倒序，最新的在前）
+     */
     fun getKeywords(): List<String>{
-        return searchCache.keys.toList()
+        return historyKeywordsMap.keys.toList().reversed()
     }
 
     /**
@@ -272,8 +332,10 @@ class SearchViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        stopSearching()  // ✅ 清理时停止搜索
         clearCache()
         clearResults()
+        clearHistory()
         _onClickHistoryKeyword = null
         Log.d("SearchViewModel", "onCleared")
     }
