@@ -555,8 +555,8 @@ fun PdfScrollLayout(
         )
     ) {
         val item: @Composable (page:Int)-> Unit ={ page->
-            LaunchedEffect(page) {
-                viewModel.renderPage(page)
+            LaunchedEffect(Unit) {
+                viewModel.renderPage(page,2)
             }
             
             val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
@@ -597,7 +597,7 @@ fun PdfScrollLayout(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(totalPages) { page ->
+                items(totalPages,key = { it }) { page ->
                     item(page)
                 }
             }
@@ -607,7 +607,7 @@ fun PdfScrollLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(totalPages) { page ->
+                items(totalPages,key = { it }) { page ->
                     item(page)
                 }
             }
