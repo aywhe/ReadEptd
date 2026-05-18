@@ -524,14 +524,14 @@ fun SearchHistoryDialog(
                             },
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                containerColor = MaterialTheme.colorScheme.secondary
                             ),
                             modifier = Modifier.wrapContentHeight()
                         ) {
                             Text(
                                 text = keyword,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = MaterialTheme.colorScheme.onSecondary,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
@@ -568,7 +568,7 @@ fun SearchHistoryDialog(
                 TextButton(
                     onClick = {
                         isShowConfirmDialog = false
-                        viewModel.clearCache()
+                        viewModel.clearHistory()
                         keywords = emptyList()
                     }
                 ) {
