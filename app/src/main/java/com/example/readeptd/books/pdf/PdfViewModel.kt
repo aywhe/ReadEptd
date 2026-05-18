@@ -143,36 +143,40 @@ class PdfViewModel(
      */
     suspend fun renderPage(
         currentPage: Int,
-        keepNeighbourNumber: Int = 0,
+        keepNeighbourNumber: Int = 2,
         bitMapWhScale: Int = 3,
         maxScaleSize: Int = 2400,
         callback: (Bitmap?) -> Unit = {}
     ) {
         val renderer = pdfRenderer
-        if (renderer != null && currentPage >= 0 && currentPage < renderer.pageCount) {
-            // 检查是否已渲染，避免重复渲染
-            if (!pageBitmaps.containsKey(currentPage)) {
-                // 优先渲染当前页
-                renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
-            }
+        if (renderer != null) {
             try {
+                if (currentPage >= 0 && currentPage < renderer.pageCount) {
+                    // 检查是否已渲染，避免重复渲染
+                    if (!pageBitmaps.containsKey(currentPage)) {
+                        // 优先渲染当前页
+                        renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
+                    }
+                }
                 for (offset in 1..keepNeighbourNumber) {
                     val prevPage = currentPage - offset
                     val nextPage = currentPage + offset
 
                     // 渲染前一页（如果在范围内）
-                    if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
+                    if (prevPage >= 0 && prevPage < renderer.pageCount && !pageBitmaps.containsKey(prevPage)) {
                         renderOnePage(renderer, prevPage, bitMapWhScale, maxScaleSize)
                     }
 
                     // 渲染后一页（如果在范围内）
-                    if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
+                    if (nextPage >= 0 && nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
                         renderOnePage(renderer, nextPage, bitMapWhScale, maxScaleSize)
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "渲染页面 $currentPage 失败", e)
             }
+        } else {
+            Log.e(TAG, "PDF 渲染器未初始化")
         }
         if (pageBitmaps.containsKey(currentPage)) {
             callback(pageBitmaps[currentPage])
