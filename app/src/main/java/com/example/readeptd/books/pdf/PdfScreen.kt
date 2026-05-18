@@ -438,7 +438,7 @@ fun PdfSwipeLayout(
             contentAlignment = Alignment.Center
         ) {
             // ✅ 三重检查：null、recycled、以及引用一致性
-            if (stableBitmap != null && !stableBitmap.isRecycled && stableBitmap === bitmap) {
+            if (stableBitmap != null && !stableBitmap.isRecycled) {
                 Image(
                     bitmap = stableBitmap.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
