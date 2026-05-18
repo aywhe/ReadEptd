@@ -15,7 +15,9 @@ import com.example.readeptd.search.SearchData
 import com.example.readeptd.utils.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -676,6 +678,9 @@ class TxtViewModel(
         val searchedPages = mutableSetOf<Int>()
         
         while (forwardIndex < totalPages || backwardIndex >= 0) {
+            // ✅ 检查协程是否被取消
+            currentCoroutineContext().ensureActive()
+            
             val currentPageIndex = if (isForwardTurn) {
                 // 向前搜索
                 if (forwardIndex >= totalPages) {
@@ -707,6 +712,9 @@ class TxtViewModel(
             var count = 0
             
             while (true) {
+                // ✅ 内层循环也要检查取消
+                currentCoroutineContext().ensureActive()
+                
                 val matchIndex = pageContent.indexOf(keyword, startIndex, ignoreCase = true)
                 if (matchIndex == -1) break
 

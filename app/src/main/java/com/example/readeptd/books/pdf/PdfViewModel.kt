@@ -11,6 +11,7 @@ import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.currentCoroutineContext
 import java.io.File
 
 /**
@@ -370,6 +372,9 @@ class PdfViewModel(
         val searchedPages = mutableSetOf<Int>()
 
         while (forwardIndex < totalPages || backwardIndex >= 0) {
+            // ✅ 检查协程是否被取消
+            currentCoroutineContext().ensureActive()
+            
             val currentPageIndex = if (isForwardTurn) {
                 // 向前搜索
                 if (forwardIndex >= totalPages) {
@@ -403,6 +408,9 @@ class PdfViewModel(
 
                     // 在当前页中查找所有匹配
                     while (true) {
+                        // ✅ 内层循环也要检查取消
+                        currentCoroutineContext().ensureActive()
+                        
                         val matchIndex = pageText.indexOf(keyword, startIndex, ignoreCase = true)
                         if (matchIndex == -1) break
 
@@ -433,6 +441,10 @@ class PdfViewModel(
                     }
                 }
             } catch (e: Exception) {
+                // ✅ 如果是取消异常，直接抛出
+                if (e is kotlinx.coroutines.CancellationException) {
+                    throw e
+                }
                 Log.e(TAG, "搜索第 $currentPageIndex 页时出错", e)
             }
 
