@@ -95,16 +95,24 @@ class SearchViewModel(
             // 使用 mutableStateListOf 还是 StateFlow？
             // 如果你坚持用 StateFlow，这里依然需要累积列表
             val results = mutableListOf<SearchData.SearchResult>()
+            var lastUpdateTime = System.currentTimeMillis()
             var lastUpdateCount = 0
-            val updateInterval = 20  // UI 更新频率
+            val updateIntervalMs = 2000L  // UI 更新时间间隔（毫秒）
+            val updateItemCount = 20     // UI 更新数量间隔（条数）
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
                 searchFun(keyword).collect { result ->
                     results.add(result)
 
-                    if (results.size - lastUpdateCount >= updateInterval) {
+                    val currentTime = System.currentTimeMillis()
+                    val countDiff = results.size - lastUpdateCount
+                    val timeDiff = currentTime - lastUpdateTime
+                    
+                    // ✅ 任一条件满足即更新：数量达到间隔 OR 时间超过间隔
+                    if (countDiff >= updateItemCount || timeDiff >= updateIntervalMs) {
                         _searchResults.value = results.toList()
+                        lastUpdateTime = currentTime
                         lastUpdateCount = results.size
                     }
                 }
