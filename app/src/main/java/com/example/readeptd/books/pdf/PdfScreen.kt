@@ -425,17 +425,21 @@ fun PdfSwipeLayout(
         modifier = Modifier.fillMaxSize()
     ) { page ->
         LaunchedEffect(page) {
-            viewModel.renderPageAsync(page, 2)
+            viewModel.renderPage(page)
         }
         
         val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
         
+        // ✅ 使用 remember 稳定 Bitmap 引用，避免在绘制过程中被回收
+        val stableBitmap = remember(bitmap) { bitmap }
+        
         Box(modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (bitmap != null && !bitmap!!.isRecycled) {
+            // ✅ 三重检查：null、recycled、以及引用一致性
+            if (stableBitmap != null && !stableBitmap.isRecycled && stableBitmap === bitmap) {
                 Image(
-                    bitmap = bitmap!!.asImageBitmap(),
+                    bitmap = stableBitmap.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
                     colorFilter = if (config.isNightMode) {
                         ColorFilter.colorMatrix(colorMatrix)
@@ -551,18 +555,22 @@ fun PdfScrollLayout(
     ) {
         val item: @Composable (page:Int)-> Unit ={ page->
             LaunchedEffect(page) {
-                viewModel.renderPageAsync(page, 2)
+                viewModel.renderPage(page)
             }
             
             val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
+            
+            // ✅ 使用 remember 稳定 Bitmap 引用，避免在绘制过程中被回收
+            val stableBitmap = remember(bitmap) { bitmap }
             
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if (bitmap != null && !bitmap!!.isRecycled) {
+                // ✅ 三重检查：null、recycled、以及引用一致性
+                if (stableBitmap != null && !stableBitmap.isRecycled && stableBitmap === bitmap) {
                     Image(
-                        bitmap = bitmap!!.asImageBitmap(),
+                        bitmap = stableBitmap.asImageBitmap(),
                         contentDescription = "PDF_Page_$page",
                         colorFilter = if (config.isNightMode) {
                             ColorFilter.colorMatrix(colorMatrix)

@@ -41,8 +41,8 @@ class PdfViewModel(
                 eldest?.value?.recycle()
                 
                 // ✅ 同步更新 StateFlow，通知 UI bitmap 已被回收
-                if (pageIndex != null) {
-                    _pageBitmapStates[pageIndex]?.value = null
+                if (pageIndex != null && _pageBitmapStates.containsKey(pageIndex)) {
+                    _pageBitmapStates.remove(pageIndex)
                 }
                 
                 Log.d(TAG, "LRU缓存已满,回收页面 ${pageIndex} 的Bitmap")
@@ -79,48 +79,6 @@ class PdfViewModel(
      */
     fun getPageBitmap(pageIndex: Int): Bitmap? {
         return pageBitmaps[pageIndex]
-    }
-
-    /**
-     * 渲染指定页面及其周围页面（异步版本）
-     */
-    fun renderPageAsync(
-        currentPage: Int,
-        keepNeighbourNumber: Int = 2,
-        bitMapWhScale: Int = 3,
-        maxScaleSize: Int = 2400
-    ) {
-        val renderer = pdfRenderer
-        if (renderer == null || currentPage < 0 || currentPage >= renderer.pageCount) {
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.Default) {
-            // 优先渲染当前页
-            if (!pageBitmaps.containsKey(currentPage)) {
-                renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
-            }
-
-            // 异步预加载周围页面
-            try {
-                for (offset in 1..keepNeighbourNumber) {
-                    val prevPage = currentPage - offset
-                    val nextPage = currentPage + offset
-
-                    // 预加载前一页
-                    if (prevPage >= 0 && !pageBitmaps.containsKey(prevPage)) {
-                        renderOnePage(renderer, prevPage, bitMapWhScale, maxScaleSize)
-                    }
-
-                    // 预加载后一页
-                    if (nextPage < renderer.pageCount && !pageBitmaps.containsKey(nextPage)) {
-                        renderOnePage(renderer, nextPage, bitMapWhScale, maxScaleSize)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "预加载页面失败", e)
-            }
-        }
     }
 
     fun onEvent(event: PdfEvent) {
@@ -181,9 +139,9 @@ class PdfViewModel(
     /**
      * 渲染指定页面及其周围页面
      */
-    fun renderPage(
+    suspend fun renderPage(
         currentPage: Int,
-        keepNeighbourNumber: Int = 1,
+        keepNeighbourNumber: Int = 0,
         bitMapWhScale: Int = 3,
         maxScaleSize: Int = 2400,
         callback: (Bitmap?) -> Unit = {}
@@ -224,7 +182,7 @@ class PdfViewModel(
     /**
      * 渲染单个页面（内部辅助函数，需在锁内调用）
      */
-    private fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int, maxScaleSize: Int = 2400) {
+    private suspend fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int, maxScaleSize: Int = 2400) {
         // 检查是否已渲染，防止重复渲染
         if (pageBitmaps.containsKey(pageIndex)) {
             return
@@ -252,12 +210,12 @@ class PdfViewModel(
             val bitmap = createBitmap((page.width * finalScale).toInt(), (page.height * finalScale).toInt())
             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             page.close()
+            pageCacheMutex.withLock {
+                pageBitmaps[pageIndex] = bitmap
 
-            pageBitmaps[pageIndex] = bitmap
-            
-            // ✅ 更新 StateFlow，通知 UI
-            _pageBitmapStates[pageIndex]?.value = bitmap
-            
+                // ✅ 更新 StateFlow，通知 UI
+                _pageBitmapStates[pageIndex]?.value = bitmap
+            }
             Log.d(TAG, "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
         } catch (e: Exception) {
             Log.e(TAG, "渲染页面 $pageIndex 失败", e)
@@ -273,6 +231,8 @@ class PdfViewModel(
         }
         pagesToRemove.forEach { pageIndex ->
             pageBitmaps.remove(pageIndex)?.recycle()
+            // ✅ 同步清理 StateFlow，避免内存泄漏
+            _pageBitmapStates.remove(pageIndex)
             Log.d(TAG, "释放页面 $pageIndex 的 Bitmap")
         }
     }
