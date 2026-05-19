@@ -374,6 +374,91 @@ fun PdfLazyViewer(
 }
 
 @Composable
+fun PdfPageContent(
+    isSwipeLayout: Boolean,
+    page: Int,
+    contentViewModel: ContentViewModel,
+    viewModel: PdfViewModel,
+    scale: Float,
+    offset: Offset
+){
+    val colorMatrix = remember{
+        ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    }
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isRtl = readingState?.isRtl?: false
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthDp = configuration.screenWidthDp
+
+    val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
+
+    Box(modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // ✅ 三重检查：null、recycled、以及引用一致性
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "PDF_Page_$page",
+                colorFilter = if (config.isNightMode) {
+                    ColorFilter.colorMatrix(colorMatrix)
+                } else null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (isSwipeLayout) {
+                            Modifier.graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y)
+                        } else {
+                            Modifier
+                        }
+                    )
+            )
+        } else {
+            LaunchedEffect(page, bitmap) {
+                if(bitmap == null) {
+                    scope.launch {
+                        Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
+                        viewModel.renderPage(page, 2)
+                    }
+                }
+            }
+            Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
+            Box(
+                modifier = if(isSwipeLayout) {
+                    Modifier.fillMaxSize()
+                } else {
+                    if(isRtl){
+                        Modifier.fillMaxWidth().height(screenHeightDp.dp)
+                    }
+                    else {
+                        Modifier.fillMaxHeight().width(screenWidthDp.dp)
+                    }
+                },
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun PdfSwipeLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
@@ -429,9 +514,6 @@ fun PdfSwipeLayout(
         state = pagerState,
         modifier = Modifier.fillMaxSize()
     ) { page ->
-        LaunchedEffect(page) {
-            viewModel.renderPage(page)
-        }
         
         val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
 
