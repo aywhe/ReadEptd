@@ -36,9 +36,9 @@ class PdfViewModel(
     private var pdfRenderer: PdfRenderer? = null
 
     // ✅ 使用 LinkedHashMap 实现 LRU 缓存,增加到15页以改善滚动体验
-    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(30, 0.75f, true) {
+    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(15, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
-            if (size > 30) {
+            if (size > 15) {
                 val pageIndex = eldest?.key
                 eldest?.value?.recycle()
                 
@@ -71,6 +71,7 @@ class PdfViewModel(
      * 获取指定页面的位图状态流
      */
     fun getPageBitmapState(pageIndex: Int): StateFlow<Bitmap?> {
+        Log.d(TAG, "获取页面 ${pageIndex} 的flow")
         return _pageBitmapStates.getOrPut(pageIndex) { MutableStateFlow(null) }
     }
 
@@ -154,7 +155,11 @@ class PdfViewModel(
                     if (!pageBitmaps.containsKey(currentPage)) {
                         // 优先渲染当前页
                         renderOnePage(renderer, currentPage, bitMapWhScale, maxScaleSize)
+                    } else {
+                        Log.d(TAG, "页面 ${currentPage} 存在，无需渲染")
                     }
+                } else {
+                    Log.e(TAG, "页面索引越界")
                 }
                 for (offset in 1..keepNeighbourNumber) {
                     val prevPage = currentPage - offset
@@ -189,6 +194,7 @@ class PdfViewModel(
     private suspend fun renderOnePage(renderer: PdfRenderer, pageIndex: Int, bitMapWhScale: Int, maxScaleSize: Int = 2400) {
         // 检查是否已渲染，防止重复渲染
         if (pageBitmaps.containsKey(pageIndex)) {
+            Log.d(TAG, "页面 ${pageIndex} 已存在，无需重复渲染")
             return
         }
 
@@ -216,9 +222,15 @@ class PdfViewModel(
             page.close()
             pageCacheMutex.withLock {
                 pageBitmaps[pageIndex] = bitmap
-
                 // ✅ 更新 StateFlow，通知 UI
-                _pageBitmapStates[pageIndex]?.value = bitmap
+                // 不要重新创建stateflow，不然ui会丢失监听
+                _pageBitmapStates.getOrPut(pageIndex){ MutableStateFlow(bitmap)}.value = bitmap
+//                // 两种写法都可以，上面更简洁
+//                if(_pageBitmapStates.containsKey(pageIndex)){
+//                    _pageBitmapStates[pageIndex]?.value = bitmap
+//                } else {
+//                    _pageBitmapStates.put(pageIndex, MutableStateFlow(bitmap))
+//                }
             }
             Log.d(TAG, "渲染页面 $pageIndex 完成 (${bitmap.width}x${bitmap.height})")
         } catch (e: Exception) {
@@ -236,7 +248,8 @@ class PdfViewModel(
         pagesToRemove.forEach { pageIndex ->
             pageBitmaps.remove(pageIndex)?.recycle()
             // ✅ 同步清理 StateFlow，避免内存泄漏
-            _pageBitmapStates.remove(pageIndex)
+            // 不删除stateflow
+            _pageBitmapStates[pageIndex]?.value = null
             Log.d(TAG, "释放页面 $pageIndex 的 Bitmap")
         }
     }

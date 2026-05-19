@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -430,17 +432,14 @@ fun PdfSwipeLayout(
         }
         
         val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
-        
-        // ✅ 使用 remember 稳定 Bitmap 引用，避免在绘制过程中被回收
-        val stableBitmap = remember(bitmap) { bitmap }
-        
+
         Box(modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             // ✅ 三重检查：null、recycled、以及引用一致性
-            if (stableBitmap != null && !stableBitmap.isRecycled) {
+            if (bitmap != null) {
                 Image(
-                    bitmap = stableBitmap.asImageBitmap(),
+                    bitmap = bitmap!!.asImageBitmap(),
                     contentDescription = "PDF_Page_$page",
                     colorFilter = if (config.isNightMode) {
                         ColorFilter.colorMatrix(colorMatrix)
@@ -455,7 +454,15 @@ fun PdfSwipeLayout(
                         )
                 )
             } else {
-                Log.d("PdfLazyViewer", "PDF page $page bmp is null or recycled")
+                LaunchedEffect(page, bitmap) {
+                    if(bitmap == null) {
+                        scope.launch {
+                            Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
+                            viewModel.renderPage(page, 2)
+                        }
+                    }
+                }
+                Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -486,6 +493,8 @@ fun PdfScrollLayout(
     val isRtl = readingState?.isRtl?: false
     // 收集配置信息，获取夜间模式状态
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
@@ -555,32 +564,35 @@ fun PdfScrollLayout(
         )
     ) {
         val item: @Composable (page:Int)-> Unit ={ page->
-            LaunchedEffect(Unit) {
-                viewModel.renderPage(page,2)
-            }
             
             val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
-            
-            // ✅ 使用 remember 稳定 Bitmap 引用，避免在绘制过程中被回收
-            val stableBitmap = remember(bitmap) { bitmap }
-            
+            Log.d("PdfLazyViewer", "页面 $page 的 bitmap 状态为：$bitmap")
+
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 // ✅ 三重检查：null、recycled、以及引用一致性
-                if (stableBitmap != null && !stableBitmap.isRecycled && stableBitmap === bitmap) {
+                if (bitmap != null) {
                     Image(
-                        bitmap = stableBitmap.asImageBitmap(),
+                        bitmap = bitmap!!.asImageBitmap(),
                         contentDescription = "PDF_Page_$page",
                         colorFilter = if (config.isNightMode) {
                             ColorFilter.colorMatrix(colorMatrix)
                         } else null
                     )
                 } else {
-                    Log.d("PdfLazyViewer", "PDF page $page bmp is null or recycled")
+                    LaunchedEffect(page, bitmap) {
+                        if(bitmap == null) {
+                            scope.launch {
+                                Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
+                                viewModel.renderPage(page, 2)
+                            }
+                        }
+                    }
+                    Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().height(screenHeightDp.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
