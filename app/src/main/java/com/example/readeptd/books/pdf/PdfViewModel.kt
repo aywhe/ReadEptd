@@ -141,8 +141,24 @@ class PdfViewModel(
                 ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             pdfRenderer = PdfRenderer(fileDescriptor)
             _totalPages.value = pdfRenderer?.pageCount ?: 0
-            _pdfState.value = PdfState.Ready
-            Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}")
+            
+            // ✅ 获取上次阅读的页码
+            val initialPage = getInitialPage()
+            
+            // ✅ 先渲染上次阅读的页面
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    renderPage(initialPage, keepNeighbourNumber = 2)
+                    // ✅ 渲染完成后设置为 Ready 状态
+                    _pdfState.value = PdfState.Ready
+                    Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}，已渲染初始页: $initialPage")
+                } catch (e: Exception) {
+                    Log.e(TAG, "渲染初始页面失败", e)
+                    // 即使渲染失败也设置为 Ready，让用户可以看到 PDF
+                    _pdfState.value = PdfState.Ready
+                }
+            }
+            
             true
         } catch (e: Exception) {
             Log.e(TAG, "PDF 渲染器初始化失败", e)
