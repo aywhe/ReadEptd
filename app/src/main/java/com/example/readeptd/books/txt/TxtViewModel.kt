@@ -707,7 +707,7 @@ class TxtViewModel(
             
             // ✅ 搜索当前页：从全文中截取页面内容
             val page = pages[currentPageIndex]
-            val pageContent = entireText.substring(page.startPos.toInt(), page.endPos.toInt())
+            val pageContent = getPageContent(currentPageIndex)
             var startIndex = 0
             var count = 0
             
