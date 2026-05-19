@@ -492,7 +492,6 @@ fun SearchHistoryDialog(
     onClickKeyword: (String) -> Unit = {},
 ){
     var keywords by remember { mutableStateOf(viewModel.getKeywords()) }
-    var isShowConfirmDialog by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -544,7 +543,8 @@ fun SearchHistoryDialog(
             if(keywords.isNotEmpty()) {
                 TextButton(
                     onClick = {
-                        isShowConfirmDialog = true
+                        viewModel.clearHistory()
+                        keywords = emptyList()
                     },
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -560,44 +560,4 @@ fun SearchHistoryDialog(
             }
         }
     )
-    if(isShowConfirmDialog){
-        AlertDialog(
-            onDismissRequest = {
-                isShowConfirmDialog = false
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        isShowConfirmDialog = false
-                        viewModel.clearHistory()
-                        keywords = emptyList()
-                    }
-                ) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        isShowConfirmDialog = false
-                    }
-                ) {
-                    Text("取消")
-                }
-            },
-            title = {
-                Text(
-                    text = "清空搜索历史",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            },
-            text = {
-                Text(
-                    text = "确定要清空搜索历史吗？",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        )
-    }
 }

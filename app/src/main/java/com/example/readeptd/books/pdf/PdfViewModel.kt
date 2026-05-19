@@ -148,7 +148,7 @@ class PdfViewModel(
             // ✅ 先渲染上次阅读的页面
             viewModelScope.launch(Dispatchers.IO) {
                 try {
-                    renderPage(initialPage, keepNeighbourNumber = 2)
+                    renderPage(initialPage, keepNeighbourNumber = 1)
                     // ✅ 渲染完成后设置为 Ready 状态
                     _pdfState.value = PdfState.Ready
                     Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}，已渲染初始页: $initialPage")
