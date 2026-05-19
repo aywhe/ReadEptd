@@ -26,7 +26,8 @@ object Utils {
     )
     
     /**
-     * 计算页面字符参数，注意单位统一
+     * 计算页面字符参数
+     *
      * @param pageWidth 页面宽度（像素）
      * @param pageHeight 页面高度（像素）
      * @param fontSize 字体大小（像素）
@@ -35,7 +36,7 @@ object Utils {
      * @param rightPadding 右边距（像素）
      * @param topPadding 上边距（像素）
      * @param bottomPadding 下边距（像素）
-     * @return 一个 Pair 对象，包含每行平均字符数和每页最大行数
+     * @return CharsParams 对象，包含每行平均字符数和每页最大行数
      */
     fun calculatePageCharsParams(
         pageWidth: Int,

@@ -55,6 +55,9 @@ abstract class BookViewModel<T : ReadingState>(
 
     /**
      * 准备书籍文件：将 content URI 复制到临时文件，并加载阅读状态
+     *
+     * @param uri 文件 URI
+     * @param fileName 文件名
      */
     fun prepareBookFile(uri: Uri, fileName: String) {
         val uriString = uri.toString()
@@ -134,6 +137,8 @@ abstract class BookViewModel<T : ReadingState>(
     /**
      * 保存阅读进度（带防抖）
      * 不会立即写入，而是在停止更新 1 秒后自动保存
+     *
+     * @param readingState 阅读状态
      */
     @OptIn(FlowPreview::class)
     fun saveProgress(readingState: T) {
@@ -187,6 +192,8 @@ abstract class BookViewModel<T : ReadingState>(
     
     /**
      * 获取当前阅读状态（保留向后兼容）
+     *
+     * @return 当前阅读状态
      * @deprecated 建议使用 readingState.collectAsStateWithLifecycle()
      */
     @Deprecated("Use readingState StateFlow instead", ReplaceWith("readingState"))
@@ -206,6 +213,8 @@ abstract class BookViewModel<T : ReadingState>(
 
     /**
      * 获取 ViewModel 名称（用于日志）
+     *
+     * @return ViewModel 名称
      */
     protected abstract fun getViewModelName(): String
 

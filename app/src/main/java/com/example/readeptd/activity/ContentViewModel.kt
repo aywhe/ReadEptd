@@ -91,19 +91,36 @@ class ContentViewModel(
         }
     }
 
+    /**
+     * 设置进度信息点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onClickProgressInfoCallback = callback
     }
+    /**
+     * 设置进度信息长按回调
+     *
+     * @param callback 长按回调函数
+     */
     fun setOnLongPressProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onLongPressProgressInfoCallback = callback
     }
 
+    /**
+     * 设置搜索按钮点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickSearchButtonCallback(callback: (() -> Unit)?) {
         _onClickSearchButtonCallback = callback
     }
 
     /**
      * 更新进度信息
+     *
+     * @param progressText 进度文本
      */
     fun updateProgressText(progressText: String) {
         Log.d("ContentViewModel", "更新进度信息: $progressText")
@@ -112,6 +129,8 @@ class ContentViewModel(
 
     /**
      * ✅ 获取当前文件的全屏状态（从 AppMemoryStore 读取）
+     *
+     * @return 是否全屏
      */
     fun getIsFullScreen(): Boolean {
         return currentFileUri?.let { uri ->

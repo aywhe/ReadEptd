@@ -57,6 +57,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     /**
      * 查询指定文件的阅读进度
+     *
+     * @param uri 文件 URI
+     * @return 阅读进度（0.0-1.0），如果不存在则返回 null
      */
     fun getProgress(uri: String): Float? {
         return _readingStates.value[uri]?.progress
@@ -76,6 +79,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * 加载所有文件的阅读状态
+     * 从 DataStore 中读取并缓存到 StateFlow
+     */
     fun loadReadingStates() {
         viewModelScope.launch {
             fileDataStore.allReadingStatesFlow.collect { states ->
@@ -239,6 +246,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * ✅ 更新应用配置（立即更新缓存，异步保存）
+     *
+     * @param update 配置更新函数
      */
     fun updateConfig(update: ConfigureData.() -> ConfigureData) {
         // ✅ 先立即更新内存（UI 立即响应）

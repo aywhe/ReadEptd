@@ -12,6 +12,7 @@ object SystemUiUtils {
 
     /**
      * ✅ 更新系统栏颜色（状态栏和导航栏）
+     *
      * @param window 窗口实例
      * @param isNightMode 是否为夜间模式
      */

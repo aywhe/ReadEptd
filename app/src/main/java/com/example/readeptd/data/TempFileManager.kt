@@ -37,6 +37,10 @@ object TempFileManager {
 
     /**
      * 创建或获取临时文件（如果已存在则复用）
+     *
+     * @param application 应用实例
+     * @param uri 文件 URI
+     * @param fileName 文件名
      * @return 临时文件对象，如果创建失败返回 null
      */
     suspend fun createOrGetTempFile(application: Application, uri: Uri, fileName: String): File? {
@@ -66,6 +70,10 @@ object TempFileManager {
 
     /**
      * 删除指定文件的临时文件
+     *
+     * @param application 应用实例
+     * @param uri 文件 URI
+     * @param fileName 文件名
      * @return 是否删除成功
      */
     suspend fun deleteTempFile(application: Application, uri: String, fileName: String): Boolean {
@@ -92,6 +100,8 @@ object TempFileManager {
 
     /**
      * 清理孤儿临时文件（不在有效列表中的文件）
+     *
+     * @param application 应用实例
      * @param validFileInfos 有效的文件信息列表
      * @return 清理的文件数量
      */
@@ -131,6 +141,11 @@ object TempFileManager {
 
     /**
      * 检查临时文件是否存在
+     *
+     * @param application 应用实例
+     * @param uri 文件 URI
+     * @param fileName 文件名
+     * @return 是否存在
      */
     fun tempFileExists(application: Application, uri: String, fileName: String): Boolean {
         return getTempFile(application, uri, fileName).exists()
@@ -138,6 +153,9 @@ object TempFileManager {
 
     /**
      * 获取所有临时文件
+     *
+     * @param application 应用实例
+     * @return 临时文件列表
      */
     fun getAllTempFiles(application: Application): List<File> {
         val cacheDir = application.cacheDir
@@ -148,6 +166,9 @@ object TempFileManager {
 
     /**
      * 获取临时文件总大小（字节）
+     *
+     * @param application 应用实例
+     * @return 总大小（字节）
      */
     fun getTotalTempFileSize(application: Application): Long {
         return getAllTempFiles(application).sumOf { it.length() }

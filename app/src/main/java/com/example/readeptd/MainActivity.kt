@@ -118,6 +118,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 主屏幕 Composable 函数
+ * 显示阅读文件列表和添加文件的浮动按钮
+ *
+ * @param modifier 修饰符
+ * @param viewModel 主视图模型，管理文件列表状态
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -344,6 +351,11 @@ private fun getAllowedMimeTypes(): Array<String> {
     )
 }
 
+/**
+ * 加载状态屏幕
+ *
+ * @param modifier 修饰符
+ */
 @Composable
 fun LoadingScreen(modifier: Modifier = Modifier) {
     Column(
@@ -357,6 +369,13 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 文件列表内容屏幕
+ * 显示所有阅读文件，支持拖拽排序和滑动操作
+ *
+ * @param viewModel 主视图模型
+ * @param modifier 修饰符
+ */
 @Composable
 fun ContentScreen(
     viewModel: MainViewModel,
@@ -513,6 +532,12 @@ fun ContentScreen(
     }
 }
 
+/**
+ * 错误状态屏幕
+ *
+ * @param error 错误信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun ErrorScreen(
     error: String,
@@ -539,6 +564,13 @@ fun ErrorScreen(
     }
 }
 
+/**
+ * 可拖拽的浮动按钮
+ * 用户可以拖动按钮到屏幕任意位置
+ *
+ * @param onClick 点击回调
+ * @param modifier 修饰符
+ */
 @Composable
 fun DraggableFloatingButton(
     onClick: () -> Unit,
@@ -581,6 +613,14 @@ fun DraggableFloatingButton(
 
 /**
  * 文件列表项卡片
+ * 显示文件信息、阅读进度，支持删除操作
+ *
+ * @param fileInfo 文件信息
+ * @param onClick 点击回调
+ * @param onRemove 删除回调
+ * @param isDragging 是否正在拖拽
+ * @param progress 阅读进度（0.0-1.0）
+ * @param modifier 修饰符
  */
 @Composable
 fun FileItemCard(
@@ -753,6 +793,13 @@ fun MainScreenPreview() {
     }
 }
 
+/**
+ * 设置对话框
+ * 提供夜间模式、动态颜色等应用设置选项
+ *
+ * @param onDismiss 关闭对话框回调
+ * @param viewModel 主视图模型
+ */
 @Composable
 fun SettingsDialog(
     onDismiss: () -> Unit,

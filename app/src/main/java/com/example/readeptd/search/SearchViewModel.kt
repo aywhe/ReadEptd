@@ -66,6 +66,9 @@ class SearchViewModel(
 
     /**
      * 执行搜索
+     *
+     * @param keyword 搜索关键词
+     * @param searchFun 搜索函数，返回搜索结果流
      */
     fun onSearch(
         keyword: String,
@@ -185,6 +188,7 @@ class SearchViewModel(
 
     /**
      * 停止搜索
+     * 取消当前正在进行的搜索任务
      */
     fun stopSearching() {
         searchJob?.cancel()
@@ -193,12 +197,15 @@ class SearchViewModel(
     }
 
     /**
-     * 清除缓存
+     * 清除所有缓存
      */
     fun clearCache() {
         searchCache.clear()
     }
     
+    /**
+     * 清除搜索结果
+     */
     fun clearResults() {
         _searchResults.value = emptyList()
         _currentIndex.value = -1
@@ -206,6 +213,8 @@ class SearchViewModel(
 
     /**
      * 清除指定关键词的缓存
+     *
+     * @param keyword 要清除缓存的关键词
      */
     fun clearCache(keyword: String) {
         searchCache.remove(keyword)
@@ -220,6 +229,8 @@ class SearchViewModel(
 
     /**
      * 删除单条历史记录
+     *
+     * @param keyword 要删除的关键词
      */
     fun removeHistoryKeyword(keyword: String) {
         historyKeywordsMap.remove(keyword)
@@ -227,6 +238,7 @@ class SearchViewModel(
 
     /**
      * 导航到上一项
+     *
      * @param bySortKey 是否按 sortKey 分组跳转（跳转到上一个不同的 sortKey）
      */
     fun navigateToPrevious(bySortKey: Boolean = false) {
@@ -264,6 +276,7 @@ class SearchViewModel(
 
     /**
      * 导航到下一项
+     *
      * @param bySortKey 是否按 sortKey 分组跳转（跳转到下一个不同的 sortKey）
      */
     fun navigateToNext(bySortKey: Boolean = false) {
@@ -301,6 +314,8 @@ class SearchViewModel(
 
     /**
      * 获取当前选中的结果
+     *
+     * @return 当前选中的搜索结果，如果没有则返回 null
      */
     fun getCurrentResult(): SearchData.SearchResult? {
         val idx = _currentIndex.value
@@ -310,6 +325,8 @@ class SearchViewModel(
 
     /**
      * 获取搜索历史关键词列表（按访问时间倒序，最新的在前）
+     *
+     * @return 搜索历史关键词列表
      */
     fun getKeywords(): List<String>{
         return historyKeywordsMap.keys.toList().reversed()
@@ -317,6 +334,8 @@ class SearchViewModel(
 
     /**
      * 设置当前选中的索引
+     *
+     * @param index 要设置的索引值
      */
     fun setCurrentIndex(index: Int) {
         val results = _searchResults.value
@@ -325,10 +344,20 @@ class SearchViewModel(
         }
     }
 
+    /**
+     * 设置历史记录点击回调
+     *
+     * @param onClickHistoryKeyword 点击回调函数
+     */
     fun setOnClickHistoryKeyword(onClickHistoryKeyword: ((String) -> Unit)?) {
         _onClickHistoryKeyword = onClickHistoryKeyword
         Log.d("SearchViewModel", "setOnClickHistoryKeyword: ${onClickHistoryKeyword != null}")
     }
+    /**
+     * 处理搜索事件
+     *
+     * @param event 搜索事件
+     */
     fun onEvent(event: SearchEvent) {
         Log.d("SearchViewModel", "onEvent: $event, _onClickHistoryKeyword is null: ${_onClickHistoryKeyword == null}")
         when (event) {
@@ -340,6 +369,7 @@ class SearchViewModel(
 
     /**
      * 找到距离指定位置最近的搜索结果索引
+     *
      * @param currentPosition 当前位置（页码/字符偏移等，与 sortKey 同类型）
      * @return 最近的搜索结果索引，如果没有结果返回 -1
      */

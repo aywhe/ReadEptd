@@ -127,6 +127,15 @@ class ContentActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 内容页面主屏幕
+ * 根据文件类型显示不同的阅读器界面
+ *
+ * @param fileInfo 文件信息
+ * @param modifier 修饰符
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentScreen(
@@ -276,6 +285,16 @@ fun ContentScreen(
     }
 }
 
+/**
+ * 工具提示组件
+ * 显示进度信息、搜索按钮和 TTS 控制按钮
+ *
+ * @param modifier 修饰符
+ * @param isDragTool 是否为拖拽工具
+ * @param onLongPressSpeak 长按朗读回调
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
 @Composable
 fun ToolTip(
     modifier: Modifier = Modifier,
@@ -384,6 +403,16 @@ fun ToolTip(
     }
 }
 
+/**
+ * 可拖拽的浮动工具提示
+ * 全屏模式下显示的可拖拽工具栏
+ *
+ * @param modifier 修饰符
+ * @param onDismiss 关闭回调
+ * @param onLongPressSpeak 长按朗读回调
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
 @Composable
 fun DraggableFloatingToolTip(
     modifier: Modifier = Modifier,
@@ -598,6 +627,11 @@ fun DraggableFloatingToolTip(
     }
 }
 
+/**
+ * 加载状态屏幕
+ *
+ * @param modifier 修饰符
+ */
 @Composable
 fun LoadingContentScreen(modifier: Modifier = Modifier) {
     Column(
@@ -614,6 +648,15 @@ fun LoadingContentScreen(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 文件内容屏幕
+ * 根据文件 MIME 类型分发到不同的阅读器
+ *
+ * @param fileInfo 文件信息
+ * @param contentViewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ * @param modifier 修饰符
+ */
 @Composable
 fun FileContentScreen(
     fileInfo: FileInfo,
@@ -660,6 +703,12 @@ fun FileContentScreen(
     }
 }
 
+/**
+ * 错误状态屏幕
+ *
+ * @param error 错误信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun ErrorContentScreen(
     error: String,
@@ -686,6 +735,13 @@ fun ErrorContentScreen(
     }
 }
 
+/**
+ * 不支持的格式屏幕
+ * 显示不支持的文件格式信息
+ *
+ * @param fileInfo 文件信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun UnsupportedFormatScreen(
     fileInfo: FileInfo,

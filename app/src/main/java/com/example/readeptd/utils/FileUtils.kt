@@ -13,6 +13,7 @@ object FileUtils {
 
     /**
      * 检查 URI 指向的资源是否仍然存在且可访问
+     *
      * @param context 上下文
      * @param uri URI 字符串
      * @return 如果资源存在且可访问返回 true，否则返回 false
@@ -29,6 +30,7 @@ object FileUtils {
     
     /**
      * 获取 URI 的持久化读取权限
+     *
      * @param context 上下文
      * @param uri URI 字符串
      */
@@ -47,6 +49,7 @@ object FileUtils {
     
     /**
      * 释放 URI 的持久化读取权限
+     *
      * @param context 上下文
      * @param uri URI 字符串
      */
