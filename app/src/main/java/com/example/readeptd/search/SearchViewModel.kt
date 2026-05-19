@@ -41,10 +41,17 @@ class SearchViewModel(
     private val _lastSearchedKeyword = MutableStateFlow("")
     val lastSearchedKeyword: StateFlow<String> = _lastSearchedKeyword.asStateFlow()
 
-    // ✅ 5. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
-    private val searchCache = object : LinkedHashMap<String, List<SearchData.SearchResult>>(5, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchData.SearchResult>>?): Boolean {
-            return size > 5  // 超过5个就移除最久未使用的
+    // ✅ 5. 搜索结果缓存数据结构
+    private data class SearchCacheEntry(
+        val results: List<SearchData.SearchResult>,
+        val isCompleted: Boolean,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    // ✅ 搜索结果缓存：关键词 -> 缓存条目 (使用 LRU 缓存,最多保留5个)
+    private val searchCache = object : LinkedHashMap<String, SearchCacheEntry>(5, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SearchCacheEntry>?): Boolean {
+            return size > 5
         }
     }
 
@@ -77,19 +84,22 @@ class SearchViewModel(
         // ✅ 添加到搜索历史（LRU 自动管理）
         addToHistory(keyword)
 
-        // ✅ 检查缓存，如果已存在则直接返回
-        if (searchCache.containsKey(keyword)) {
-            val cachedResults = searchCache[keyword]
-            if(cachedResults != null) {
-                Log.d("SearchViewModel", "缓存中已存在 $keyword， 从缓存中获取结果")
-                _searchResults.value = cachedResults
-                _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
+        // ✅ 检查缓存，只有当搜索已完成时才使用缓存
+        val cachedEntry = searchCache[keyword]
+        if (cachedEntry != null) {
+            if(cachedEntry.isCompleted) {
+                Log.d(
+                    "SearchViewModel",
+                    "缓存中已存在已完成的 $keyword，从缓存中获取结果，结果数: ${cachedEntry.results.size}"
+                )
+                _searchResults.value = cachedEntry.results
+                _currentIndex.value = if (cachedEntry.results.isNotEmpty()) 0 else -1
                 currentSearchingKeyword = null
                 _lastSearchedKeyword.value = keyword
                 return
-            }
-            else {
-                Log.d("SearchViewModel", "缓存中已存在 $keyword， 但结果为空，开始搜索")
+            } else {
+                Log.d("SearchViewModel", "缓存中存在未完成的 $keyword，重新搜索")
+                clearCache(keyword)
             }
         } else {
             Log.d("SearchViewModel", "缓存中不存在 $keyword，开始搜索")
@@ -114,6 +124,7 @@ class SearchViewModel(
             var lastUpdateCount = 0
             val updateIntervalMs = 2000L
             val updateItemCount = 20
+            var isCompleted = false
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
@@ -131,20 +142,23 @@ class SearchViewModel(
                         lastUpdateCount = results.size
                     }
                 }
+                isCompleted = true
             } catch (e: Exception) {
                 // 处理搜索过程中可能出现的异常（如文件读取错误）
                 e.printStackTrace()
             } finally {
                 // ✅ 统一排序并更新最终结果
-                if (results.isNotEmpty()) {
-                    val sortedResults = results.sortedBy { it.sortKey }
-                    searchCache[keyword] = sortedResults
-                    _searchResults.value = sortedResults
-                    _currentIndex.value = 0
+                val sortedResults = if(results.isEmpty()){
+                    emptyList()
                 } else {
-                    // ✅ 确保无结果时也清空列表
-                    _searchResults.value = emptyList()
+                    results.sortedBy { it.sortKey }
                 }
+                _searchResults.value = sortedResults
+                _currentIndex.value = if(results.isEmpty()) -1 else 0
+                searchCache[keyword] = SearchCacheEntry(
+                    sortedResults,
+                    isCompleted
+                )
                 
                 // ✅ 设置最后搜索的关键词（无论有无结果）
                 _lastSearchedKeyword.value = keyword
@@ -170,23 +184,8 @@ class SearchViewModel(
      * 停止搜索
      */
     fun stopSearching() {
-        // ✅ 在取消 Job 之前，先保存当前关键词（避免竞态条件）
-        val keywordToClear = currentSearchingKeyword
-        
-        // ✅ 取消搜索任务
         searchJob?.cancel()
-        searchJob = null
-        
-        // ✅ 使用保存的关键词清理缓存（允许重新搜索）
-        if (keywordToClear != null) {
-            Log.d("SearchViewModel", "停止搜索，清理缓存 $keywordToClear")
-            clearCache(keywordToClear)
-        }
-        
-        // ✅ 重置状态
-        currentSearchingKeyword = null
-        _isSearching.value = false
-        
+        Log.d("SearchViewModel", "请求停止搜索")
         // ✅ 注意：不清空 _searchResults 和 _lastSearchedKeyword，保留已搜索到的部分结果供用户查看
     }
 
