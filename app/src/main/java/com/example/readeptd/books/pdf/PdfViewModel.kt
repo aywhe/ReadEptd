@@ -44,7 +44,7 @@ class PdfViewModel(
                 
                 // ✅ 同步更新 StateFlow，通知 UI bitmap 已被回收
                 if (pageIndex != null && _pageBitmapStates.containsKey(pageIndex)) {
-                    _pageBitmapStates.remove(pageIndex)
+                    _pageBitmapStates[pageIndex]?.value = null // 因为是flow，不要直接remove，不然ui会丢失监听
                 }
                 
                 Log.d(TAG, "LRU缓存已满,回收页面 ${pageIndex} 的Bitmap")
