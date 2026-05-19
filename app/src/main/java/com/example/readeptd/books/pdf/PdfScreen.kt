@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +25,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -158,217 +162,263 @@ fun PdfLazyViewer(
             Log.d("PdfLazyViewer", "资源已释放")
         }
     }
-
-    if (totalPages > 0) {
-        var containerSize by remember { mutableStateOf(IntSize.Zero) }
-        var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-        var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
-        var isShowSearchDialog by remember { mutableStateOf(false) }
-        var showNoTextHint by remember { mutableStateOf(false) }
-
-        LaunchedEffect(currentPage) {
-            Log.d("PdfLazyViewer", "当前页: $currentPage")
-            contentViewModel.updateProgressText("${currentPage + 1}/$totalPages")
-        }
-        DisposableEffect(Unit) {
-            contentViewModel.setOnClickProgressInfoCallback { progressText ->
-                if (totalPages > 0) {
-                    isShowJumpToPageDialog = true
-                }
-            }
-            contentViewModel.setOnLongPressProgressInfoCallback { progressText ->
-                isShowLayoutSettingDialog = true
-            }
-            contentViewModel.setOnClickSearchButtonCallback {
-                isShowSearchDialog = !isShowSearchDialog
-            }
-
-            ttsModel.setOnRequestSpeechStartListener {
-                val text = viewModel.getPageText(currentPage)
-                if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text, "pdf_${currentPage}")
-                } else {
-                    showNoTextHint = true
-                }
-            }
-
-            ttsModel.setOnSpeechDoneListener { utteranceId ->
-                val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-
-                // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                    // 用户手动翻页，从当前页继续
-                    currentPage
-                } else {
-                    // 正常顺序播放，朗读下一页
-                    currentPage + 1
-                }
-                
-                if (targetPage in 0 until totalPages) {
-                    scope.launch {
-                        // 如果需要翻页（目标页不是当前页），先滚动
-                        if (targetPage != currentPage) {
-                            viewModel.goToPage(targetPage)
-                        }
-                        
-                        // 朗读目标页
-                        val text = viewModel.getPageText(targetPage)
-                        if (!text.isNullOrBlank()) {
-                            ttsModel.speak(text, "pdf_$targetPage")
-                        }
-                    }
-                }
-            }
-
-            onDispose {
-                ttsModel.clearCallbacks()
-                contentViewModel.setOnClickProgressInfoCallback(null)
-                contentViewModel.setOnLongPressProgressInfoCallback(null)
-                contentViewModel.setOnClickSearchButtonCallback(null)
-            }
-        }
-        Box(modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-        ) {
-            var scale by remember { mutableFloatStateOf(1f) }
-            var offset by remember { mutableStateOf(Offset.Zero) }
-
+    
+    val pdfState by viewModel.pdfState.collectAsStateWithLifecycle()
+    
+    when (pdfState) {
+        is PdfState.Loading -> {
+            // 显示加载状态
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .onGloballyPositioned { coordinates ->
-                        containerSize = coordinates.size
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = { tapOffset ->
-                                Log.d("PdfLazyViewer", "双击屏幕，切换全屏")
-                                contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        delay(100)
-                        detectTransformGestures(
-                            onGesture = { centroid, pan, zoom, rotation ->
-                                scale *= zoom
-                                scale = scale.coerceIn(0.5f, 5f)
-                                offset += pan
-                            }
-                        )
-                    }
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                if(isSwipeLayout){
-                    PdfSwipeLayout(
-                        contentViewModel = contentViewModel,
-                        viewModel = viewModel,
-                        scale = scale,
-                        offset = offset
-                    )
-                } else {
-                    PdfScrollLayout(
-                        contentViewModel = contentViewModel,
-                        viewModel = viewModel,
-                        scale = scale,
-                        offset = offset
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "加载中...",
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
-            if (isShowJumpToPageDialog) {
-                JumpToPageDialog(
-                    currentPage = currentPage,
-                    totalPages = totalPages,
-                    onDismiss = {
-                        isShowJumpToPageDialog = false
-                    },
-                    onConfirm = {
+        }
+        
+        is PdfState.Ready -> {
+            var containerSize by remember { mutableStateOf(IntSize.Zero) }
+            var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+            var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
+            var isShowSearchDialog by remember { mutableStateOf(false) }
+            var showNoTextHint by remember { mutableStateOf(false) }
+
+            LaunchedEffect(currentPage) {
+                Log.d("PdfLazyViewer", "当前页: $currentPage")
+                contentViewModel.updateProgressText("${currentPage + 1}/$totalPages")
+            }
+            DisposableEffect(Unit) {
+                contentViewModel.setOnClickProgressInfoCallback { progressText ->
+                    if (totalPages > 0) {
+                        isShowJumpToPageDialog = true
+                    }
+                }
+                contentViewModel.setOnLongPressProgressInfoCallback { progressText ->
+                    isShowLayoutSettingDialog = true
+                }
+                contentViewModel.setOnClickSearchButtonCallback {
+                    isShowSearchDialog = !isShowSearchDialog
+                }
+
+                ttsModel.setOnRequestSpeechStartListener {
+                    val text = viewModel.getPageText(currentPage)
+                    if (!text.isNullOrBlank()) {
+                        ttsModel.speak(text, "pdf_${currentPage}")
+                    } else {
+                        showNoTextHint = true
+                    }
+                }
+
+                ttsModel.setOnSpeechDoneListener { utteranceId ->
+                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
+
+                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
+                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+                        // 用户手动翻页，从当前页继续
+                        currentPage
+                    } else {
+                        // 正常顺序播放，朗读下一页
+                        currentPage + 1
+                    }
+
+                    if (targetPage in 0 until totalPages) {
                         scope.launch {
-                            viewModel.goToPage(it)
+                            // 如果需要翻页（目标页不是当前页），先滚动
+                            if (targetPage != currentPage) {
+                                viewModel.goToPage(targetPage)
+                            }
+
+                            // 朗读目标页
+                            val text = viewModel.getPageText(targetPage)
+                            if (!text.isNullOrBlank()) {
+                                ttsModel.speak(text, "pdf_$targetPage")
+                            }
                         }
-                        isShowJumpToPageDialog = false
                     }
-                )
-            }
-            if(isShowLayoutSettingDialog){
-                LayoutSettingDialog(
-                    isSwipeLayout = isSwipeLayout,
-                    onSwipeLayoutChange = { newValue ->
-                        // ✅ 直接从 readingState 创建新状态并保存
-                        readingState?.let { currentState ->
-                            val newState = currentState.copy(isSwipeLayout = newValue)
-                            viewModel.saveProgress(newState)
-                        }
-                    },
-                    isRtl = isRtl,
-                    onRtlChange = { newValue ->
-                        readingState?.let { currentState ->
-                            val newState = currentState.copy(isRtl = newValue)
-                            viewModel.saveProgress(newState)
-                        }
-                    },
-                    onDismiss = {
-                        isShowLayoutSettingDialog = false
-                    }
-                )
-            }
-            SlideInSearchPanel(
-                visible = isShowSearchDialog,
-                onVisibleChange = {
-                    isShowSearchDialog = it
-                },
-                searchExecutor = { query ->
-                    viewModel.search(query)
-                },
-                getCurrentPosition = {
-                    currentPage
-                },
-                onResultClick = { result ->
-                    scope.launch {
-                        viewModel.goToPage((result as SearchData.PdfSearchResult).pageIndex)
-                    }
-                },
-                onClose = {
-                    isShowSearchDialog = false
                 }
-            )
-            
-            if (showNoTextHint) {
+
+                onDispose {
+                    ttsModel.clearCallbacks()
+                    contentViewModel.setOnClickProgressInfoCallback(null)
+                    contentViewModel.setOnLongPressProgressInfoCallback(null)
+                    contentViewModel.setOnClickSearchButtonCallback(null)
+                }
+            }
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offset by remember { mutableStateOf(Offset.Zero) }
+
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 32.dp)
-                        .background(
-                            MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-                            shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxSize()
+                        .onGloballyPositioned { coordinates ->
+                            containerSize = coordinates.size
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = { tapOffset ->
+                                    Log.d("PdfLazyViewer", "双击屏幕，切换全屏")
+                                    contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                }
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            delay(100)
+                            detectTransformGestures(
+                                onGesture = { centroid, pan, zoom, rotation ->
+                                    scale *= zoom
+                                    scale = scale.coerceIn(0.5f, 5f)
+                                    offset += pan
+                                }
+                            )
+                        }
                 ) {
-                    Text(
-                        text = "没有文本",
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                        style = MaterialTheme.typography.bodyMedium
+                    if (isSwipeLayout) {
+                        PdfSwipeLayout(
+                            contentViewModel = contentViewModel,
+                            viewModel = viewModel,
+                            scale = scale,
+                            offset = offset
+                        )
+                    } else {
+                        PdfScrollLayout(
+                            contentViewModel = contentViewModel,
+                            viewModel = viewModel,
+                            scale = scale,
+                            offset = offset
+                        )
+                    }
+                }
+                if (isShowJumpToPageDialog) {
+                    JumpToPageDialog(
+                        currentPage = currentPage,
+                        totalPages = totalPages,
+                        onDismiss = {
+                            isShowJumpToPageDialog = false
+                        },
+                        onConfirm = {
+                            scope.launch {
+                                viewModel.goToPage(it)
+                            }
+                            isShowJumpToPageDialog = false
+                        }
                     )
                 }
-                
-                LaunchedEffect(Unit) {
-                    delay(1500)
-                    showNoTextHint = false
+                if (isShowLayoutSettingDialog) {
+                    LayoutSettingDialog(
+                        isSwipeLayout = isSwipeLayout,
+                        onSwipeLayoutChange = { newValue ->
+                            // ✅ 直接从 readingState 创建新状态并保存
+                            readingState?.let { currentState ->
+                                val newState = currentState.copy(isSwipeLayout = newValue)
+                                viewModel.saveProgress(newState)
+                            }
+                        },
+                        isRtl = isRtl,
+                        onRtlChange = { newValue ->
+                            readingState?.let { currentState ->
+                                val newState = currentState.copy(isRtl = newValue)
+                                viewModel.saveProgress(newState)
+                            }
+                        },
+                        onDismiss = {
+                            isShowLayoutSettingDialog = false
+                        }
+                    )
+                }
+                SlideInSearchPanel(
+                    visible = isShowSearchDialog,
+                    onVisibleChange = {
+                        isShowSearchDialog = it
+                    },
+                    searchExecutor = { query ->
+                        viewModel.search(query)
+                    },
+                    getCurrentPosition = {
+                        currentPage
+                    },
+                    onResultClick = { result ->
+                        scope.launch {
+                            viewModel.goToPage((result as SearchData.PdfSearchResult).pageIndex)
+                        }
+                    },
+                    onClose = {
+                        isShowSearchDialog = false
+                    }
+                )
+
+                if (showNoTextHint) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 32.dp)
+                            .background(
+                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "没有文本",
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    LaunchedEffect(Unit) {
+                        delay(1500)
+                        showNoTextHint = false
+                    }
                 }
             }
         }
-    } else {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            CircularProgressIndicator()
-            Text(
-                text = "正在渲染...",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 16.dp)
-            )
+        
+        is PdfState.Error -> {
+            // 显示错误状态
+            val errorMessage = (pdfState as PdfState.Error).message
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "错误",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "加载失败",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

@@ -25,6 +25,29 @@ import kotlinx.coroutines.currentCoroutineContext
 import java.io.File
 
 /**
+ * PDF 状态密封接口
+ * 用于跟踪 PDF 文件的加载和就绪状态
+ */
+sealed interface PdfState {
+    /**
+     * 加载中状态
+     */
+    object Loading : PdfState
+    
+    /**
+     * 就绪状态 - PDF 已成功加载并可以显示
+     */
+    object Ready : PdfState
+    
+    /**
+     * 错误状态
+     *
+     * @param message 错误信息
+     */
+    data class Error(val message: String) : PdfState
+}
+
+/**
  * PDF 阅读器 ViewModel
  * 继承自 BookViewModel，提供 PDF 文件特有的功能
  */
@@ -34,6 +57,10 @@ class PdfViewModel(
 
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
+    
+    // ✅ PDF 状态流
+    private val _pdfState = MutableStateFlow<PdfState>(PdfState.Loading)
+    val pdfState: StateFlow<PdfState> = _pdfState.asStateFlow()
 
     // ✅ 使用 LinkedHashMap 实现 LRU 缓存,增加到15页以改善滚动体验
     private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(30, 0.75f, true) {
@@ -101,19 +128,25 @@ class PdfViewModel(
 
     /**
      * 初始化 PDF 渲染器
+     *
+     * @param filePath PDF 文件路径
+     * @return 是否初始化成功
      */
     fun initializeRenderer(filePath: String): Boolean {
         return try {
+            _pdfState.value = PdfState.Loading
             cleanupRenderer()
             val file = File(filePath)
             val fileDescriptor =
                 ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             pdfRenderer = PdfRenderer(fileDescriptor)
             _totalPages.value = pdfRenderer?.pageCount ?: 0
+            _pdfState.value = PdfState.Ready
             Log.d(TAG, "PDF 渲染器初始化成功，总页数: ${_totalPages.value}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "PDF 渲染器初始化失败", e)
+            _pdfState.value = PdfState.Error("PDF 渲染器初始化失败: ${e.message}")
             false
         }
     }
@@ -122,6 +155,9 @@ class PdfViewModel(
      * 清理渲染器资源
      */
     fun cleanupRenderer() {
+        // ✅ 重置 PDF 状态为 Loading
+        _pdfState.value = PdfState.Loading
+        
         // ✅ 先清空所有 StateFlow，避免 UI 使用已回收的 bitmap
         _pageBitmapStates.values.forEach { it.value = null }
         
