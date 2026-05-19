@@ -36,9 +36,9 @@ class PdfViewModel(
     private var pdfRenderer: PdfRenderer? = null
 
     // ✅ 使用 LinkedHashMap 实现 LRU 缓存,增加到15页以改善滚动体验
-    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(15, 0.75f, true) {
+    private val pageBitmaps = object : LinkedHashMap<Int, Bitmap>(30, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
-            if (size > 15) {
+            if (size > 30) {
                 val pageIndex = eldest?.key
                 eldest?.value?.recycle()
                 
