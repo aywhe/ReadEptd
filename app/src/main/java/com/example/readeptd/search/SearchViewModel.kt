@@ -98,7 +98,7 @@ class SearchViewModel(
                 _lastSearchedKeyword.value = keyword
                 return
             } else {
-                Log.d("SearchViewModel", "缓存中存在未完成的 $keyword，重新搜索")
+                Log.d("SearchViewModel", "缓存中 $keyword 未完成，重新搜索")
                 clearCache(keyword)
             }
         } else {
@@ -142,11 +142,14 @@ class SearchViewModel(
                         lastUpdateCount = results.size
                     }
                 }
+                Log.d("SearchViewModel", "搜索完成，结果数: ${results.size}")
                 isCompleted = true
             } catch (e: Exception) {
+                Log.d("SearchViewModel", "搜索异常，结果数: ${results.size}")
                 // 处理搜索过程中可能出现的异常（如文件读取错误）
                 e.printStackTrace()
             } finally {
+                Log.d("SearchViewModel", "搜索结束，结果数: ${results.size}")
                 // ✅ 统一排序并更新最终结果
                 val sortedResults = if(results.isEmpty()){
                     emptyList()
