@@ -70,6 +70,7 @@ class SearchViewModel(
             _currentIndex.value = -1
             currentSearchingKeyword = null
             _lastSearchedKeyword.value = ""
+            Log.d("SearchViewModel", "关键词为空，清空结果")
             return
         }
 
@@ -77,13 +78,21 @@ class SearchViewModel(
         addToHistory(keyword)
 
         // ✅ 检查缓存，如果已存在则直接返回
-        val cachedResults = searchCache[keyword]
-        if (cachedResults != null) {
-            _searchResults.value = cachedResults
-            _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
-            currentSearchingKeyword = null
-            _lastSearchedKeyword.value = keyword
-            return
+        if (searchCache.containsKey(keyword)) {
+            val cachedResults = searchCache[keyword]
+            if(cachedResults != null) {
+                Log.d("SearchViewModel", "缓存中已存在 $keyword， 从缓存中获取结果")
+                _searchResults.value = cachedResults
+                _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
+                currentSearchingKeyword = null
+                _lastSearchedKeyword.value = keyword
+                return
+            }
+            else {
+                Log.d("SearchViewModel", "缓存中已存在 $keyword， 但结果为空，开始搜索")
+            }
+        } else {
+            Log.d("SearchViewModel", "缓存中不存在 $keyword，开始搜索")
         }
 
         // ✅ 取消上一次的搜索任务
@@ -170,6 +179,7 @@ class SearchViewModel(
         
         // ✅ 使用保存的关键词清理缓存（允许重新搜索）
         if (keywordToClear != null) {
+            Log.d("SearchViewModel", "停止搜索，清理缓存 $keywordToClear")
             clearCache(keywordToClear)
         }
         
