@@ -10,11 +10,13 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -486,7 +488,6 @@ fun PdfScrollLayout(
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val initialPage = viewModel.getInitialPage()
-    val currentPage by viewModel.currentPage.collectAsState()
     val scope = rememberCoroutineScope()
 // ✅ 使用 StateFlow 获取阅读状态
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
@@ -495,6 +496,7 @@ fun PdfScrollLayout(
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
+    val screenWidthDp = configuration.screenWidthDp
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
@@ -592,7 +594,11 @@ fun PdfScrollLayout(
                     }
                     Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(screenHeightDp.dp),
+                        modifier = if(isRtl){
+                            Modifier.fillMaxWidth().height(screenHeightDp.dp)
+                        } else {
+                            Modifier.fillMaxHeight().width(screenWidthDp.dp)
+                        },
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
