@@ -378,7 +378,7 @@ fun ToolTip(
                                 // ✅ 在首次播放前请求通知权限
                                 val activity = context as? ComponentActivity
                                 if (activity != null) {
-                                    Utils.checkAndRequestNotificationPermission(activity)
+                                    SystemUiUtils.checkAndRequestNotificationPermission(activity)
                                 }
                                 Log.d("ContentActivity", "请求开始自动朗读")
                                 ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
