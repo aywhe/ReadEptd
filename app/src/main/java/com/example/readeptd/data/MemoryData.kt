@@ -236,6 +236,50 @@ object AppMemoryStore {
         _lastReadingFile.value = null
     }
 
+    // ==================== 搜索历史管理 ====================
+
+    /**
+     * 搜索历史记录缓存（普通 Map，不需要响应式）
+     * Key: 关键词, Value: 时间戳
+     */
+    private var searchHistoryMap: Map<String, Long> = emptyMap()
+
+    /**
+     * 获取完整的搜索历史 Map（用于恢复）
+     *
+     * @return 搜索历史 Map
+     */
+    fun getAllSearchHistory(): Map<String, Long> {
+        return searchHistoryMap
+    }
+
+    /**
+     * 获取搜索历史关键词列表（按时间倒序，最新的在前）
+     *
+     * @return 搜索历史关键词列表
+     */
+    fun getSearchHistoryKeywords(): List<String> {
+        return searchHistoryMap.entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+    }
+
+    /**
+     * 批量设置搜索历史（用于恢复或保存）
+     *
+     * @param historyMap 历史记录 Map
+     */
+    fun setSearchHistory(historyMap: Map<String, Long>) {
+        searchHistoryMap = historyMap.toMap()
+    }
+
+    /**
+     * 清空所有搜索历史
+     */
+    fun clearSearchHistory() {
+        searchHistoryMap = emptyMap()
+    }
+
     // ==================== 通用数据缓存 ====================
     
     /**

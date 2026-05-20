@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.AppMemoryStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,23 @@ class SearchViewModel(
     }
 
     private var _onClickHistoryKeyword: ((String) -> Unit)? = null
+
+    init {
+        // ✅ 从 AppMemoryStore 恢复搜索历史
+        restoreSearchHistory()
+    }
+
+    /**
+     * 从 AppMemoryStore 恢复搜索历史
+     */
+    private fun restoreSearchHistory() {
+        val savedHistory = AppMemoryStore.getAllSearchHistory()
+        if (savedHistory.isNotEmpty()) {
+            historyKeywordsMap.clear()
+            historyKeywordsMap.putAll(savedHistory)
+            Log.d("SearchViewModel", "已恢复 ${historyKeywordsMap.size} 条搜索历史")
+        }
+    }
 
     /**
      * 执行搜索
@@ -225,6 +243,9 @@ class SearchViewModel(
      */
     fun clearHistory() {
         historyKeywordsMap.clear()
+        // ✅ 同时清除 AppMemoryStore 中的历史
+        AppMemoryStore.clearSearchHistory()
+        Log.d("SearchViewModel", "已清空所有搜索历史")
     }
 
     /**
@@ -396,8 +417,19 @@ class SearchViewModel(
         stopSearching()  // ✅ 清理时停止搜索
         clearCache()
         clearResults()
-        clearHistory()
+        
+        // ✅ 在 ViewModel 销毁前保存搜索历史到 AppMemoryStore
+        saveSearchHistory()
+        
         _onClickHistoryKeyword = null
         Log.d("SearchViewModel", "onCleared")
+    }
+    
+    /**
+     * 保存搜索历史到 AppMemoryStore
+     */
+    private fun saveSearchHistory() {
+        AppMemoryStore.setSearchHistory(historyKeywordsMap.toMap())
+        Log.d("SearchViewModel", "已保存 ${historyKeywordsMap.size} 条搜索历史到 AppMemoryStore")
     }
 }
