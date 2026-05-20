@@ -262,6 +262,11 @@ fun PdfLazyViewer(
                 var scale by remember { mutableFloatStateOf(1f) }
                 var offset by remember { mutableStateOf(Offset.Zero) }
 
+                LaunchedEffect( isSwipeLayout, isRtl) {
+                    scale = 1f
+                    offset = Offset.Zero
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -550,7 +555,7 @@ fun PdfSwipeLayout(
     ) { page ->
         PdfPageContent(
             page = page,
-            isSwipeLayout = false,
+            isSwipeLayout = true,
             contentViewModel = contentViewModel,
             viewModel = viewModel,
             scale = scale,
@@ -634,7 +639,7 @@ fun PdfScrollLayout(
         val item: @Composable (page:Int)-> Unit ={ page->
             PdfPageContent(
                 page = page,
-                isSwipeLayout = true,
+                isSwipeLayout = false,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel
             )
