@@ -284,6 +284,7 @@ fun SlideInSearchPanel(
                 label = null,
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
                 singleLine = true,
+                readOnly = isSearching,
                 trailingIcon = {
                     if (isSearching) {
                         CircularProgressIndicator(
@@ -505,8 +506,6 @@ fun SearchHistoryDialog(
                 )
             } else {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     keywords.forEach { keyword ->
