@@ -247,7 +247,8 @@ fun EpubScreen(
                             viewModel.highlightSingle(epubResult.cfi, webView)
                             webView?.goToLocation(epubResult.cfi)
                         },
-                        onKeywordChange = { keyword -> currentKeyword = keyword}
+                        onKeywordChange = { keyword -> currentKeyword = keyword},
+                        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
                     )
                 }
             }

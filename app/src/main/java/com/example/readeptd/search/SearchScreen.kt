@@ -91,6 +91,7 @@ fun SlideInSearchPanel(
     onClose: () -> Unit = {},
     visible: Boolean = true,
     initKeyword: String = "",
+    fileUri: String? = null,  // ✅ 新增：文件 URI，用于隔离搜索历史
     viewModel: SearchViewModel = viewModel()
 ) {
     var isVisible by remember(visible) { mutableStateOf(visible) }
@@ -106,6 +107,14 @@ fun SlideInSearchPanel(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
+
+    // ✅ 初始化 ViewModel 并绑定到当前文件
+    LaunchedEffect(fileUri) {
+        if (fileUri != null) {
+            viewModel.initialize(fileUri)
+            Log.d("SlideInSearchPanel", "已初始化 SearchViewModel，文件 URI: $fileUri")
+        }
+    }
 
     DisposableEffect(Unit) {
         Log.d("SlideInSearchPanel", "DisposableEffect: 设置 onClickHistoryKeyword 回调")

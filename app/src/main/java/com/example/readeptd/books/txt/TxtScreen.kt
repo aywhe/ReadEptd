@@ -371,7 +371,8 @@ fun TxtScreen(
                                     }
                                 },
                                 onKeywordChange = {currentKeyword = it},
-                                searchExecutor = {keyword -> viewModel.search(keyword) }
+                                searchExecutor = {keyword -> viewModel.search(keyword) },
+                                fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
                             )
                         }
                     }

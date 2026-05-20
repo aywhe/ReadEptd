@@ -63,22 +63,34 @@ class SearchViewModel(
         }
     }
 
+    // ✅ 当前文件 URI（用于隔离搜索历史）
+    private var currentFileUri: String? = null
+
     private var _onClickHistoryKeyword: ((String) -> Unit)? = null
 
-    init {
-        // ✅ 从 AppMemoryStore 恢复搜索历史
-        restoreSearchHistory()
+    /**
+     * 初始化搜索 ViewModel 并绑定到指定文件
+     *
+     * @param fileUri 文件 URI
+     */
+    fun initialize(fileUri: String?) {
+        currentFileUri = fileUri
+        if (fileUri != null) {
+            restoreSearchHistory(fileUri)
+        }
     }
 
     /**
-     * 从 AppMemoryStore 恢复搜索历史
+     * 从 AppMemoryStore 恢复指定文件的搜索历史
      */
-    private fun restoreSearchHistory() {
-        val savedHistory = AppMemoryStore.getAllSearchHistory()
+    private fun restoreSearchHistory(fileUri: String) {
+        val savedHistory = AppMemoryStore.getFileSearchHistory(fileUri)
         if (savedHistory.isNotEmpty()) {
             historyKeywordsMap.clear()
             historyKeywordsMap.putAll(savedHistory)
-            Log.d("SearchViewModel", "已恢复 ${historyKeywordsMap.size} 条搜索历史")
+            Log.d("SearchViewModel", "已恢复文件 $fileUri 的 ${historyKeywordsMap.size} 条搜索历史")
+        } else {
+            Log.d("SearchViewModel", "文件 $fileUri 没有搜索历史")
         }
     }
 
@@ -243,9 +255,11 @@ class SearchViewModel(
      */
     fun clearHistory() {
         historyKeywordsMap.clear()
-        // ✅ 同时清除 AppMemoryStore 中的历史
-        AppMemoryStore.clearSearchHistory()
-        Log.d("SearchViewModel", "已清空所有搜索历史")
+        // ✅ 同时清除 AppMemoryStore 中当前文件的搜索历史
+        currentFileUri?.let { uri ->
+            AppMemoryStore.clearFileSearchHistory(uri)
+            Log.d("SearchViewModel", "已清空文件 $uri 的搜索历史")
+        }
     }
 
     /**
@@ -255,6 +269,10 @@ class SearchViewModel(
      */
     fun removeHistoryKeyword(keyword: String) {
         historyKeywordsMap.remove(keyword)
+        // ✅ 同步更新到 AppMemoryStore
+        currentFileUri?.let { uri ->
+            AppMemoryStore.setFileSearchHistory(uri, historyKeywordsMap.toMap())
+        }
     }
 
     /**
@@ -345,12 +363,14 @@ class SearchViewModel(
     }
 
     /**
-     * 获取搜索历史关键词列表（按访问时间倒序，最新的在前）
+     * 获取搜索历史关键词列表（按时间倒序，最新的在前）
      *
      * @return 搜索历史关键词列表
      */
     fun getKeywords(): List<String>{
-        return historyKeywordsMap.keys.toList().reversed()
+        return historyKeywordsMap.entries
+            .sortedByDescending { it.value }
+            .map { it.key }
     }
 
     /**
@@ -418,7 +438,7 @@ class SearchViewModel(
         clearCache()
         clearResults()
         
-        // ✅ 在 ViewModel 销毁前保存搜索历史到 AppMemoryStore
+        // ✅ 在 ViewModel 销毁前保存当前文件的搜索历史到 AppMemoryStore
         saveSearchHistory()
         
         _onClickHistoryKeyword = null
@@ -426,10 +446,14 @@ class SearchViewModel(
     }
     
     /**
-     * 保存搜索历史到 AppMemoryStore
+     * 保存当前文件的搜索历史到 AppMemoryStore
      */
     private fun saveSearchHistory() {
-        AppMemoryStore.setSearchHistory(historyKeywordsMap.toMap())
-        Log.d("SearchViewModel", "已保存 ${historyKeywordsMap.size} 条搜索历史到 AppMemoryStore")
+        currentFileUri?.let { uri ->
+            AppMemoryStore.setFileSearchHistory(uri, historyKeywordsMap.toMap())
+            Log.d("SearchViewModel", "已保存文件 $uri 的 ${historyKeywordsMap.size} 条搜索历史到 AppMemoryStore")
+        } ?: run {
+            Log.w("SearchViewModel", "currentFileUri 为 null，无法保存搜索历史")
+        }
     }
 }

@@ -239,45 +239,63 @@ object AppMemoryStore {
     // ==================== 搜索历史管理 ====================
 
     /**
-     * 搜索历史记录缓存（普通 Map，不需要响应式）
-     * Key: 关键词, Value: 时间戳
+     * 搜索历史记录缓存（按文件 URI 隔离）
+     * Key: 文件 URI
+     * Value: 该文件的搜索历史 Map (关键词 -> 时间戳)
      */
-    private var searchHistoryMap: Map<String, Long> = emptyMap()
+    private var searchHistoryByFile: Map<String, Map<String, Long>> = emptyMap()
 
     /**
-     * 获取完整的搜索历史 Map（用于恢复）
+     * 获取指定文件的完整搜索历史 Map（用于恢复）
      *
-     * @return 搜索历史 Map
+     * @param fileUri 文件 URI
+     * @return 该文件的搜索历史 Map
      */
-    fun getAllSearchHistory(): Map<String, Long> {
-        return searchHistoryMap
+    fun getFileSearchHistory(fileUri: String): Map<String, Long> {
+        return searchHistoryByFile[fileUri] ?: emptyMap()
     }
 
     /**
-     * 获取搜索历史关键词列表（按时间倒序，最新的在前）
+     * 获取指定文件的搜索历史关键词列表（按时间倒序，最新的在前）
      *
+     * @param fileUri 文件 URI
      * @return 搜索历史关键词列表
      */
-    fun getSearchHistoryKeywords(): List<String> {
-        return searchHistoryMap.entries
-            .sortedByDescending { it.value }
-            .map { it.key }
+    fun getFileSearchHistoryKeywords(fileUri: String): List<String> {
+        return searchHistoryByFile[fileUri]?.entries
+            ?.sortedByDescending { it.value }
+            ?.map { it.key }
+            ?: emptyList()
     }
 
     /**
-     * 批量设置搜索历史（用于恢复或保存）
+     * 设置指定文件的搜索历史（用于保存）
      *
-     * @param historyMap 历史记录 Map
+     * @param fileUri 文件 URI
+     * @param historyMap 该文件的搜索历史 Map
      */
-    fun setSearchHistory(historyMap: Map<String, Long>) {
-        searchHistoryMap = historyMap.toMap()
+    fun setFileSearchHistory(fileUri: String, historyMap: Map<String, Long>) {
+        searchHistoryByFile = searchHistoryByFile.toMutableMap().apply {
+            this[fileUri] = historyMap.toMap()
+        }
     }
 
     /**
-     * 清空所有搜索历史
+     * 清空指定文件的搜索历史
+     *
+     * @param fileUri 文件 URI
      */
-    fun clearSearchHistory() {
-        searchHistoryMap = emptyMap()
+    fun clearFileSearchHistory(fileUri: String) {
+        searchHistoryByFile = searchHistoryByFile.toMutableMap().apply {
+            remove(fileUri)
+        }
+    }
+
+    /**
+     * 清空所有文件的搜索历史
+     */
+    fun clearAllSearchHistory() {
+        searchHistoryByFile = emptyMap()
     }
 
     // ==================== 通用数据缓存 ====================
