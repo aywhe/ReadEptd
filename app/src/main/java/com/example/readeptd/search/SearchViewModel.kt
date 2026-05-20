@@ -252,13 +252,17 @@ class SearchViewModel(
 
     /**
      * 清空搜索历史
+     *
+     * @param clearMem 是否清除内存缓存
      */
-    fun clearHistory() {
+    fun clearHistory(clearMem: Boolean = true) {
         historyKeywordsMap.clear()
-        // ✅ 同时清除 AppMemoryStore 中当前文件的搜索历史
-        currentFileUri?.let { uri ->
-            AppMemoryStore.clearFileSearchHistory(uri)
-            Log.d("SearchViewModel", "已清空文件 $uri 的搜索历史")
+        if(clearMem) {
+            // ✅ 同时清除 AppMemoryStore 中当前文件的搜索历史
+            currentFileUri?.let { uri ->
+                AppMemoryStore.clearFileSearchHistory(uri)
+                Log.d("SearchViewModel", "已清空文件 $uri 的搜索历史")
+            }
         }
     }
 
@@ -368,9 +372,8 @@ class SearchViewModel(
      * @return 搜索历史关键词列表
      */
     fun getKeywords(): List<String>{
-        return historyKeywordsMap.entries
-            .sortedByDescending { it.value }
-            .map { it.key }
+        // 最近访问的放在前面，不是创建时间顺序
+        return historyKeywordsMap.keys.toList().reversed()
     }
 
     /**
@@ -440,7 +443,8 @@ class SearchViewModel(
         
         // ✅ 在 ViewModel 销毁前保存当前文件的搜索历史到 AppMemoryStore
         saveSearchHistory()
-        
+        clearHistory(false)
+
         _onClickHistoryKeyword = null
         Log.d("SearchViewModel", "onCleared")
     }
