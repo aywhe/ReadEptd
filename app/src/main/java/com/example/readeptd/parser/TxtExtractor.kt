@@ -50,6 +50,35 @@ class TxtExtractor(private val context: Context) {
         }
     }.flowOn(Dispatchers.IO)
     
+    /**
+     * 一次性读取整个 TXT 文件内容为字符串
+     * 适用于需要随机访问文本内容的场景
+     */
+    suspend fun readEntireText(uri: Uri): String {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val inputStream = openInputStream(uri) 
+                    ?: throw IllegalStateException("无法打开文件输入流")
+                
+                inputStream.use { stream ->
+                    val detectedCharset = detectFileEncoding(stream)
+                    
+                    val combinedStream = SequenceInputStream(
+                        ByteArrayInputStream(detectedData),
+                        stream
+                    )
+                    
+                    combinedStream.bufferedReader(detectedCharset).use { reader ->
+                        reader.readText()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                throw e
+            }
+        }
+    }
+    
     private var detectedData = ByteArray(0)
     
     private fun openInputStream(uri: Uri): InputStream? {

@@ -37,7 +37,9 @@ object AppMemoryStore {
     
     /**
      * 获取指定文件的全屏状态 StateFlow（便于 Composable 中直接收集）
+     *
      * @param fileKey 文件 URI，可为 null，null 时返回默认值 false
+     * @return 全屏状态 StateFlow
      */
     fun fullScreenStateFlow(fileKey: String?): StateFlow<Boolean> {
         if (fileKey == null) {
@@ -50,6 +52,9 @@ object AppMemoryStore {
     
     /**
      * 获取指定文件的全屏状态
+     *
+     * @param fileKey 文件 URI
+     * @return 是否全屏
      */
     fun isFullScreen(fileKey: String): Boolean {
         return _fullScreenStates.value[fileKey] ?: false
@@ -57,6 +62,9 @@ object AppMemoryStore {
     
     /**
      * 设置指定文件的全屏状态
+     *
+     * @param fileKey 文件 URI
+     * @param isFullScreen 是否全屏
      */
     fun setFullScreen(fileKey: String, isFullScreen: Boolean) {
         _fullScreenStates.value = _fullScreenStates.value.toMutableMap().apply {
@@ -66,6 +74,8 @@ object AppMemoryStore {
     
     /**
      * 切换指定文件的全屏状态
+     *
+     * @param fileKey 文件 URI
      */
     fun toggleFullScreen(fileKey: String) {
         val currentState = isFullScreen(fileKey)
@@ -74,6 +84,8 @@ object AppMemoryStore {
     
     /**
      * 清除指定文件的全屏状态
+     *
+     * @param fileKey 文件 URI
      */
     fun clearFullScreen(fileKey: String) {
         _fullScreenStates.value = _fullScreenStates.value.toMutableMap().apply {
@@ -93,7 +105,9 @@ object AppMemoryStore {
     
     /**
      * 获取指定文件的 PDF 缩放信息 StateFlow（便于 Composable 中直接收集）
+     *
      * @param fileKey 文件 URI，可为 null，null 时返回默认值 PdfZoomInfo()
+     * @return PDF 缩放信息 StateFlow
      */
     fun pdfZoomInfoStateFlow(fileKey: String?): StateFlow<PdfZoomInfo> {
         if (fileKey == null) {
@@ -106,6 +120,9 @@ object AppMemoryStore {
     
     /**
      * 获取指定文件的 PDF 缩放信息
+     *
+     * @param fileKey 文件 URI
+     * @return PDF 缩放信息
      */
     fun getPdfZoomInfo(fileKey: String): PdfZoomInfo {
         return _pdfZoomInfoMap.value[fileKey] ?: PdfZoomInfo()
@@ -113,6 +130,9 @@ object AppMemoryStore {
     
     /**
      * 设置指定文件的 PDF 缩放信息
+     *
+     * @param fileKey 文件 URI
+     * @param zoomInfo PDF 缩放信息
      */
     fun setPdfZoomInfo(fileKey: String, zoomInfo: PdfZoomInfo) {
         _pdfZoomInfoMap.value = _pdfZoomInfoMap.value.toMutableMap().apply {
@@ -122,6 +142,7 @@ object AppMemoryStore {
     
     /**
      * 更新指定文件在特定屏幕方向下的缩放比例
+     *
      * @param fileKey 文件 URI
      * @param isLandscape 是否为横屏
      * @param zoom 缩放比例
@@ -138,6 +159,7 @@ object AppMemoryStore {
     
     /**
      * 更新指定文件在特定屏幕方向下的偏移量
+     *
      * @param fileKey 文件 URI
      * @param isLandscape 是否为横屏
      * @param offset 偏移量
@@ -154,6 +176,7 @@ object AppMemoryStore {
     
     /**
      * 同时更新指定文件在特定屏幕方向下的缩放比例和偏移量
+     *
      * @param fileKey 文件 URI
      * @param isLandscape 是否为横屏
      * @param zoom 缩放比例
@@ -171,6 +194,8 @@ object AppMemoryStore {
     
     /**
      * 清除指定文件的 PDF 缩放信息
+     *
+     * @param fileKey 文件 URI
      */
     fun clearPdfZoomInfo(fileKey: String) {
         _pdfZoomInfoMap.value = _pdfZoomInfoMap.value.toMutableMap().apply {
@@ -188,6 +213,8 @@ object AppMemoryStore {
 
     /**
      * 获取上次阅读文件
+     *
+     * @return 上次阅读的文件信息，如果没有则返回 null
      */
     fun getLastReadingFile(): FileInfo? {
         return _lastReadingFile.value
@@ -195,6 +222,8 @@ object AppMemoryStore {
 
     /**
      * 设置上次阅读文件
+     *
+     * @param fileInfo 文件信息
      */
     fun setLastReadingFile(fileInfo: FileInfo?) {
         _lastReadingFile.value = fileInfo
@@ -207,6 +236,68 @@ object AppMemoryStore {
         _lastReadingFile.value = null
     }
 
+    // ==================== 搜索历史管理 ====================
+
+    /**
+     * 搜索历史记录缓存（按文件 URI 隔离）
+     * Key: 文件 URI
+     * Value: 该文件的搜索历史 Map (关键词 -> 时间戳)
+     */
+    private var searchHistoryByFile: Map<String, Map<String, Long>> = emptyMap()
+
+    /**
+     * 获取指定文件的完整搜索历史 Map（用于恢复）
+     *
+     * @param fileUri 文件 URI
+     * @return 该文件的搜索历史 Map
+     */
+    fun getFileSearchHistory(fileUri: String): Map<String, Long> {
+        return searchHistoryByFile[fileUri] ?: emptyMap()
+    }
+
+    /**
+     * 获取指定文件的搜索历史关键词列表（按时间倒序，最新的在前）
+     *
+     * @param fileUri 文件 URI
+     * @return 搜索历史关键词列表
+     */
+    fun getFileSearchHistoryKeywords(fileUri: String): List<String> {
+        return searchHistoryByFile[fileUri]?.entries
+            ?.sortedByDescending { it.value }
+            ?.map { it.key }
+            ?: emptyList()
+    }
+
+    /**
+     * 设置指定文件的搜索历史（用于保存）
+     *
+     * @param fileUri 文件 URI
+     * @param historyMap 该文件的搜索历史 Map
+     */
+    fun setFileSearchHistory(fileUri: String, historyMap: Map<String, Long>) {
+        searchHistoryByFile = searchHistoryByFile.toMutableMap().apply {
+            this[fileUri] = historyMap.toMap()
+        }
+    }
+
+    /**
+     * 清空指定文件的搜索历史
+     *
+     * @param fileUri 文件 URI
+     */
+    fun clearFileSearchHistory(fileUri: String) {
+        searchHistoryByFile = searchHistoryByFile.toMutableMap().apply {
+            remove(fileUri)
+        }
+    }
+
+    /**
+     * 清空所有文件的搜索历史
+     */
+    fun clearAllSearchHistory() {
+        searchHistoryByFile = emptyMap()
+    }
+
     // ==================== 通用数据缓存 ====================
     
     /**
@@ -216,16 +307,33 @@ object AppMemoryStore {
     private val _stringData = MutableStateFlow<Map<String, String>>(emptyMap())
     val stringData: StateFlow<Map<String, String>> = _stringData.asStateFlow()
     
+    /**
+     * 获取字符串数据
+     *
+     * @param key 键
+     * @return 对应的值，如果不存在则返回 null
+     */
     fun getStringData(key: String): String? {
         return _stringData.value[key]
     }
     
+    /**
+     * 设置字符串数据
+     *
+     * @param key 键
+     * @param value 值
+     */
     fun setStringData(key: String, value: String) {
         _stringData.value = _stringData.value.toMutableMap().apply {
             this[key] = value
         }
     }
     
+    /**
+     * 清除字符串数据
+     *
+     * @param key 键
+     */
     fun clearStringData(key: String) {
         _stringData.value = _stringData.value.toMutableMap().apply {
             remove(key)
@@ -236,6 +344,8 @@ object AppMemoryStore {
     
     /**
      * 清除指定文件的所有缓存数据
+     *
+     * @param fileKey 文件 URI
      */
     fun clearFileCache(fileKey: String) {
         clearFullScreen(fileKey)
@@ -255,6 +365,11 @@ object AppMemoryStore {
 /**
  * PDF 缩放信息数据类
  * 同时保存横屏和竖屏两种状态的缩放信息
+ *
+ * @param portraitZoom 竖屏缩放比例
+ * @param portraitOffset 竖屏偏移量
+ * @param landscapeZoom 横屏缩放比例
+ * @param landscapeOffset 横屏偏移量
  */
 data class PdfZoomInfo(
     // 竖屏状态
@@ -267,6 +382,9 @@ data class PdfZoomInfo(
 ) {
     /**
      * 获取当前屏幕方向的缩放比例
+     *
+     * @param isLandscape 是否为横屏
+     * @return 缩放比例
      */
     fun getZoom(isLandscape: Boolean): Float {
         return if (isLandscape) landscapeZoom else portraitZoom
@@ -274,6 +392,9 @@ data class PdfZoomInfo(
     
     /**
      * 获取当前屏幕方向的偏移量
+     *
+     * @param isLandscape 是否为横屏
+     * @return 偏移量
      */
     fun getOffset(isLandscape: Boolean): Offset {
         return if (isLandscape) landscapeOffset else portraitOffset

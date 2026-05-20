@@ -25,11 +25,12 @@ class ContentViewModel(
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()
-    private val _progressText = MutableStateFlow("")
+    private val _progressText = MutableStateFlow("-%")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
+    private var _onLongPressProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
-    
+
     // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
     private var currentFileUri: String? = null
 
@@ -56,6 +57,7 @@ class ContentViewModel(
     override fun onCleared() {
         super.onCleared()
         _onClickProgressInfoCallback = null
+        _onLongPressProgressInfoCallback = null
         _onClickSearchButtonCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
@@ -65,6 +67,9 @@ class ContentViewModel(
             is ContentUiEvent.Initialize -> handleInitialize(event.fileInfo)
             is ContentUiEvent.OnClickProgressInfo -> {
                 _onClickProgressInfoCallback?.invoke(event.progressText)
+            }
+            is ContentUiEvent.OnLongPressProgressInfo -> {
+                _onLongPressProgressInfoCallback?.invoke(event.progressText)
             }
             is ContentUiEvent.OnClickSearchButton -> {
                 _onClickSearchButtonCallback?.invoke()
@@ -86,16 +91,36 @@ class ContentViewModel(
         }
     }
 
+    /**
+     * 设置进度信息点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onClickProgressInfoCallback = callback
     }
+    /**
+     * 设置进度信息长按回调
+     *
+     * @param callback 长按回调函数
+     */
+    fun setOnLongPressProgressInfoCallback(callback: ((String) -> Unit)?) {
+        _onLongPressProgressInfoCallback = callback
+    }
 
+    /**
+     * 设置搜索按钮点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickSearchButtonCallback(callback: (() -> Unit)?) {
         _onClickSearchButtonCallback = callback
     }
 
     /**
      * 更新进度信息
+     *
+     * @param progressText 进度文本
      */
     fun updateProgressText(progressText: String) {
         Log.d("ContentViewModel", "更新进度信息: $progressText")
@@ -104,6 +129,8 @@ class ContentViewModel(
 
     /**
      * ✅ 获取当前文件的全屏状态（从 AppMemoryStore 读取）
+     *
+     * @return 是否全屏
      */
     fun getIsFullScreen(): Boolean {
         return currentFileUri?.let { uri ->

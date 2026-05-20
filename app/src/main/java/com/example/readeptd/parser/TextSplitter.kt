@@ -3,10 +3,10 @@ package com.example.readeptd.parser
 import kotlin.math.ceil
 
 data class TextChunk(
-    val content: String,
     val index: Int,
     val startPos: Long,
-    val endPos: Long
+    val endPos: Long,
+    val content: String? = null  // ✅ 可选的 content 字段，默认不包含
 )
 
 /**
@@ -14,8 +14,10 @@ data class TextChunk(
  * 负责将文本行分割成适合显示的页面
  */
 class TextSplitter(
-    private val avgCharsPerLine: Int,
-    private val maxLinesPerPage: Int,
+    private val avgCharsPerLine: Int = 0,
+    private val maxLinesPerPage: Int = 0,
+    private val minChunkSize: Int = 0,
+    private val includeContent: Boolean = false,  // ✅ 控制 TextChunk 是否包含 content
     private val emitCallback: suspend (TextChunk) -> Unit
 ) {
     private var index = 0
@@ -29,6 +31,28 @@ class TextSplitter(
     private val chunkSize = avgCharsPerLine * maxLinesPerPage
 
     suspend fun processLine(line: String) {
+        if(avgCharsPerLine > 0 && maxLinesPerPage > 0){
+            processLineByLines(line)
+        } else if(minChunkSize > 0){
+            processLineBySize(line)
+        } else {
+            processLineBySingleLine(line)
+        }
+    }
+
+    suspend fun processLineBySingleLine(line: String) {
+        appendLineToCurrentPage(line)
+        flushCurrentPage()
+    }
+
+    suspend fun processLineBySize(line: String) {
+        appendLineToCurrentPage(line)
+        if(currentContent.length >= minChunkSize){
+            flushCurrentPage()
+        }
+    }
+
+    suspend fun processLineByLines(line: String) {
 
         val linesNeeded = calculateLinesNeeded(line)
 
@@ -65,10 +89,10 @@ class TextSplitter(
         currentPosition = endPos
         emitCallback(
             TextChunk(
-                content = pageText,
                 index = getCurrentIndex(),
                 startPos = startPos,
-                endPos =endPos
+                endPos = endPos,
+                content = if (includeContent) pageText else null  // ✅ 根据配置决定是否包含 content
             )
         )
         incrementIndex()
@@ -128,5 +152,16 @@ class TextSplitter(
 
     fun getRemainContent(): String {
         return currentContent.toString()
+    }
+    
+    /**
+     * ✅ 新增：直接处理完整文本（用于基于全文的分页）
+     * @param fullText 完整文本内容
+     */
+    suspend fun processFullText(fullText: String) {
+        val lines = fullText.split("\n")
+        for (line in lines) {
+            processLine(line)
+        }
     }
 }

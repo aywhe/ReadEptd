@@ -1,28 +1,49 @@
 package com.example.readeptd
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -37,10 +58,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -48,19 +72,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.data.ConfigureData
+import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
-import com.example.readeptd.utils.FileUtils
 import com.example.readeptd.utils.SystemUiUtils
 import com.example.readeptd.books.pdf.PdfScreen
 import com.example.readeptd.speech.TtsEvent
 import com.example.readeptd.books.txt.TxtScreen
 import com.example.readeptd.data.AppMemoryStore
+import com.example.readeptd.search.SearchHistoryDialog
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.TimerDialog
 import com.example.readeptd.utils.Utils
+import kotlin.math.roundToInt
 
 class ContentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +127,15 @@ class ContentActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 内容页面主屏幕
+ * 根据文件类型显示不同的阅读器界面
+ *
+ * @param fileInfo 文件信息
+ * @param modifier 修饰符
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentScreen(
@@ -126,15 +160,18 @@ fun ContentScreen(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isSpeaking by ttsModel.isSpeaking.collectAsState()
-    val ttsInitialized by ttsModel.isInitialized.collectAsState()
-    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
-    
+    var isShowTimerDialog by remember { mutableStateOf(false) }
+    var isShowToolTipInFullScreen by remember { mutableStateOf(true) }
+
     // ✅ 直接传入可能为 null 的 uri，AppMemoryStore 内部处理
     val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo?.uri).collectAsStateWithLifecycle()
 
     // 控制状态栏显示/隐藏
     LaunchedEffect(isFullScreen) {
+        if(isFullScreen){
+            // 进入全屏时默认显示工具提示，用户可以选择隐藏
+            isShowToolTipInFullScreen = true
+        }
         val window = (context as? ComponentActivity)?.window
         if (window != null) {
             if (isFullScreen) {
@@ -189,97 +226,35 @@ fun ContentScreen(
                         }
                     },
                     actions = {
-                        if (progressText.isNotBlank()) {
-                            TextButton(
-                                onClick = {
-                                    viewModel.onEvent(
-                                        ContentUiEvent.OnClickProgressInfo(
-                                            progressText
-                                        )
-                                    )
-                                }
-                            ) {
-                                Text(
-                                    text = progressText,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                        ToolTip(
+                            viewModel = viewModel,
+                            ttsModel = ttsModel,
+                            onLongPressSpeak = {
+                                isShowTimerDialog = true
                             }
-                        }
-                        if (ttsInitialized) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
-                                            }
-                                        )
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "搜索",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            var isShowTimerDialog by remember { mutableStateOf(false) }
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(start = 4.dp,end = 16.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                if (isSpeaking) {
-                                                    Log.d("ContentActivity", "停止朗读按钮被点击")
-                                                    ttsModel.stop()
-                                                } else {
-                                                    // ✅ 在首次播放前请求通知权限
-                                                    val activity = context as? ComponentActivity
-                                                    if (activity != null) {
-                                                        Utils.checkAndRequestNotificationPermission(activity)
-                                                    }
-                                                    Log.d("ContentActivity", "请求开始自动朗读")
-                                                    ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
-                                                }
-                                            },
-                                            onLongPress = {
-                                                Log.d("ContentActivity", "长按按钮被点击")
-                                                isShowTimerDialog = true
-                                            }
-                                        )
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
-                                    contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
-                            if (isShowTimerDialog) {
-                                val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
-                                TimerDialog(
-                                    currentRemainingMillis = remainingTimeMillis,
-                                    onDismiss = {
-                                        isShowTimerDialog = false
-                                    },
-                                    onConfirm = { millis ->
-                                        ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
-                                        isShowTimerDialog = false
-                                    },
-                                    onStopTimer = {
-                                        ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
-                                        isShowTimerDialog = false
-                                    },
-                                )
-                            }
-                        }
+                        )
                     }
                 )
             }
         }
     ) { innerPadding ->
+        if (isShowTimerDialog) {
+            val remainingTimeMillis by ttsModel.remainingMillisTime.collectAsState()
+            TimerDialog(
+                currentRemainingMillis = remainingTimeMillis,
+                onDismiss = {
+                    isShowTimerDialog = false
+                },
+                onConfirm = { millis ->
+                    ttsModel.onEvent(TtsEvent.StartCountDownTimer(millis))
+                    isShowTimerDialog = false
+                },
+                onStopTimer = {
+                    ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
+                    //isShowTimerDialog = false
+                },
+            )
+        }
         when (val state = uiState) {
             is ContentUiState.Loading -> LoadingContentScreen(
                 modifier = modifier.padding(innerPadding)
@@ -297,9 +272,366 @@ fun ContentScreen(
                 modifier = modifier.padding(innerPadding)
             )
         }
+
+        if(isFullScreen && isShowToolTipInFullScreen) {
+            DraggableFloatingToolTip(
+                modifier = modifier.padding(innerPadding),
+                onDismiss = { isShowToolTipInFullScreen = false },
+                onLongPressSpeak =  { isShowTimerDialog = true },
+                viewModel = viewModel,
+                ttsModel = ttsModel
+            )
+        }
     }
 }
 
+/**
+ * 工具提示组件
+ * 显示进度信息、搜索按钮和 TTS 控制按钮
+ *
+ * @param modifier 修饰符
+ * @param isDragTool 是否为拖拽工具
+ * @param onLongPressSpeak 长按朗读回调
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
+@Composable
+fun ToolTip(
+    modifier: Modifier = Modifier,
+    isDragTool: Boolean = false,
+    onLongPressSpeak: () -> Unit =  {},
+    viewModel: ContentViewModel,
+    ttsModel: TtsViewModel
+){
+    val isSpeaking by ttsModel.isSpeaking.collectAsState()
+    val ttsInitialized by ttsModel.isInitialized.collectAsState()
+    val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    var isShowSearchHistoryDialog by remember {
+        mutableStateOf(false)
+    }
+    if (progressText.isNotBlank()) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .padding(start = 8.dp, end = 4.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            viewModel.onEvent(
+                                ContentUiEvent.OnClickProgressInfo(
+                                    progressText
+                                )
+                            )
+                        },
+                        onLongPress = {
+                            viewModel.onEvent(
+                                ContentUiEvent.OnLongPressProgressInfo(
+                                    progressText
+                                )
+                            )
+                        }
+                    )
+                }
+
+        ) {
+            Text(
+                text = progressText,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        viewModel.onEvent(ContentUiEvent.OnClickSearchButton)
+                    },
+                    onLongPress = {
+                        isShowSearchHistoryDialog = true
+                    }
+                )
+            }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = "搜索",
+            tint = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
+    if (ttsInitialized) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .padding(start = 4.dp, end = 8.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            if (isSpeaking) {
+                                Log.d("ContentActivity", "停止朗读按钮被点击")
+                                ttsModel.stop()
+                            } else {
+                                Log.d("ContentActivity", "请求开始自动朗读")
+                                ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
+                            }
+                        },
+                        onLongPress = {
+                            onLongPressSpeak()
+                        }
+                    )
+                }
+        ) {
+            Icon(
+                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+    if(isShowSearchHistoryDialog){
+        SearchHistoryDialog(
+            onDismiss = {
+                isShowSearchHistoryDialog = false
+            },
+            onClickKeyword = { keyword ->
+                isShowSearchHistoryDialog = false
+            }
+        )
+    }
+}
+
+/**
+ * 可拖拽的浮动工具提示
+ * 全屏模式下显示的可拖拽工具栏
+ *
+ * @param modifier 修饰符
+ * @param onDismiss 关闭回调
+ * @param onLongPressSpeak 长按朗读回调
+ * @param viewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ */
+@Composable
+fun DraggableFloatingToolTip(
+    modifier: Modifier = Modifier,
+    onDismiss: () -> Unit = {},
+    onLongPressSpeak: () -> Unit = {},
+    viewModel: ContentViewModel,
+    ttsModel: TtsViewModel
+) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
+
+    val iconSizeDp = 48.dp
+    val cornerRadiusDp = 12.dp
+    val collapsedIconSizeDp = 12.dp
+    val iconSizePx = with(density) { iconSizeDp.toPx() }.roundToInt()
+    val collapsedIconSizePx = with(density) { collapsedIconSizeDp.toPx() }.roundToInt()
+
+    var offset by remember {
+        mutableStateOf(
+            IntOffset(
+                (screenWidthPx - iconSizePx * 1.5f).roundToInt(),
+                (screenHeightPx * 0.1f).roundToInt()
+            )
+        )
+    }
+
+    val buttonCenterX = offset.x + iconSizePx / 2
+    val isButtonOnRightSide = buttonCenterX > screenWidthPx / 2
+
+    var isCollapsed by remember { mutableStateOf(false) }
+    var showTip by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
+    //var showConfirmDialog by remember { mutableStateOf(false) }
+
+    val surfaceColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    val onSurfaceColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+    // 自动贴边逻辑
+    var isFirstRun by remember { mutableStateOf(true) }
+    LaunchedEffect(isCollapsed) {
+        if (isFirstRun) {
+            isFirstRun = false
+            return@LaunchedEffect
+        }
+        val targetX = if(isButtonOnRightSide){
+            if (isCollapsed) {
+                screenWidthPx.toInt() - collapsedIconSizePx
+            } else {
+                 screenWidthPx.toInt() - iconSizePx
+            }
+        } else {
+            0
+        }
+        offset = IntOffset(targetX, offset.y)
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .offset { offset }
+                .padding(0.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = {
+                            if (isCollapsed) {
+                                isCollapsed = false
+                            }
+                            isDragging = true
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            offset += IntOffset(
+                                dragAmount.x.toInt(),
+                                dragAmount.y.toInt()
+                            )
+                            // 限制垂直拖动范围
+                            offset = IntOffset(
+                                offset.x,
+                                offset.y.coerceIn(0, (screenHeightPx - iconSizePx).toInt())
+                            )
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            // 根据位置判断是否折叠
+                            val snapThresholdPx = iconSizePx / 2
+                            if (!isCollapsed) {
+                                if (offset.x < snapThresholdPx ||
+                                    offset.x + iconSizePx / 2 > screenWidthPx - snapThresholdPx) {
+                                    isCollapsed = true
+                                }
+                            }
+                        }
+                    )
+                }
+        ) {
+            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
+            // 工具提示内容
+            if (showTip && !isCollapsed) {
+                var cachedIsButtonOnRightSide by remember { mutableStateOf(isButtonOnRightSide) }
+
+                LaunchedEffect(isDragging, isButtonOnRightSide) {
+                    if (!isDragging) {
+                        cachedIsButtonOnRightSide = isButtonOnRightSide
+                    }
+                }
+                val toolTipModifier =
+                    if (cachedIsButtonOnRightSide) {
+                        Modifier.layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            layout(placeable.width, placeable.height) {
+                                placeable.placeRelative(x = -placeable.width, y = 0)
+                            }
+                        }
+                    } else {
+                        Modifier.offset(x = iconSizeDp)
+                    }.animateContentSize()
+
+                val toolTipShape =
+                    RoundedCornerShape(
+                        topStart = if (cachedIsButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        topEnd = if (cachedIsButtonOnRightSide) 0.dp else cornerRadiusDp,
+                        bottomStart = if (cachedIsButtonOnRightSide) cornerRadiusDp else 0.dp,
+                        bottomEnd = if (cachedIsButtonOnRightSide) 0.dp else cornerRadiusDp
+                    )
+
+                Surface(
+                    shape = toolTipShape,
+                    color = surfaceColor,
+                    modifier = toolTipModifier.height(iconSizeDp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToolTip(
+                            isDragTool = true,
+                            onLongPressSpeak = onLongPressSpeak,
+                            viewModel = viewModel,
+                            ttsModel = ttsModel
+                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            onDismiss()
+                                        }
+                                    )
+                                }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 主按钮
+            val buttonShape = when {
+                isCollapsed -> RoundedCornerShape(
+                    topStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    topEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    bottomStart = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    bottomEnd = if (isButtonOnRightSide) 0.dp else cornerRadiusDp
+                )
+                showTip -> RoundedCornerShape(
+                    topStart = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    topEnd = if (isButtonOnRightSide) cornerRadiusDp else 0.dp,
+                    bottomStart = if (isButtonOnRightSide) 0.dp else cornerRadiusDp,
+                    bottomEnd = if (isButtonOnRightSide) cornerRadiusDp else 0.dp
+                )
+                else -> CircleShape
+            }
+
+            Surface(
+                shape = buttonShape,
+                color = surfaceColor,
+                modifier = Modifier.size(buttonWidth, iconSizeDp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable {
+                            if (isCollapsed) {
+                                isCollapsed = false
+                            } else {
+                                showTip = !showTip
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
+                        tint = onSurfaceColor,
+                        modifier = Modifier.size(
+                            if (isCollapsed) collapsedIconSizeDp else iconSizeDp * 2 / 3,
+                            iconSizeDp * 2 / 3
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 加载状态屏幕
+ *
+ * @param modifier 修饰符
+ */
 @Composable
 fun LoadingContentScreen(modifier: Modifier = Modifier) {
     Column(
@@ -316,6 +648,15 @@ fun LoadingContentScreen(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 文件内容屏幕
+ * 根据文件 MIME 类型分发到不同的阅读器
+ *
+ * @param fileInfo 文件信息
+ * @param contentViewModel 内容视图模型
+ * @param ttsModel TTS 视图模型
+ * @param modifier 修饰符
+ */
 @Composable
 fun FileContentScreen(
     fileInfo: FileInfo,
@@ -362,6 +703,12 @@ fun FileContentScreen(
     }
 }
 
+/**
+ * 错误状态屏幕
+ *
+ * @param error 错误信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun ErrorContentScreen(
     error: String,
@@ -388,6 +735,13 @@ fun ErrorContentScreen(
     }
 }
 
+/**
+ * 不支持的格式屏幕
+ * 显示不支持的文件格式信息
+ *
+ * @param fileInfo 文件信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun UnsupportedFormatScreen(
     fileInfo: FileInfo,

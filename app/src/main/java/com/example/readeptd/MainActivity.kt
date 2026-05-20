@@ -16,6 +16,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +32,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -68,6 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import com.example.readeptd.data.ConfigureData
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
@@ -91,6 +95,7 @@ import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import sh.calvin.reorderable.ReorderableItem
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,6 +120,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 主屏幕 Composable 函数
+ * 显示阅读文件列表和添加文件的浮动按钮
+ *
+ * @param modifier 修饰符
+ * @param viewModel 主视图模型，管理文件列表状态
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -311,6 +323,7 @@ fun MainScreen(
                         • 定时关闭功能
                         • 自动保存阅读进度
                         • 关键词搜索功能
+                        • 支持分页及滚动
                         
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyMedium
@@ -340,6 +353,11 @@ private fun getAllowedMimeTypes(): Array<String> {
     )
 }
 
+/**
+ * 加载状态屏幕
+ *
+ * @param modifier 修饰符
+ */
 @Composable
 fun LoadingScreen(modifier: Modifier = Modifier) {
     Column(
@@ -353,6 +371,13 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 文件列表内容屏幕
+ * 显示所有阅读文件，支持拖拽排序和滑动操作
+ *
+ * @param viewModel 主视图模型
+ * @param modifier 修饰符
+ */
 @Composable
 fun ContentScreen(
     viewModel: MainViewModel,
@@ -509,6 +534,12 @@ fun ContentScreen(
     }
 }
 
+/**
+ * 错误状态屏幕
+ *
+ * @param error 错误信息
+ * @param modifier 修饰符
+ */
 @Composable
 fun ErrorScreen(
     error: String,
@@ -535,6 +566,13 @@ fun ErrorScreen(
     }
 }
 
+/**
+ * 可拖拽的浮动按钮
+ * 用户可以拖动按钮到屏幕任意位置
+ *
+ * @param onClick 点击回调
+ * @param modifier 修饰符
+ */
 @Composable
 fun DraggableFloatingButton(
     onClick: () -> Unit,
@@ -577,6 +615,14 @@ fun DraggableFloatingButton(
 
 /**
  * 文件列表项卡片
+ * 显示文件信息、阅读进度，支持删除操作
+ *
+ * @param fileInfo 文件信息
+ * @param onClick 点击回调
+ * @param onRemove 删除回调
+ * @param isDragging 是否正在拖拽
+ * @param progress 阅读进度（0.0-1.0）
+ * @param modifier 修饰符
  */
 @Composable
 fun FileItemCard(
@@ -595,6 +641,9 @@ fun FileItemCard(
 
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
+            // ✅ 检查原始 URI 是否仍然可访问
+            // 注意：临时文件是在打开文件时才创建的，不是在选择文件时
+            // 所以需要检查原始 URI 的有效性
             isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
@@ -621,9 +670,20 @@ fun FileItemCard(
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = when {
-                isFileAccessible == false -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-                isDragging -> MaterialTheme.colorScheme.surfaceVariant
+                isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                 else -> MaterialTheme.colorScheme.surface
+            },
+            contentColor = when {
+                isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+            disabledContainerColor = when {
+                isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
+            },
+            disabledContentColor = when {
+                isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             }
         )
     ) {
@@ -650,27 +710,23 @@ fun FileItemCard(
                         // 显示文件大小和 MIME 类型
                         Text(
                             text = Utils.formatFileSize(fileInfo.fileSize),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall
                         )
                         Text(
                             text = fileInfo.mimeType,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall
                         )
                         // 显示阅读进度
                         progress?.let { progress ->
                             Text(
-                                text = "${(progress * 100).toInt()}%",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "${(progress * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                         if (isFileAccessible == false) {
                             Text(
                                 text = "文件不存在",
                                 style = MaterialTheme.typography.bodySmall,
-                                //color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -749,6 +805,13 @@ fun MainScreenPreview() {
     }
 }
 
+/**
+ * 设置对话框
+ * 提供夜间模式、动态颜色等应用设置选项
+ *
+ * @param onDismiss 关闭对话框回调
+ * @param viewModel 主视图模型
+ */
 @Composable
 fun SettingsDialog(
     onDismiss: () -> Unit,
@@ -762,8 +825,9 @@ fun SettingsDialog(
         title = { Text("设置") },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // 夜间模式开关
                 Row(

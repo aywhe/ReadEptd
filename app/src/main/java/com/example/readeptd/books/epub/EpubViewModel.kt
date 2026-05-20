@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,24 +32,42 @@ class EpubViewModel(
     }
 
     /**
-     * 保存 EPUB 阅读进度
+     * 更新 EPUB 阅读进度（update 方式）
+     * 基于当前状态更新指定字段，保留其他字段（如 isSwipeLayout）
      */
-    fun saveEpubProgress(
+    fun updateEpubProgress(
         uri: String,
         cfi: String? = null,
         page: Int? = null,
         totalPages: Int? = null,
         progress: Float = 0f
     ) {
-        val state = ReadingState.Epub(
-            uri = uri,
-            cfi = cfi,
-            page = page,
-            totalPages = totalPages,
-            progress = progress,
-            lastReadTime = System.currentTimeMillis()
-        )
-        saveProgress(state)
+        // ✅ 获取当前状态，如果不存在则创建新状态
+        val currentState = readingState.value
+        
+        val newState = currentState?.let {
+            // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段
+            it.copy(
+                cfi = cfi,
+                page = page,
+                totalPages = totalPages,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis()
+            )
+        } ?: run {
+            // 如果没有当前状态，创建新状态（默认 isSwipeLayout = true）
+            ReadingState.Epub(
+                uri = uri,
+                cfi = cfi,
+                page = page,
+                totalPages = totalPages,
+                progress = progress,
+                lastReadTime = System.currentTimeMillis(),
+                isSwipeLayout = true
+            )
+        }
+        
+        saveProgress(newState)
     }
 
     /**
@@ -56,6 +75,7 @@ class EpubViewModel(
      * @param keyword 搜索关键词
      * @return Flow<SearchData.EpubSearchResult> 搜索结果流
      */
+    @OptIn(DelicateCoroutinesApi::class)
     fun search(keyword: String, epubWebView: EpubWebView?): Flow<SearchData.EpubSearchResult> = callbackFlow {
         if (epubWebView == null) {
             Log.e(TAG, "EPUB WebView 未初始化")
@@ -70,6 +90,12 @@ class EpubViewModel(
             keyword = keyword,
             resultCallback = { result ->
                 if(result != null) {
+                    // ✅ 检查通道是否已关闭（协程是否已取消）
+                    if (isClosedForSend) {
+                        Log.d(TAG, "Flow 已关闭，停止接收搜索结果")
+                        return@search
+                    }
+                    
                     val searchResult = SearchData.EpubSearchResult(
                         keyword = result.query,
                         previewContent = result.excerpt,
@@ -92,7 +118,9 @@ class EpubViewModel(
 
         // ✅ 当 Flow 被取消时（例如用户取消搜索），清理资源
         awaitClose {
-            Log.d(TAG, "搜索被取消")
+            Log.d(TAG, "搜索被取消，通知 JS 停止搜索")
+            // ✅ 通知底层 JS 停止搜索
+            epubWebView.cancelSearch()
         }
     }
 

@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.AppMemoryStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,16 +34,71 @@ class SearchViewModel(
 
     // ✅ 2. 用于取消上一次搜索的 Job
     private var searchJob: Job? = null
+    
+    // ✅ 3. 当前正在搜索的关键词
+    private var currentSearchingKeyword: String? = null
+    
+    // ✅ 4. 最后搜索完成的关键词（用于判断是否执行过搜索）
+    private val _lastSearchedKeyword = MutableStateFlow("")
+    val lastSearchedKeyword: StateFlow<String> = _lastSearchedKeyword.asStateFlow()
 
-    // ✅ 3. 搜索结果缓存：关键词 -> 结果列表 (使用 LRU 缓存,最多保留5个)
-    private val searchCache = object : LinkedHashMap<String, List<SearchData.SearchResult>>(5, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<SearchData.SearchResult>>?): Boolean {
-            return size > 5  // 超过5个就移除最久未使用的
+    // ✅ 5. 搜索结果缓存数据结构
+    private data class SearchCacheEntry(
+        val results: List<SearchData.SearchResult>,
+        val isCompleted: Boolean,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    // ✅ 搜索结果缓存：关键词 -> 缓存条目 (使用 LRU 缓存,最多保留5个)
+    private val searchCache = object : LinkedHashMap<String, SearchCacheEntry>(5, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SearchCacheEntry>?): Boolean {
+            return size > 5
+        }
+    }
+
+    // ✅ 6. 搜索历史记录（使用 LRU Map，key=keyword, value=时间戳）
+    private val historyKeywordsMap = object : LinkedHashMap<String, Long>(20, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean {
+            return size > 20  // 超过20个就移除最久未使用的
+        }
+    }
+
+    // ✅ 当前文件 URI（用于隔离搜索历史）
+    private var currentFileUri: String? = null
+
+    private var _onClickHistoryKeyword: ((String) -> Unit)? = null
+
+    /**
+     * 初始化搜索 ViewModel 并绑定到指定文件
+     *
+     * @param fileUri 文件 URI
+     */
+    fun initialize(fileUri: String?) {
+        currentFileUri = fileUri
+        if (fileUri != null) {
+            restoreSearchHistory(fileUri)
+        }
+    }
+
+    /**
+     * 从 AppMemoryStore 恢复指定文件的搜索历史
+     */
+    private fun restoreSearchHistory(fileUri: String) {
+        val savedHistory = AppMemoryStore.getFileSearchHistory(fileUri)
+        if (savedHistory.isNotEmpty()) {
+            historyKeywordsMap.clear()
+            historyKeywordsMap.putAll(savedHistory)
+            Log.d("SearchViewModel", "已恢复文件 $fileUri 的 ${historyKeywordsMap.size} 条搜索历史")
+        } else {
+            Log.d("SearchViewModel", "文件 $fileUri 没有搜索历史")
         }
     }
 
     /**
      * 执行搜索
+     *
+     * @param keyword 搜索关键词
+     * @param searchFun 搜索函数，返回搜索结果流
      */
     fun onSearch(
         keyword: String,
@@ -52,69 +108,134 @@ class SearchViewModel(
         if (searchFun == null || keyword.isBlank()) {
             _searchResults.value = emptyList()
             _currentIndex.value = -1
+            currentSearchingKeyword = null
+            _lastSearchedKeyword.value = ""
+            Log.d("SearchViewModel", "关键词为空，清空结果")
             return
         }
 
-        // ✅ 检查缓存，如果已存在则直接返回
-        val cachedResults = searchCache[keyword]
-        if (cachedResults != null) {
-            _searchResults.value = cachedResults
-            _currentIndex.value = if (cachedResults.isNotEmpty()) 0 else -1
-            return
+        // ✅ 添加到搜索历史（LRU 自动管理）
+        addToHistory(keyword)
+
+        // ✅ 检查缓存，只有当搜索已完成时才使用缓存
+        val cachedEntry = searchCache[keyword]
+        if (cachedEntry != null) {
+            if(cachedEntry.isCompleted) {
+                Log.d(
+                    "SearchViewModel",
+                    "缓存中已存在已完成的 $keyword，从缓存中获取结果，结果数: ${cachedEntry.results.size}"
+                )
+                _searchResults.value = cachedEntry.results
+                _currentIndex.value = if (cachedEntry.results.isNotEmpty()) 0 else -1
+                currentSearchingKeyword = null
+                _lastSearchedKeyword.value = keyword
+                return
+            } else {
+                Log.d("SearchViewModel", "缓存中 $keyword 未完成，重新搜索")
+                clearCache(keyword)
+            }
+        } else {
+            Log.d("SearchViewModel", "缓存中不存在 $keyword，开始搜索")
         }
 
         // ✅ 取消上一次的搜索任务
         searchJob?.cancel()
 
+        // ✅ 记录当前正在搜索的关键词（在启动新协程之前设置）
+        currentSearchingKeyword = keyword
+
         // ✅ 启动新的协程
         searchJob = viewModelScope.launch {
-            _isSearching.value = true  // ✅ 标记搜索开始
+            _isSearching.value = true
             _searchResults.value = emptyList()
             _currentIndex.value = -1
 
             // 使用 mutableStateListOf 还是 StateFlow？
             // 如果你坚持用 StateFlow，这里依然需要累积列表
             val results = mutableListOf<SearchData.SearchResult>()
+            var lastUpdateTime = System.currentTimeMillis()
             var lastUpdateCount = 0
-            val updateInterval = 20  // UI 更新频率
+            val updateIntervalMs = 2000L
+            val updateItemCount = 20
+            var isCompleted = false
 
             try {
                 // ✅ 调用传入的搜索函数并收集结果
                 searchFun(keyword).collect { result ->
                     results.add(result)
 
-                    if (results.size - lastUpdateCount >= updateInterval) {
+                    val currentTime = System.currentTimeMillis()
+                    val countDiff = results.size - lastUpdateCount
+                    val timeDiff = currentTime - lastUpdateTime
+                    
+                    // ✅ 任一条件满足即更新：数量达到间隔 OR 时间超过间隔
+                    if (countDiff >= updateItemCount || timeDiff >= updateIntervalMs) {
                         _searchResults.value = results.toList()
+                        lastUpdateTime = currentTime
                         lastUpdateCount = results.size
                     }
                 }
+                Log.d("SearchViewModel", "搜索完成，结果数: ${results.size}")
+                isCompleted = true
             } catch (e: Exception) {
+                Log.d("SearchViewModel", "搜索异常，结果数: ${results.size}")
                 // 处理搜索过程中可能出现的异常（如文件读取错误）
                 e.printStackTrace()
             } finally {
+                Log.d("SearchViewModel", "搜索结束，结果数: ${results.size}")
                 // ✅ 统一排序并更新最终结果
-                if (results.isNotEmpty()) {
-                    val sortedResults = results.sortedBy { it.sortKey }
-                    searchCache[keyword] = sortedResults
-                    _searchResults.value = sortedResults
-                    _currentIndex.value = 0
+                val sortedResults = if(results.isEmpty()){
+                    emptyList()
                 } else {
-                    // ✅ 确保无结果时也清空列表
-                    _searchResults.value = emptyList()
+                    results.sortedBy { it.sortKey }
                 }
+                _searchResults.value = sortedResults
+                _currentIndex.value = if(results.isEmpty()) -1 else 0
+                searchCache[keyword] = SearchCacheEntry(
+                    sortedResults,
+                    isCompleted
+                )
                 
-                _isSearching.value = false  // ✅ 标记搜索结束
+                // ✅ 设置最后搜索的关键词（无论有无结果）
+                _lastSearchedKeyword.value = keyword
+                
+                // ✅ 只有在当前关键词仍然是这个 keyword 时才清除（避免新搜索覆盖）
+                if (currentSearchingKeyword == keyword) {
+                    currentSearchingKeyword = null
+                }
+                _isSearching.value = false
             }
         }
     }
 
     /**
-     * 清除缓存
+     * 添加关键词到历史记录（LRU 自动管理）
+     */
+    private fun addToHistory(keyword: String) {
+        // ✅ LinkedHashMap 会自动将访问过的 key 移到末尾（accessOrder=true）
+        historyKeywordsMap[keyword] = System.currentTimeMillis()
+    }
+
+    /**
+     * 停止搜索
+     * 取消当前正在进行的搜索任务
+     */
+    fun stopSearching() {
+        searchJob?.cancel()
+        Log.d("SearchViewModel", "请求停止搜索")
+        // ✅ 注意：不清空 _searchResults 和 _lastSearchedKeyword，保留已搜索到的部分结果供用户查看
+    }
+
+    /**
+     * 清除所有缓存
      */
     fun clearCache() {
         searchCache.clear()
     }
     
+    /**
+     * 清除搜索结果
+     */
     fun clearResults() {
         _searchResults.value = emptyList()
         _currentIndex.value = -1
@@ -122,13 +243,45 @@ class SearchViewModel(
 
     /**
      * 清除指定关键词的缓存
+     *
+     * @param keyword 要清除缓存的关键词
      */
     fun clearCache(keyword: String) {
         searchCache.remove(keyword)
     }
 
     /**
+     * 清空搜索历史
+     *
+     * @param clearMem 是否清除内存缓存
+     */
+    fun clearHistory(clearMem: Boolean = true) {
+        historyKeywordsMap.clear()
+        if(clearMem) {
+            // ✅ 同时清除 AppMemoryStore 中当前文件的搜索历史
+            currentFileUri?.let { uri ->
+                AppMemoryStore.clearFileSearchHistory(uri)
+                Log.d("SearchViewModel", "已清空文件 $uri 的搜索历史")
+            }
+        }
+    }
+
+    /**
+     * 删除单条历史记录
+     *
+     * @param keyword 要删除的关键词
+     */
+    fun removeHistoryKeyword(keyword: String) {
+        historyKeywordsMap.remove(keyword)
+        // ✅ 同步更新到 AppMemoryStore
+        currentFileUri?.let { uri ->
+            AppMemoryStore.setFileSearchHistory(uri, historyKeywordsMap.toMap())
+        }
+    }
+
+    /**
      * 导航到上一项
+     *
      * @param bySortKey 是否按 sortKey 分组跳转（跳转到上一个不同的 sortKey）
      */
     fun navigateToPrevious(bySortKey: Boolean = false) {
@@ -166,6 +319,7 @@ class SearchViewModel(
 
     /**
      * 导航到下一项
+     *
      * @param bySortKey 是否按 sortKey 分组跳转（跳转到下一个不同的 sortKey）
      */
     fun navigateToNext(bySortKey: Boolean = false) {
@@ -203,6 +357,8 @@ class SearchViewModel(
 
     /**
      * 获取当前选中的结果
+     *
+     * @return 当前选中的搜索结果，如果没有则返回 null
      */
     fun getCurrentResult(): SearchData.SearchResult? {
         val idx = _currentIndex.value
@@ -211,7 +367,19 @@ class SearchViewModel(
     }
 
     /**
+     * 获取搜索历史关键词列表（按时间倒序，最新的在前）
+     *
+     * @return 搜索历史关键词列表
+     */
+    fun getKeywords(): List<String>{
+        // 最近访问的放在前面，不是创建时间顺序
+        return historyKeywordsMap.keys.toList().reversed()
+    }
+
+    /**
      * 设置当前选中的索引
+     *
+     * @param index 要设置的索引值
      */
     fun setCurrentIndex(index: Int) {
         val results = _searchResults.value
@@ -221,7 +389,31 @@ class SearchViewModel(
     }
 
     /**
+     * 设置历史记录点击回调
+     *
+     * @param onClickHistoryKeyword 点击回调函数
+     */
+    fun setOnClickHistoryKeyword(onClickHistoryKeyword: ((String) -> Unit)?) {
+        _onClickHistoryKeyword = onClickHistoryKeyword
+        Log.d("SearchViewModel", "setOnClickHistoryKeyword: ${onClickHistoryKeyword != null}")
+    }
+    /**
+     * 处理搜索事件
+     *
+     * @param event 搜索事件
+     */
+    fun onEvent(event: SearchEvent) {
+        Log.d("SearchViewModel", "onEvent: $event, _onClickHistoryKeyword is null: ${_onClickHistoryKeyword == null}")
+        when (event) {
+            is SearchEvent.onClickHistoryKeyword -> {
+                _onClickHistoryKeyword?.invoke(event.keyword)
+            }
+        }
+    }
+
+    /**
      * 找到距离指定位置最近的搜索结果索引
+     *
      * @param currentPosition 当前位置（页码/字符偏移等，与 sortKey 同类型）
      * @return 最近的搜索结果索引，如果没有结果返回 -1
      */
@@ -245,8 +437,27 @@ class SearchViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        stopSearching()  // ✅ 清理时停止搜索
         clearCache()
         clearResults()
+        
+        // ✅ 在 ViewModel 销毁前保存当前文件的搜索历史到 AppMemoryStore
+        saveSearchHistory()
+        clearHistory(false)
+
+        _onClickHistoryKeyword = null
         Log.d("SearchViewModel", "onCleared")
+    }
+    
+    /**
+     * 保存当前文件的搜索历史到 AppMemoryStore
+     */
+    private fun saveSearchHistory() {
+        currentFileUri?.let { uri ->
+            AppMemoryStore.setFileSearchHistory(uri, historyKeywordsMap.toMap())
+            Log.d("SearchViewModel", "已保存文件 $uri 的 ${historyKeywordsMap.size} 条搜索历史到 AppMemoryStore")
+        } ?: run {
+            Log.w("SearchViewModel", "currentFileUri 为 null，无法保存搜索历史")
+        }
     }
 }

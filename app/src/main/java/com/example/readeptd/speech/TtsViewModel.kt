@@ -115,6 +115,9 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 朗读文本
+     *
+     * @param text 要朗读的文本
+     * @param utteranceId 语音段ID，用于追踪
      */
     fun speak(text: String, utteranceId: String? = null) {
         if (serviceBound && ttsService != null) {
@@ -144,6 +147,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 设置语速
+     *
+     * @param rate 语速倍数，1.0 为正常速度
      */
     fun setSpeechRate(rate: Float) {
         _speechRate.value = rate
@@ -154,6 +159,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 设置音调
+     *
+     * @param pitch 音调倍数，1.0 为正常音调
      */
     fun setPitch(pitch: Float) {
         _pitch.value = pitch
@@ -164,6 +171,9 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 设置语言
+     *
+     * @param locale 语言区域
+     * @return 是否设置成功
      */
     fun setLanguage(locale: Locale): Boolean {
         if (!serviceBound) return false
@@ -174,6 +184,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 获取支持的语言列表
+     *
+     * @return 支持的语言集合
      */
     fun getAvailableLanguages(): Set<Locale>? {
         return if (serviceBound) ttsService?.getAvailableLanguages() else null
@@ -181,6 +193,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 检查是否正在朗读
+     *
+     * @return 是否正在朗读
      */
     fun checkIsSpeaking(): Boolean {
         return if (serviceBound) ttsService?.isSpeaking() ?: false else false
@@ -188,27 +202,35 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 检查 TTS 是否就绪
+     *
+     * @return 是否就绪
      */
     fun isReady(): Boolean {
         return if (serviceBound) ttsService?.isReady() ?: false else false
     }
 
     /**
-     * 设置自动朗读开始回调(TTS 开始朗读时触发,用于获取当前页文本)
+     * 设置自动朗读开始回调（TTS 开始朗读时触发，用于获取当前页文本）
+     *
+     * @param callback 开始回调函数
      */
     fun setOnSpeechStartListener(callback: () -> Unit) {
         onSpeechStartCallback = callback
     }
 
     /**
-     * 设置自动朗读完成回调(TTS 朗读完成时触发,用于翻页并获取下一页文本)
+     * 设置自动朗读完成回调（TTS 朗读完成时触发，用于翻页并获取下一页文本）
+     *
+     * @param callback 完成回调函数
      */
     fun setOnSpeechDoneListener(callback: (String?) -> Unit) {
         onSpeechDoneCallback = callback
     }
 
     /**
-     * 获取自动朗读请求回调(当请求自动朗读时触发,用于获取当前页文本)
+     * 设置自动朗读请求回调（当请求自动朗读时触发，用于获取当前页文本）
+     *
+     * @param callback 请求回调函数
      */
     fun setOnRequestSpeechStartListener(callback: () -> Unit) {
         onRequestSpeechStartCallback = callback
@@ -221,7 +243,7 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     }
 
     /**
-     * 清除回调
+     * 清除所有回调，避免内存泄漏
      */
     fun clearCallbacks() {
         onSpeechStartCallback = null
@@ -234,6 +256,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
 
     /**
      * 处理 TTS 事件
+     *
+     * @param event TTS 事件
      */
     fun onEvent(event: TtsEvent) {
         when (event) {
