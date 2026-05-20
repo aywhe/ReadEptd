@@ -869,7 +869,6 @@ fun SettingsDialog(
                 ) {
                     Text(
                         text = "显示朗读通知",
-                        style = MaterialTheme.typography.bodyLarge
                     )
                     Switch(
                         checked = config.showTtsNotification,
