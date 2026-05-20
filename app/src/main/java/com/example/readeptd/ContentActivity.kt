@@ -251,7 +251,7 @@ fun ContentScreen(
                 },
                 onStopTimer = {
                     ttsModel.onEvent(TtsEvent.RemoveCountDownTimer)
-                    isShowTimerDialog = false
+                    //isShowTimerDialog = false
                 },
             )
         }

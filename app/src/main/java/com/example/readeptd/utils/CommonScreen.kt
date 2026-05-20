@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.readeptd.activity.ContentViewModel
+import java.util.Locale
 
 /**
  * 跳转到指定页码的对话框
@@ -201,28 +202,60 @@ fun TimerDialog(
     var sliderPosition by remember {
         mutableFloatStateOf(initialMinutes)
     }
-    // 防止自动刷新影响操作，不要更新
-//    LaunchedEffect(currentRemainingMillis) {
-//        val newMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
-//        sliderPosition = newMinutes
-//    }
+    var inputMinutes by remember {
+        mutableStateOf(initialMinutes.toInt().toString())
+    }
 
     val minMinutes = 0
 
+    LaunchedEffect(sliderPosition) {
+        val minutes = sliderPosition.toInt()
+        if (inputMinutes != minutes.toString()) {
+            inputMinutes = minutes.toString()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("定时关闭朗读") },
         text = {
             Column {
+                val remainingSeconds = (currentRemainingMillis / 1000).toInt()
+                val minutes = remainingSeconds / 60
+                val seconds = remainingSeconds % 60
                 Text(
-                    text = if ((sliderPosition).toInt() > 0) {
-                        "剩余时间：${(sliderPosition).toInt()}分钟"
-                    } else {
-                        "设置时间：0 分钟"
-                    },
+                    text = String.format(Locale.getDefault(), "剩余时间：%02d : %02d", minutes, seconds),
                     style = MaterialTheme.typography.bodyLarge
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = inputMinutes,
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.all { it.isDigit() }) {
+                            inputMinutes = input
+                            val minutes = input.toIntOrNull()
+                            if (minutes != null && minutes in minMinutes..maxMinutes) {
+                                sliderPosition = minutes.toFloat()
+                            }
+                        }
+                    },
+                    label = { Text("分钟") },
+                    placeholder = { Text("请输入分钟数") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes } ?: false
+                )
+
+                if (inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes } == true) {
+                    Text(
+                        text = "请输入 $minMinutes 到 $maxMinutes 之间的数字",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -230,6 +263,7 @@ fun TimerDialog(
                     value = sliderPosition,
                     onValueChange = {
                         sliderPosition = it
+                        inputMinutes = it.toInt().toString()
                     },
                     valueRange = minMinutes.toFloat()..maxMinutes.toFloat(),
                     steps = (maxMinutes - minMinutes),
@@ -260,7 +294,8 @@ fun TimerDialog(
                 onClick = {
                     val selectedMillis = (sliderPosition * 60 * 1000).toLong()
                     onConfirm(selectedMillis.coerceIn(0L, maxMinutes.toLong() * 60 * 1000))
-                }
+                },
+                enabled = inputMinutes.toIntOrNull()?.let { it in minMinutes..maxMinutes } == true
             ) {
                 Text("确定")
             }
@@ -280,7 +315,7 @@ fun TimerDialog(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("关闭")
+                        Text("停止倒计时")
                     }
                 }
             }
