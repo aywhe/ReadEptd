@@ -255,82 +255,18 @@ fun TxtScreen(
                                 }
                                 // 当 TTS 朗读完成时,自动翻页并朗读下一页
                                 ttsModel.setOnSpeechDoneListener { utteranceId ->
-                                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-
-                                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                                        // 用户手动翻页，从当前页继续
-                                        currentPage
-                                    } else {
-                                        // 正常顺序播放，朗读下一页
-                                        currentPage + 1
-                                    }
-                                    
-                                    val totalPages = viewModel.getPagesCount()
-                                    if (targetPage in 0 until totalPages) {
-                                        scope.launch {
-                                            // 如果需要翻页（目标页不是当前页），先滚动
-                                            if (targetPage != currentPage) {
-                                                viewModel.goToPage(targetPage)
-                                            }
-
-                                            // 朗读目标页
-                                            val text = viewModel.getPageContent(targetPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(text, "txt_$targetPage")
-                                            }
-                                        }
+                                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope) {
+                                        it + 1 // 下一页
                                     }
                                 }
                                 ttsModel.setOnRequestNextPageListener { utteranceId ->
-                                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                                    
-                                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                                        // 用户手动翻页，从当前页继续
-                                        currentPage
-                                    } else {
-                                        // 正常顺序播放，朗读下一页
-                                        currentPage + 1
-                                    }
-                                    
-                                    val totalPages = viewModel.getPagesCount()
-                                    if (targetPage in 0 until totalPages) {
-                                        scope.launch {
-                                            // 如果需要翻页（目标页不是当前页），先滚动
-                                            viewModel.goToPage(targetPage)
-
-                                            // 朗读目标页
-                                            val text = viewModel.getPageContent(targetPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(text, "txt_$targetPage")
-                                            }
-                                        }
+                                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope) {
+                                        it + 1 // 下一页
                                     }
                                 }
                                 ttsModel.setOnRequestPreviousPageListener { utteranceId ->
-                                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                                    
-                                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                                        // 用户手动翻页，从当前页继续
-                                        currentPage
-                                    } else {
-                                        // 正常顺序播放，朗读上一页
-                                        currentPage - 1
-                                    }
-                                    
-                                    if (targetPage >= 0) {
-                                        scope.launch {
-                                            // 如果需要翻页（目标页不是当前页），先滚动
-                                            viewModel.goToPage(targetPage)
-
-                                            // 朗读目标页
-                                            val text = viewModel.getPageContent(targetPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(text, "txt_$targetPage")
-                                            }
-                                        }
+                                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope) {
+                                        it - 1 // 上一页
                                     }
                                 }
 
@@ -629,6 +565,51 @@ fun TxtScrollLayout(
                 modifier = Modifier.fillMaxSize()
             ) {
                 itemContent(page)
+            }
+        }
+    }
+}
+
+/**
+ * 处理 TTS 页面变化的通用逻辑
+ * @param utteranceId TTS 朗读完成的标识符
+ * @param currentPage 当前页码
+ * @param viewModel TXT ViewModel
+ * @param ttsModel TTS ViewModel
+ * @param scope CoroutineScope
+ * @param pageCalculator 页码计算函数，接收当前页码，返回目标页码
+ */
+private fun handleTtsPageChange(
+    utteranceId: String?,
+    currentPage: Int,
+    viewModel: TxtViewModel,
+    ttsModel: TtsViewModel,
+    scope: kotlinx.coroutines.CoroutineScope,
+    pageCalculator: (Int) -> Int
+) {
+    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
+    
+    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
+    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+        // 用户手动翻页，从当前页继续
+        currentPage
+    } else {
+        // 正常顺序播放，根据计算器确定目标页
+        pageCalculator(currentPage)
+    }
+    
+    val totalPages = viewModel.getPagesCount()
+    if (targetPage in 0 until totalPages) {
+        scope.launch {
+            // 如果需要翻页（目标页不是当前页），先滚动
+            if (targetPage != currentPage) {
+                viewModel.goToPage(targetPage)
+            }
+
+            // 朗读目标页
+            val text = viewModel.getPageContent(targetPage)
+            if (text.isNotBlank()) {
+                ttsModel.speak(text, "txt_$targetPage")
             }
         }
     }
