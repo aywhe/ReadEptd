@@ -33,8 +33,8 @@ class TtsService : Service() {
         fun onSpeechStart(utteranceId: String?)
         fun onSpeechDone(utteranceId: String?)
         fun onSpeechError(utteranceId: String?)
-        fun onRequestNextPage()
-        fun onRequestPreviousPage()
+        fun onRequestNextPage(utteranceId: String?)
+        fun onRequestPreviousPage(utteranceId: String?)
     }
 
     companion object {
@@ -412,12 +412,12 @@ class TtsService : Service() {
 
     private fun handlePrevious() {
         Log.d(TAG, "通知栏：上一页")
-        listeners.forEach { it.onRequestPreviousPage() }
+        listeners.forEach { it.onRequestPreviousPage(speakQueueManager.getOriginalUtteranceId()) }
     }
 
     private fun handleNext() {
         Log.d(TAG, "通知栏：下一页")
-        listeners.forEach { it.onRequestNextPage() }
+        listeners.forEach { it.onRequestNextPage(speakQueueManager.getOriginalUtteranceId()) }
     }
 
     fun speak(text: String, utteranceId: String? = null) {

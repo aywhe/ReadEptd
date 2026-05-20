@@ -39,8 +39,8 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     private var onSpeechStartCallback: (() -> Unit)? = null
     private var onSpeechDoneCallback: ((String?) -> Unit)? = null
     private var onRequestSpeechStartCallback: (() -> Unit)? = null
-    private var onRequestNextPageCallback: (() -> Unit)? = null
-    private var onRequestPreviousPageCallback: (() -> Unit)? = null
+    private var onRequestNextPageCallback: ((String?) -> Unit)? = null
+    private var onRequestPreviousPageCallback: ((String?) -> Unit)? = null
 
     private var countDownTimer: TtsCountDownTimer? = null
     private var countDownTimerFinishedDelayFlag = false
@@ -104,11 +104,11 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     override fun onSpeechError(utteranceId: String?) {
         _isSpeaking.value = false
     }
-    override fun onRequestNextPage(){
-        onRequestNextPageCallback?.invoke()
+    override fun onRequestNextPage(utteranceId: String?){
+        onRequestNextPageCallback?.invoke(utteranceId)
     }
-    override fun onRequestPreviousPage(){
-        onRequestPreviousPageCallback?.invoke()
+    override fun onRequestPreviousPage(utteranceId: String?){
+        onRequestPreviousPageCallback?.invoke(utteranceId)
     }
 
     //endregion
@@ -235,10 +235,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
     fun setOnRequestSpeechStartListener(callback: () -> Unit) {
         onRequestSpeechStartCallback = callback
     }
-    fun setOnRequestNextPageListener(callback: () -> Unit) {
+    fun setOnRequestNextPageListener(callback: (String?) -> Unit) {
         onRequestNextPageCallback = callback
     }
-    fun setOnRequestPreviousPageListener(callback: () -> Unit) {
+    fun setOnRequestPreviousPageListener(callback: (String?) -> Unit) {
         onRequestPreviousPageCallback = callback
     }
 
