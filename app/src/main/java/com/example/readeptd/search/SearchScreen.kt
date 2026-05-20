@@ -494,15 +494,12 @@ fun SearchHistoryDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "搜索历史",
-                style = MaterialTheme.typography.titleMedium
-            )
+                text = "搜索历史",)
         },
         text = {
             if(keywords.isEmpty()){
                 Text(
                     text = "无搜索历史",
-                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                 )
@@ -522,15 +519,14 @@ fun SearchHistoryDialog(
                             },
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondary
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ),
                             modifier = Modifier.wrapContentHeight()
                         ) {
                             Text(
                                 text = keyword,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondary,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                             )
                         }
                     }
