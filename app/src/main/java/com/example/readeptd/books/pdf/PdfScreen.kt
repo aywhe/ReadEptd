@@ -359,7 +359,7 @@ fun PdfLazyViewer(
                     onClose = {
                         isShowSearchDialog = false
                     },
-                    fileUri = filePath
+                    fileUri = fileInfo.uri
                 )
 
                 if (showNoTextHint) {
