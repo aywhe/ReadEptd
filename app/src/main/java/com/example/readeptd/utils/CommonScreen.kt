@@ -2,11 +2,14 @@ package com.example.readeptd.utils
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -49,8 +52,8 @@ fun JumpToPageDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    var pageNumber by remember { mutableStateOf((currentPage+1).toString()) }
-    var sliderPosition by remember { mutableFloatStateOf(1.0f*currentPage/totalPages*100f) }
+    var pageNumber by remember { mutableStateOf((currentPage + 1).toString()) }
+    var sliderPosition by remember { mutableFloatStateOf(1.0f * currentPage / totalPages * 100f) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -70,7 +73,8 @@ fun JumpToPageDialog(
                         if (input.all { it.isDigit() }) {
                             pageNumber = input
                         }
-                        sliderPosition = input.toIntOrNull()?.let { it.toFloat()/totalPages*100f } ?: 0f
+                        sliderPosition =
+                            input.toIntOrNull()?.let { it.toFloat() / totalPages * 100f } ?: 0f
                     },
                     label = { Text("页码") },
                     placeholder = { Text("请输入页码") },
@@ -84,7 +88,9 @@ fun JumpToPageDialog(
                     value = sliderPosition,
                     onValueChange = {
                         sliderPosition = it
-                        pageNumber = (sliderPosition/100f*totalPages+1).toInt().coerceIn(1, totalPages).toString()
+                        pageNumber =
+                            (sliderPosition / 100f * totalPages + 1).toInt().coerceIn(1, totalPages)
+                                .toString()
                     },
                     valueRange = 0f..100f,
                     steps = 99,  // 100 个值需要 99 个间隔
@@ -110,7 +116,7 @@ fun JumpToPageDialog(
                 },
                 colors = ButtonDefaults.buttonColors(
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f) ,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
@@ -140,7 +146,7 @@ fun JumpToProgressDialog(
     onConfirm: (Float) -> Unit
 ) {
     var progressValue by remember { mutableFloatStateOf(progress) }
-    var sliderPosition by remember { mutableFloatStateOf(progress*100) }
+    var sliderPosition by remember { mutableFloatStateOf(progress * 100) }
     var onValueChanged by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -169,11 +175,11 @@ fun JumpToProgressDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(sliderPosition/100f)
+                    onConfirm(sliderPosition / 100f)
                 },
                 colors = ButtonDefaults.buttonColors(
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f) ,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
@@ -220,13 +226,38 @@ fun TimerDialog(
         title = { Text("定时关闭朗读") },
         text = {
             Column {
-                val remainingSeconds = (currentRemainingMillis / 1000).toInt()
-                val minutes = remainingSeconds / 60
-                val seconds = remainingSeconds % 60
-                Text(
-                    text = String.format(Locale.getDefault(), "剩余时间：%02d : %02d", minutes, seconds),
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val remainingSeconds = (currentRemainingMillis / 1000).toInt()
+                    val minutes = remainingSeconds / 60
+                    val seconds = remainingSeconds % 60
+                        
+                    if (currentRemainingMillis > 0) {
+                        Text(
+                            text = String.format(Locale.getDefault(), "剩余时间 %02d:%02d", minutes, seconds),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        TextButton(
+                            onClick = onStopTimer,
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            contentPadding = PaddingValues(0.dp) // 清除默认内边距
+                        ) {
+                            Text("停止")
+                        }
+                    } else {
+                        Text(
+                            text = "未设置定时",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -246,7 +277,8 @@ fun TimerDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    isError = inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes } ?: false
+                    isError = inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes }
+                        ?: false
                 )
 
                 if (inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes } == true) {
@@ -293,7 +325,12 @@ fun TimerDialog(
             Button(
                 onClick = {
                     val selectedMillis = (sliderPosition * 60 * 1000).toLong()
-                    onConfirm(selectedMillis.coerceIn(0L, maxMinutes.toLong() * 60 * 1000))
+                    onConfirm(
+                        selectedMillis.coerceIn(
+                            minMinutes.toLong() * 60 * 1000,
+                            maxMinutes.toLong() * 60 * 1000
+                        )
+                    )
                 },
                 enabled = inputMinutes.toIntOrNull()?.let { it in minMinutes..maxMinutes } == true
             ) {
@@ -301,23 +338,8 @@ fun TimerDialog(
             }
         },
         dismissButton = {
-            Row {
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
-                }
-
-                // 只有当有正在运行的定时器时才显示停止按钮
-                if (currentRemainingMillis > 0) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = onStopTimer,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text("停止倒计时")
-                    }
-                }
+            TextButton(onClick = onDismiss) {
+                Text("取消")
             }
         }
     )
@@ -338,7 +360,8 @@ fun LayoutSettingDialog(
         title = { Text("布局设置") },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -357,7 +380,7 @@ fun LayoutSettingDialog(
                         }
                     )
                 }
-                if(isRtlState != null) {
+                if (isRtlState != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
