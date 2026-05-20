@@ -306,6 +306,7 @@ fun ToolTip(
     val isSpeaking by ttsModel.isSpeaking.collectAsState()
     val ttsInitialized by ttsModel.isInitialized.collectAsState()
     val progressText by viewModel.progressText.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var isShowSearchHistoryDialog by remember {
         mutableStateOf(false)
     }
@@ -374,6 +375,11 @@ fun ToolTip(
                                 Log.d("ContentActivity", "停止朗读按钮被点击")
                                 ttsModel.stop()
                             } else {
+                                // ✅ 在首次播放前请求通知权限
+                                val activity = context as? ComponentActivity
+                                if (activity != null) {
+                                    Utils.checkAndRequestNotificationPermission(activity)
+                                }
                                 Log.d("ContentActivity", "请求开始自动朗读")
                                 ttsModel.onEvent(TtsEvent.RequestAutoSpeak)
                             }
