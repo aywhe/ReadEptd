@@ -283,22 +283,22 @@ fun TxtScreen(
                                     }
                                 }
                                 ttsModel.setOnRequestNextPageListener {
-                                    if (pagerState.currentPage < viewModel.getPagesCount() - 1) {
+                                    if (currentPage < viewModel.getPagesCount() - 1) {
                                         scope.launch {
-                                            pagerState.scrollToPage(pagerState.currentPage + 1)
+                                            viewModel.goToPage(currentPage + 1)
                                             val text =
-                                                viewModel.getPageContent(pagerState.currentPage)
+                                                viewModel.getPageContent(currentPage)
                                             if (text.isNotBlank()) {
                                                 ttsModel.speak(
                                                     text,
-                                                    "txt_${pagerState.currentPage}"
+                                                    "txt_${currentPage}"
                                                 )
                                                 val text =
-                                                    viewModel.getPageContent(pagerState.currentPage)
+                                                    viewModel.getPageContent(currentPage)
                                                 if (text.isNotBlank()) {
                                                     ttsModel.speak(
                                                         text,
-                                                        "txt_${pagerState.currentPage}"
+                                                        "txt_${currentPage}"
                                                     )
                                                 }
                                             }
@@ -306,22 +306,22 @@ fun TxtScreen(
                                     }
                                 }
                                 ttsModel.setOnRequestPreviousPageListener{
-                                    if (pagerState.currentPage > 0) {
+                                    if (currentPage > 0) {
                                         scope.launch {
-                                            pagerState.scrollToPage(pagerState.currentPage - 1)
+                                            viewModel.goToPage(currentPage - 1)
                                             val text =
-                                                viewModel.getPageContent(pagerState.currentPage)
+                                                viewModel.getPageContent(currentPage)
                                             if (text.isNotBlank()) {
                                                 ttsModel.speak(
                                                     text,
-                                                    "txt_${pagerState.currentPage}"
+                                                    "txt_${currentPage}"
                                                 )
                                                 val text =
-                                                    viewModel.getPageContent(pagerState.currentPage)
+                                                    viewModel.getPageContent(currentPage)
                                                 if (text.isNotBlank()) {
                                                     ttsModel.speak(
                                                         text,
-                                                        "txt_${pagerState.currentPage}"
+                                                        "txt_${currentPage}"
                                                     )
                                                 }
                                             }
