@@ -107,6 +107,12 @@ fun JumpToPageDialog(
                         }
                     }
                 },
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f) ,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 enabled = pageNumber.toIntOrNull()?.let { it in 1..totalPages } == true
             ) {
                 Text("跳转")
@@ -164,6 +170,12 @@ fun JumpToProgressDialog(
                 onClick = {
                     onConfirm(sliderPosition/100f)
                 },
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f) ,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 enabled = onValueChanged
             ) {
                 Text("跳转")

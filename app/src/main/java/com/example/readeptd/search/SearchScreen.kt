@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -352,10 +353,7 @@ fun SlideInSearchPanel(
                         modifier = Modifier
                             .padding(bottom = 0.dp)
                             .height(24.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 2.dp,
-                            vertical = 0.dp
-                        )
+                            contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
                         Text(
                             text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
@@ -478,7 +476,7 @@ fun SearchResultCard(
                 },
                 style = MaterialTheme.typography.bodySmall,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.2
+                lineHeight = MaterialTheme.typography.bodySmall.lineHeight
             )
         }
     }

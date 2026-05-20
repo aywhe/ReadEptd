@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import com.example.readeptd.data.ConfigureData
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
@@ -639,6 +640,9 @@ fun FileItemCard(
 
     LaunchedEffect(fileInfo.uri) {
         scope.launch {
+            // ✅ 检查原始 URI 是否仍然可访问
+            // 注意：临时文件是在打开文件时才创建的，不是在选择文件时
+            // 所以需要检查原始 URI 的有效性
             isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
@@ -665,9 +669,20 @@ fun FileItemCard(
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = when {
-                isFileAccessible == false -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-                isDragging -> MaterialTheme.colorScheme.surfaceVariant
+                isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                 else -> MaterialTheme.colorScheme.surface
+            },
+            contentColor = when {
+                isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+            disabledContainerColor = when {
+                isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
+            },
+            disabledContentColor = when {
+                isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             }
         )
     ) {
@@ -694,27 +709,23 @@ fun FileItemCard(
                         // 显示文件大小和 MIME 类型
                         Text(
                             text = Utils.formatFileSize(fileInfo.fileSize),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall
                         )
                         Text(
                             text = fileInfo.mimeType,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall
                         )
                         // 显示阅读进度
                         progress?.let { progress ->
                             Text(
                                 text = "${(progress * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                         if (isFileAccessible == false) {
                             Text(
                                 text = "文件不存在",
                                 style = MaterialTheme.typography.bodySmall,
-                                //color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
