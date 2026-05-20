@@ -220,18 +220,18 @@ fun PdfLazyViewer(
                 }
 
                 ttsModel.setOnSpeechDoneListener { utteranceId ->
-                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages) {
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = true) {
                         it + 1 // 下一页
                     }
                 }
 
                 ttsModel.setOnRequestNextPageListener { utteranceId ->
-                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages) {
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = false) {
                         it + 1 // 下一页
                     }
                 }
                 ttsModel.setOnRequestPreviousPageListener { utteranceId ->
-                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages) {
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = false) {
                         it - 1 // 上一页
                     }
                 }
@@ -660,6 +660,7 @@ fun PdfScrollLayout(
  * @param ttsModel TTS ViewModel
  * @param scope CoroutineScope
  * @param totalPages 总页数
+ * @param isAutoPlay 是否为自动播放完成（true=朗读完成自动跳转，false=用户手动请求跳转）
  * @param pageCalculator 页码计算函数，接收当前页码，返回目标页码
  */
 private fun handleTtsPageChange(
@@ -669,16 +670,22 @@ private fun handleTtsPageChange(
     ttsModel: TtsViewModel,
     scope: kotlinx.coroutines.CoroutineScope,
     totalPages: Int,
+    isAutoPlay: Boolean,
     pageCalculator: (Int) -> Int
 ) {
     val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
     
-    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-        // 用户手动翻页，从当前页继续
-        currentPage
+    // 判断是否需要调整页码
+    val targetPage = if (isAutoPlay) {
+        // 自动播放完成：如果用户手动翻页了，从当前页继续
+        if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+            currentPage
+        } else {
+            // 正常顺序播放，根据计算器确定目标页
+            pageCalculator(currentPage)
+        }
     } else {
-        // 正常顺序播放，根据计算器确定目标页
+        // 用户手动请求跳转：强制跳转到计算的目标页
         pageCalculator(currentPage)
     }
     
