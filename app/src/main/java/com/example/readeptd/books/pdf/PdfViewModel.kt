@@ -129,10 +129,16 @@ class PdfViewModel(
     /**
      * 初始化 PDF 渲染器
      *
-     * @param filePath PDF 文件路径
      * @return 是否初始化成功
      */
-    fun initializeRenderer(filePath: String): Boolean {
+    fun initializeRenderer(): Boolean {
+        val filePath = currentTempFile?.absolutePath
+        if (filePath == null) {
+            Log.e(TAG, "PDF 文件未准备")
+            _pdfState.value = PdfState.Error("PDF 文件未准备")
+            return false
+        }
+        
         return try {
             _pdfState.value = PdfState.Loading
             cleanupRenderer()

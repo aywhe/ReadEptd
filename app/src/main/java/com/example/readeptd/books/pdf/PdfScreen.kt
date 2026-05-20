@@ -103,7 +103,7 @@ fun PdfScreen(
 
             is BookUiState.Ready -> {
                 PdfLazyViewer(
-                    filePath = state.tempFilePath,
+                    fileInfo = fileInfo,
                     contentViewModel = contentViewModel,
                     viewModel = viewModel,
                     ttsModel = ttsModel,
@@ -131,7 +131,7 @@ fun PdfScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PdfLazyViewer(
-    filePath: String,
+    fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
@@ -154,9 +154,9 @@ fun PdfLazyViewer(
     // ✅ 根据当前屏幕方向获取对应的缩放状态
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    DisposableEffect(filePath) {
+    DisposableEffect(Unit) {
         // 初始化 PDF 渲染器
-        viewModel.initializeRenderer(filePath)
+        viewModel.initializeRenderer()
         onDispose {
             viewModel.cleanupRenderer()
             Log.d("PdfLazyViewer", "资源已释放")
