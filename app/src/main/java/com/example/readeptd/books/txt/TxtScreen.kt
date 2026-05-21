@@ -123,20 +123,6 @@ fun TxtScreen(
         Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
         viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
     }
-    var readingStateReady by remember { mutableStateOf(false) }
-    // ✅ 只在 readingState 加载完成后才设置分页模式，避免无效分页
-    LaunchedEffect(readingState) {
-        if (readingState != null && (!readingStateReady)) {
-            val mode = if (readingState!!.isSwipeLayout) {
-                SplitPagesMode.ByLayoutSize
-            } else {
-                SplitPagesMode.ByCharsCount
-            }
-            readingStateReady = true
-            Log.d("TxtScreen", "readingState 已加载，设置分页模式: $mode")
-            viewModel.setSplitPagesMode(mode)
-        }
-    }
     LaunchedEffect(isSwipeLayout) {
         Log.d("TxtScreen", "切换分页模式: $isSwipeLayout")
         if (isSwipeLayout) {
@@ -545,37 +531,21 @@ fun TxtScrollLayout(
             }
         }
     }
-    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
-    // ✅ 分页完成后，滚动到目标页并使其居中
-    LaunchedEffect(isPagesReady) {
-        if (isPagesReady && totalPages > 0) {
-            val targetPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
-            val safePage = targetPage.coerceIn(0, totalPages - 1)
 
-            // ✅ 使用 animateScrollToItem 并指定偏移量，使目标页居中
-            val viewportHeight = lazyListState.layoutInfo.viewportSize.height
-            val itemHeight = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: viewportHeight
-            val scrollOffset = (viewportHeight - itemHeight) / 2
-            scope.launch {
-                Log.d("TxtScrollLayout", "分页完成，滚动到页码 $safePage 并居中")
-                lazyListState.scrollToItem(safePage, scrollOffset)
-            }
-        }
-    }
     // 使用 snapshotFlow 监听滚动位置变化
     LaunchedEffect(lazyListState) {
-        snapshotFlow { 
+        snapshotFlow {
             val layoutInfo = lazyListState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
-            
+
             if (visibleItems.isNotEmpty()) {
                 val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
-                
+
                 val centerItem = visibleItems.minByOrNull { item ->
                     val itemCenter = item.offset + item.size / 2
                     kotlin.math.abs(itemCenter - viewportCenter)
                 }
-                
+
                 centerItem?.index
             } else {
                 null
