@@ -84,18 +84,18 @@ class TxtViewModel(
     val currentLineHeightSp: Int get() = lineHeightSp
 
     private var _onGoToPageListener: ((Int) -> Unit)? = null
-    private var _SplitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
+    private var _splitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
 
 
     fun setSplitPagesMode(mode: SplitPagesMode) {
-        Log.d(TAG, "[setSplitPagesMode] 调用: mode=$mode, 当前模式=$_SplitPagesMode, allowRePagination=$allowRePagination")
-        if (_SplitPagesMode == mode) {
+        Log.d(TAG, "[setSplitPagesMode] 调用: mode=$mode, 当前模式=$_splitPagesMode, allowRePagination=$allowRePagination")
+        if (_splitPagesMode == mode) {
             Log.d(TAG, "[setSplitPagesMode] 分页模式未变化，跳过")
             return
         }
         
-        Log.d(TAG, "[setSplitPagesMode] 分页模式变化: $_SplitPagesMode -> $mode")
-        _SplitPagesMode = mode
+        Log.d(TAG, "[setSplitPagesMode] 分页模式变化: $_splitPagesMode -> $mode")
+        _splitPagesMode = mode
         
         // ✅ 切换模式后触发重新分页
         if (allowRePagination) {
@@ -120,7 +120,7 @@ class TxtViewModel(
      * ✅ 构建分页缓存 key
      */
     private fun buildCacheKey(): String {
-        return when (_SplitPagesMode) {
+        return when (_splitPagesMode) {
             SplitPagesMode.ByLayoutSize -> {
                 val charsParams = calculatePageCharsParams()
                 "layout:${charsParams.avgCharsPerLine}:${charsParams.maxLinesPerPage}"
@@ -302,7 +302,8 @@ class TxtViewModel(
      * 根据参数变化判断是否需要重新分页
      */
     private suspend fun rebuildPagesIfNeeded() {
-        Log.d(TAG, "[rebuildPagesIfNeeded] 调用: viewSize=$viewSize, fontSizeSp=$fontSizeSp, lineHeightSp=$lineHeightSp")
+        Log.d(TAG, "[rebuildPagesIfNeeded] 调用: viewSize=$viewSize, fontSizeSp=$fontSizeSp, lineHeightSp=$lineHeightSp, " +
+                "paddings=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)")
         if (viewSize.width <= 0 || viewSize.height <= 0) {
             Log.w(TAG, "[rebuildPagesIfNeeded] 分页条件不满足: viewSize=$viewSize，直接返回")
             return
@@ -318,9 +319,9 @@ class TxtViewModel(
             _isPagesReady.value = true
             Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = true")
             if (currentKey != newKey) {
-                Log.d(TAG, "[rebuildPagesIfNeeded] currentKey 变化: $currentKey -> $newKey，恢复阅读进度")
+                Log.d(TAG, "[rebuildPagesIfNeeded] currentKey 变化: $currentKey -> $newKey")
                 currentKey = newKey
-                restorePageFromProgress()
+                afterRePaginationActions()
             }
             return
         }
@@ -356,9 +357,9 @@ class TxtViewModel(
                 _isPagesReady.value = true
                 Log.d(TAG, "[buildPages] 设置 _isPagesReady = true")
                 if (currentKey != key) {
-                    Log.d(TAG, "[buildPages] currentKey 变化: $currentKey -> $key，恢复阅读进度")
+                    Log.d(TAG, "[buildPages] currentKey 变化: $currentKey -> $key")
                     currentKey = key
-                    restorePageFromProgress()
+                    afterRePaginationActions()
                 }
                 return@withLock
             }
@@ -385,7 +386,7 @@ class TxtViewModel(
                 
                 // ✅ 根据分页模式创建 TextSplitter
                 val tempPages = mutableListOf<TextChunk>()
-                val splitter = when (_SplitPagesMode) {
+                val splitter = when (_splitPagesMode) {
                     SplitPagesMode.ByLayoutSize -> {
                         val charsParams = calculatePageCharsParams()
                         Log.d(TAG, "[buildPages] 使用布局尺寸分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
@@ -416,9 +417,7 @@ class TxtViewModel(
                 _isPagesReady.value = true
                 Log.d(TAG, "[buildPages] ✅ 分页完成，设置 _isPagesReady = true，共 ${getCurrentPages().size} 页")
 
-                // 根据保存的阅读进度恢复页码
-                Log.d(TAG, "[buildPages] 恢复阅读进度")
-                restorePageFromProgress()
+                afterRePaginationActions()
 
             } catch (e: Exception) {
                 Log.e(TAG, "[buildPages] ❌ 分页失败", e)
@@ -443,25 +442,8 @@ class TxtViewModel(
     /**
      * 根据保存的阅读进度恢复页码
      */
-    private fun restorePageFromProgress() {
-        val savedState = readingState.value
-        val pages = getCurrentPages()
-        Log.d(TAG, "[restorePageFromProgress] savedState=$savedState, pages.size=${pages.size}")
-        if (savedState == null || pages.isEmpty()) {
-            Log.d(TAG, "[restorePageFromProgress] 没有保存的阅读状态或页面为空，从第一页开始")
-            _currentPage.value = 0
-            return
-        }
-
-        val charOffset = savedState.charOffset
-        Log.d(TAG, "[restorePageFromProgress] 读取到保存的字符偏移量: $charOffset, progress=${savedState.progress}")
-
-        // 查找包含该字符偏移量的页面
-        val targetPageIndex = findPageByCharOffset(charOffset)
-
-        Log.d(TAG, "[restorePageFromProgress] 字符偏移量对应的页码: $targetPageIndex, 跳转到该页")
-        _currentPage.value = targetPageIndex
-        goToPage(targetPageIndex)
+    private fun afterRePaginationActions() {
+        // 暂时没什么需要做的
     }
 
     fun getProgress(): Float{
@@ -599,7 +581,7 @@ class TxtViewModel(
         saveProgress(newState)
     }
 
-    fun setOnGoToPageListener(listener: (Int) -> Unit) {
+    fun setOnGoToPageListener(listener: ((Int) -> Unit)?) {
         _onGoToPageListener = listener
     }
 

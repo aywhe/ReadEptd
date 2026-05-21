@@ -182,7 +182,7 @@ private fun ReadyState(
 
     // 监听分页模式切换
     LaunchedEffect(isSwipeLayout) {
-        Log.d("TxtScreen", "[LaunchedEffect] 切换分页模式: $isSwipeLayout")
+        Log.d("TxtScreen", "[LaunchedEffect] 切换分页模式: isSwipeLayout=$isSwipeLayout")
         if (isSwipeLayout) {
             Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLayoutSize 模式")
             viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
@@ -656,21 +656,22 @@ fun TxtLayoutWrapper(
 ) {
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    Log.d("TxtScreen", "[TxtLayoutWrapper] 初始页: $initialPage")
     if (isSwipeLayout) {
-            TxtSwipeLayout(
-                modifier = modifier,
-                initialPage = initialPage,
-                viewModel = viewModel,
-                itemContent = pageContent
-            )
-        } else {
-            TxtScrollLayout(
-                modifier = modifier,
-                initialPage = initialPage,
-                viewModel = viewModel,
-                itemContent = pageContent
-            )
-        }
+        TxtSwipeLayout(
+            modifier = modifier,
+            initialPage = initialPage,
+            viewModel = viewModel,
+            itemContent = pageContent
+        )
+    } else {
+        TxtScrollLayout(
+            modifier = modifier,
+            initialPage = initialPage,
+            viewModel = viewModel,
+            itemContent = pageContent
+        )
+    }
 }
 
 @Composable
@@ -689,11 +690,15 @@ fun TxtSwipeLayout(
         pageCount = { viewModel.getPagesCount() }
     )
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
         viewModel.setOnGoToPageListener {
             scope.launch {
+                Log.d("TxtSwipeLayout", "[TxtSwipeLayout] 跳转页: $it")
                 pagerState.scrollToPage(it)
             }
+        }
+        onDispose {
+            viewModel.setOnGoToPageListener(null)
         }
     }
 
@@ -730,11 +735,15 @@ fun TxtScrollLayout(
         initialFirstVisibleItemScrollOffset = 0
     )
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
         viewModel.setOnGoToPageListener {
             scope.launch {
+                Log.d("TxtScrollLayout", "[TxtScrollLayout] 跳转页: $it")
                 lazyListState.scrollToItem(it)
             }
+        }
+        onDispose {
+            viewModel.setOnGoToPageListener(null)
         }
     }
 
