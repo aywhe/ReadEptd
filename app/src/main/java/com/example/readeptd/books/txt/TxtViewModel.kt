@@ -97,6 +97,10 @@ class TxtViewModel(
         Log.d(TAG, "[setSplitPagesMode] 分页模式变化: $_splitPagesMode -> $mode")
         _splitPagesMode = mode
         
+        // ✅ 切换模式后立即设置为 false，防止 UI 在重新分页前重组
+        Log.d(TAG, "[setSplitPagesMode] 设置 _isPagesReady = false，等待重新分页")
+        _isPagesReady.value = false
+        
         // ✅ 切换模式后触发重新分页
         if (allowRePagination) {
             Log.d(TAG, "[setSplitPagesMode] 允许重新分页，启动协程")
@@ -105,6 +109,9 @@ class TxtViewModel(
             }
         } else {
             Log.w(TAG, "[setSplitPagesMode] 不允许重新分页，跳过")
+            // ✅ 如果跳过分页，需要恢复 ready 状态
+            _isPagesReady.value = true
+            Log.d(TAG, "[setSplitPagesMode] 恢复 _isPagesReady = true")
         }
     }
     
@@ -130,6 +137,7 @@ class TxtViewModel(
             }
         }
     }
+
     /**
      * 处理 UI 事件
      */
@@ -198,7 +206,10 @@ class TxtViewModel(
         // 取消之前的防抖任务
         debouncedRePaginationJob?.cancel()
         
-        // 启动新的防抖任务，300ms 后执行
+        // ✅ 立即设置为 false，防止在防抖等待期间 UI 重组
+        Log.d(TAG, "[debounceTriggerRePagination] 设置 _isPagesReady = false，开始防抖等待")
+        _isPagesReady.value = false
+        
         debouncedRePaginationJob = viewModelScope.launch {
             delay(500)
             triggerRePagination()
@@ -262,6 +273,9 @@ class TxtViewModel(
         Log.d(TAG, "[triggerRePagination] 调用: allowRePagination=$allowRePagination, viewSize=$viewSize")
         if (!allowRePagination) {
             Log.w(TAG, "[triggerRePagination] 跳过重新分页：allowRePagination=false")
+            // ✅ 如果跳过,需要恢复 ready 状态
+            _isPagesReady.value = true
+            Log.d(TAG, "[triggerRePagination] 恢复 _isPagesReady = true")
             return
         }
 
@@ -316,13 +330,13 @@ class TxtViewModel(
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
             Log.d(TAG, "[rebuildPagesIfNeeded] 分页结果已缓存，key=$newKey，直接使用")
-            _isPagesReady.value = true
-            Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = true")
             if (currentKey != newKey) {
                 Log.d(TAG, "[rebuildPagesIfNeeded] currentKey 变化: $currentKey -> $newKey")
                 currentKey = newKey
                 afterRePaginationActions()
             }
+            _isPagesReady.value = true
+            Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = true")
             return
         }
 
@@ -354,13 +368,13 @@ class TxtViewModel(
             // ✅ 双重检查：如果缓存中已有，直接使用
             if (pagesCache.containsKey(key)) {
                 Log.d(TAG, "[buildPages] 双重检查：分页结果已缓存，key=$key")
-                _isPagesReady.value = true
-                Log.d(TAG, "[buildPages] 设置 _isPagesReady = true")
                 if (currentKey != key) {
                     Log.d(TAG, "[buildPages] currentKey 变化: $currentKey -> $key")
                     currentKey = key
                     afterRePaginationActions()
                 }
+                _isPagesReady.value = true
+                Log.d(TAG, "[buildPages] 设置 _isPagesReady = true")
                 return@withLock
             }
             
@@ -373,6 +387,9 @@ class TxtViewModel(
             Log.d(TAG, "[buildPages] 当前 UI 状态: $currentState")
             if (currentState !is BookUiState.Ready) {
                 Log.w(TAG, "[buildPages] 文件未准备好，当前状态: $currentState，直接返回")
+                // ✅ 异常情况需要恢复 ready 状态
+                _isPagesReady.value = true
+                Log.d(TAG, "[buildPages] 异常恢复，设置 _isPagesReady = true")
                 return@withLock
             }
 
@@ -421,6 +438,9 @@ class TxtViewModel(
 
             } catch (e: Exception) {
                 Log.e(TAG, "[buildPages] ❌ 分页失败", e)
+                // ✅ 异常情况下恢复 ready 状态
+                _isPagesReady.value = true
+                Log.d(TAG, "[buildPages] 异常恢复，设置 _isPagesReady = true")
             }
         }
         Log.d(TAG, "[buildPages] 执行完毕，释放锁")
@@ -461,6 +481,7 @@ class TxtViewModel(
         val pages = getCurrentPages()
         if (pages.isEmpty()) return 0
         val charOffset = (progress.toDouble() * pages.last().endPos).toLong()
+        Log.d(TAG, "[findPageByProgress] progress $progress, 找到 charOffset=$charOffset, currentKey $currentKey, pageSize ${pages.size}")
         return findPageByCharOffset(charOffset)
     }
     /**
@@ -476,12 +497,12 @@ class TxtViewModel(
         for ((index, page) in pages.withIndex()) {
             // 检查字符偏移量是否在当前页面范围内
             if (charOffset >= page.startPos && charOffset < page.endPos) {
-                Log.d(TAG, "[findPageByCharOffset]] charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}")
+                Log.d(TAG, "[findPageByCharOffset]] charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}, currentKey $currentKey, pageSize ${pages.size}")
                 return index
             }
         }
 
-        Log.d(TAG, "[findPageByCharOffset] 未找到页码")
+        Log.d(TAG, "[findPageByCharOffset] 未找到页码, currentKey $currentKey, pageSize ${pages.size}")
         // 如果没找到，返回最后一页或第一页
         return if (charOffset >= pages.last().endPos) {
             pages.size - 1

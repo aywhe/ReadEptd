@@ -191,6 +191,7 @@ private fun ReadyState(
             viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
         }
     }
+    
     // ✅ 在这里计算 contentPadding
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
