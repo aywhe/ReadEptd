@@ -85,19 +85,23 @@ class TxtViewModel(
 
 
     fun setSplitPagesMode(mode: SplitPagesMode) {
+        Log.d(TAG, "[setSplitPagesMode] 调用: mode=$mode, 当前模式=$_SplitPagesMode, allowRePagination=$allowRePagination")
         if (_SplitPagesMode == mode) {
-            Log.d(TAG, "分页模式未变化，跳过")
+            Log.d(TAG, "[setSplitPagesMode] 分页模式未变化，跳过")
             return
         }
         
-        Log.d(TAG, "分页模式变化: $_SplitPagesMode -> $mode")
+        Log.d(TAG, "[setSplitPagesMode] 分页模式变化: $_SplitPagesMode -> $mode")
         _SplitPagesMode = mode
         
         // ✅ 切换模式后触发重新分页
         if (allowRePagination) {
+            Log.d(TAG, "[setSplitPagesMode] 允许重新分页，启动协程")
             viewModelScope.launch {
                 rebuildPagesIfNeeded()
             }
+        } else {
+            Log.w(TAG, "[setSplitPagesMode] 不允许重新分页，跳过")
         }
     }
     
@@ -165,11 +169,14 @@ class TxtViewModel(
                 this.topPaddingDp != topPaddingDp ||
                 this.bottomPaddingDp != bottomPaddingDp
 
-        if (!sizeChanged && !paddingChanged) return
+        if (!sizeChanged && !paddingChanged) {
+            Log.d(TAG, "[handleViewMetricsChanged] 视图指标未变化，跳过")
+            return
+        }
 
         Log.d(
             TAG,
-            "视图指标变化: size=${size.width}x${size.height}, padding=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)"
+            "[handleViewMetricsChanged] 视图指标变化: size=${size.width}x${size.height}, padding=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp), sizeChanged=$sizeChanged, paddingChanged=$paddingChanged"
         )
 
         viewSize = size
@@ -186,13 +193,19 @@ class TxtViewModel(
      */
     private fun handlePageChanged(pageIndex: Int) {
         val pages = getCurrentPages()
-        if (pageIndex < 0 || pageIndex >= pages.size) return
+        if (pageIndex < 0 || pageIndex >= pages.size) {
+            Log.w(TAG, "[handlePageChanged] 页码超出范围: pageIndex=$pageIndex, pages.size=${pages.size}")
+            return
+        }
 
-        Log.d(TAG, "翻页到: $pageIndex")
+        Log.d(TAG, "[handlePageChanged] 翻页到: $pageIndex, 总页数: ${pages.size}")
         _currentPage.value = pageIndex
         // 保存阅读进度
         updateTxtProgress(
-            uri = currentFileUri ?: return,
+            uri = currentFileUri ?: run {
+                Log.w(TAG, "[handlePageChanged] currentFileUri 为空，无法保存进度")
+                return
+            },
             pageIndex = pageIndex
         )
     }
@@ -201,9 +214,12 @@ class TxtViewModel(
      * 处理字体大小变化
      */
     private fun handleFontSizeChanged(newFontSize: Int) {
-        if (fontSizeSp == newFontSize) return
+        if (fontSizeSp == newFontSize) {
+            Log.d(TAG, "[handleFontSizeChanged] 字体大小未变化: $newFontSize")
+            return
+        }
 
-        Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
+        Log.d(TAG, "[handleFontSizeChanged] 字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
         triggerRePagination()
     }
@@ -212,9 +228,12 @@ class TxtViewModel(
      * 处理行距变化
      */
     private fun handleLineHeightChanged(newLineHeight: Int) {
-        if (lineHeightSp == newLineHeight) return
+        if (lineHeightSp == newLineHeight) {
+            Log.d(TAG, "[handleLineHeightChanged] 行距未变化: $newLineHeight")
+            return
+        }
 
-        Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
+        Log.d(TAG, "[handleLineHeightChanged] 行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
         triggerRePagination()
     }
@@ -223,11 +242,13 @@ class TxtViewModel(
      * ✅ 触发重新分页（统一入口）
      */
     private fun triggerRePagination() {
+        Log.d(TAG, "[triggerRePagination] 调用: allowRePagination=$allowRePagination, viewSize=$viewSize")
         if (!allowRePagination) {
-            Log.d(TAG, "跳过重新分页")
+            Log.w(TAG, "[triggerRePagination] 跳过重新分页：allowRePagination=false")
             return
         }
 
+        Log.d(TAG, "[triggerRePagination] 启动协程执行 rebuildPagesIfNeeded")
         viewModelScope.launch {
             rebuildPagesIfNeeded()
         }
@@ -264,31 +285,39 @@ class TxtViewModel(
      * 根据参数变化判断是否需要重新分页
      */
     private suspend fun rebuildPagesIfNeeded() {
+        Log.d(TAG, "[rebuildPagesIfNeeded] 调用: viewSize=$viewSize, fontSizeSp=$fontSizeSp, lineHeightSp=$lineHeightSp")
         if (viewSize.width <= 0 || viewSize.height <= 0) {
-            Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
+            Log.w(TAG, "[rebuildPagesIfNeeded] 分页条件不满足: viewSize=$viewSize，直接返回")
             return
         }
 
         // ✅ 构建新的缓存 key
         val newKey = buildCacheKey()
+        Log.d(TAG, "[rebuildPagesIfNeeded] 构建缓存 key: $newKey")
         
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
-            Log.d(TAG, "分页结果已缓存，key=$newKey，直接使用")
+            Log.d(TAG, "[rebuildPagesIfNeeded] 分页结果已缓存，key=$newKey，直接使用")
             _isPagesReady.value = true
+            Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = true")
             if (currentKey != newKey) {
+                Log.d(TAG, "[rebuildPagesIfNeeded] currentKey 变化: $currentKey -> $newKey，恢复阅读进度")
                 currentKey = newKey
                 restorePageFromProgress()
             }
             return
         }
 
-        Log.d(TAG, "分页参数变化，准备重新分页: key=$newKey")
+        Log.d(TAG, "[rebuildPagesIfNeeded] 分页参数变化，准备重新分页: key=$newKey")
         
         // 取消之前正在执行的分页任务
-        currentPageJob?.cancel()
+        if (currentPageJob?.isActive == true) {
+            Log.d(TAG, "[rebuildPagesIfNeeded] 取消之前的分页任务")
+            currentPageJob?.cancel()
+        }
         
         // 启动新的分页任务
+        Log.d(TAG, "[rebuildPagesIfNeeded] 启动新的分页任务")
         currentPageJob = viewModelScope.launch {
             buildPages()
         }
@@ -298,14 +327,19 @@ class TxtViewModel(
      * ✅ 统一的分页构建方法
      */
     private suspend fun buildPages() {
+        Log.d(TAG, "[buildPages] 开始执行，获取锁")
         pagesMutex.withLock {
+            Log.d(TAG, "[buildPages] 获取锁成功")
             val key = buildCacheKey()
+            Log.d(TAG, "[buildPages] 构建 key: $key")
             
             // ✅ 双重检查：如果缓存中已有，直接使用
             if (pagesCache.containsKey(key)) {
-                Log.d(TAG, "分页结果已缓存，key=$key")
+                Log.d(TAG, "[buildPages] 双重检查：分页结果已缓存，key=$key")
                 _isPagesReady.value = true
+                Log.d(TAG, "[buildPages] 设置 _isPagesReady = true")
                 if (currentKey != key) {
+                    Log.d(TAG, "[buildPages] currentKey 变化: $currentKey -> $key，恢复阅读进度")
                     currentKey = key
                     restorePageFromProgress()
                 }
@@ -313,58 +347,67 @@ class TxtViewModel(
             }
             
             // 重置分页状态
+            Log.d(TAG, "[buildPages] 重置分页状态，设置 _isPagesReady = false")
             _isPagesReady.value = false
 
             // 从 UI 状态中获取临时文件路径
             val currentState = uiState.value
+            Log.d(TAG, "[buildPages] 当前 UI 状态: $currentState")
             if (currentState !is BookUiState.Ready) {
-                Log.d(TAG, "文件未准备好，当前状态: $currentState")
+                Log.w(TAG, "[buildPages] 文件未准备好，当前状态: $currentState，直接返回")
                 return@withLock
             }
 
             try {
+                Log.d(TAG, "[buildPages] 开始加载全文内容")
                 // ✅ 确保全文内容已加载
                 ensureEntireTextLoaded(currentState.tempFilePath.toUri())
                 
                 val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
+                Log.d(TAG, "[buildPages] 全文内容长度: ${fullText.length}")
                 
                 // ✅ 根据分页模式创建 TextSplitter
                 val tempPages = mutableListOf<TextChunk>()
                 val splitter = when (_SplitPagesMode) {
                     SplitPagesMode.ByLayoutSize -> {
                         val charsParams = calculatePageCharsParams()
-                        Log.d(TAG, "使用布局尺寸分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
+                        Log.d(TAG, "[buildPages] 使用布局尺寸分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
                         TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage) { chunk ->
                             tempPages.add(chunk)
                         }
                     }
                     SplitPagesMode.ByCharsCount -> {
-                        Log.d(TAG, "使用字符数分页: minChunkSize=$charCountThreshold")
+                        Log.d(TAG, "[buildPages] 使用字符数分页: minChunkSize=$charCountThreshold")
                         TextSplitter(minChunkSize = charCountThreshold) { chunk ->
                             tempPages.add(chunk)
                         }
                     }
                 }
 
+                Log.d(TAG, "[buildPages] 开始处理全文")
                 // ✅ 直接处理全文（无需再次读取文件）
                 splitter.processFullText(fullText)
                 splitter.flushRemaining()
+                Log.d(TAG, "[buildPages] 全文处理完成，生成 ${tempPages.size} 页")
 
                 // ✅ 存入缓存
                 pagesCache[key] = tempPages.toList()
                 currentKey = key
+                Log.d(TAG, "[buildPages] 存入缓存，key=$key")
 
                 // 标记分页完成
                 _isPagesReady.value = true
-                Log.d(TAG, "分页完成，共 ${getCurrentPages().size} 页")
+                Log.d(TAG, "[buildPages] ✅ 分页完成，设置 _isPagesReady = true，共 ${getCurrentPages().size} 页")
 
                 // 根据保存的阅读进度恢复页码
+                Log.d(TAG, "[buildPages] 恢复阅读进度")
                 restorePageFromProgress()
 
             } catch (e: Exception) {
-                Log.e(TAG, "分页失败", e)
+                Log.e(TAG, "[buildPages] ❌ 分页失败", e)
             }
         }
+        Log.d(TAG, "[buildPages] 执行完毕，释放锁")
     }
 
     /**
@@ -372,9 +415,11 @@ class TxtViewModel(
      */
     private suspend fun ensureEntireTextLoaded(uri: android.net.Uri) {
         if (entireText == null) {
-            Log.d(TAG, "开始加载全文内容...")
+            Log.d(TAG, "[ensureEntireTextLoaded] 开始加载全文内容, uri=$uri")
             entireText = textExtractor.readEntireText(uri)
-            Log.d(TAG, "全文内容加载完成，长度: ${entireText?.length}")
+            Log.d(TAG, "[ensureEntireTextLoaded] 全文内容加载完成，长度: ${entireText?.length}")
+        } else {
+            Log.d(TAG, "[ensureEntireTextLoaded] 全文内容已缓存，长度: ${entireText?.length}，跳过加载")
         }
     }
     
@@ -384,19 +429,20 @@ class TxtViewModel(
     private fun restorePageFromProgress() {
         val savedState = readingState.value
         val pages = getCurrentPages()
+        Log.d(TAG, "[restorePageFromProgress] savedState=$savedState, pages.size=${pages.size}")
         if (savedState == null || pages.isEmpty()) {
-            Log.d(TAG, "没有保存的阅读状态或页面为空，从第一页开始")
+            Log.d(TAG, "[restorePageFromProgress] 没有保存的阅读状态或页面为空，从第一页开始")
             _currentPage.value = 0
             return
         }
 
         val charOffset = savedState.charOffset
-        Log.d(TAG, "读取到保存的字符偏移量: $charOffset")
+        Log.d(TAG, "[restorePageFromProgress] 读取到保存的字符偏移量: $charOffset, progress=${savedState.progress}")
 
         // 查找包含该字符偏移量的页面
         val targetPageIndex = findPageByCharOffset(charOffset)
 
-        Log.d(TAG, "字符偏移量对应的页码: $targetPageIndex")
+        Log.d(TAG, "[restorePageFromProgress] 字符偏移量对应的页码: $targetPageIndex, 跳转到该页")
         _currentPage.value = targetPageIndex
         goToPage(targetPageIndex)
     }
@@ -405,8 +451,10 @@ class TxtViewModel(
         val savedState = readingState.value
         val pages = getCurrentPages()
         if (savedState == null || pages.isEmpty()) {
+            Log.d(TAG, "[getProgress] 没有保存状态或页面为空，返回 0f")
             return 0f
         }
+        Log.d(TAG, "[getProgress] progress=${savedState.progress}")
         return savedState.progress
     }
 
@@ -449,19 +497,19 @@ class TxtViewModel(
     fun getPageContent(pageIndex: Int): String {
         val pages = getCurrentPages()
         if (pageIndex !in pages.indices) {
-            Log.w(TAG, "页码超出范围: $pageIndex, 总页数: ${pages.size}")
+            Log.w(TAG, "[getPageContent] 页码超出范围: pageIndex=$pageIndex, 总页数: ${pages.size}")
             return ""
         }
         
         val entireText = this.entireText
         if (entireText == null) {
-            Log.e(TAG, "全文内容未加载")
+            Log.e(TAG, "[getPageContent] 全文内容未加载")
             return ""
         }
         
         val page = pages[pageIndex]
         if(page.content?.isNotEmpty() == true) {
-            Log.d(TAG, "使用页码 $pageIndex 的内容: ${page.content.take(50)} ...")
+            Log.d(TAG, "[getPageContent] 使用页码 $pageIndex 的缓存内容: ${page.content.take(30)} ...")
             return page.content
         } else {
             try {
@@ -472,12 +520,12 @@ class TxtViewModel(
                     page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
 
                 val content = entireText.substring(safeStartPos, safeEndPos)
-                Log.d(TAG, "获取页码 $pageIndex 的内容: ${content.take(50)} ...")
+                Log.d(TAG, "[getPageContent] 从全文截取页码 $pageIndex 的内容: startPos=$safeStartPos, endPos=$safeEndPos, length=${content.length}")
                 return content
             } catch (e: Exception) {
                 Log.e(
                     TAG,
-                    "截取页面内容失败: pageIndex=$pageIndex, startPos=${page.startPos}, endPos=${page.endPos}",
+                    "[getPageContent] 截取页面内容失败: pageIndex=$pageIndex, startPos=${page.startPos}, endPos=${page.endPos}",
                     e
                 )
                 return ""
@@ -505,10 +553,11 @@ class TxtViewModel(
             if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos).toFloat() else 0f
             //if (pages.isNotEmpty()) pageIndex.toFloat() / pages.size else 0f
         val charOffset = pages.getOrNull(pageIndex)?.startPos ?: 0
-        Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
+        Log.d(TAG, "[updateTxtProgress] 保存进度: pageIndex=$pageIndex, progress=$progress, charOffset=$charOffset")
         
         // ✅ 获取当前状态，如果不存在则创建新状态
         val currentState = readingState.value
+        Log.d(TAG, "[updateTxtProgress] 当前 readingState: $currentState")
         
         val newState = currentState?.let {
             // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段
@@ -519,6 +568,7 @@ class TxtViewModel(
             )
         } ?: run {
             // 如果没有当前状态，创建新状态（默认 isSwipeLayout = true）
+            Log.d(TAG, "[updateTxtProgress] 没有当前状态，创建新状态")
             ReadingState.Txt(
                 uri = uri,
                 charOffset = charOffset,
@@ -528,6 +578,7 @@ class TxtViewModel(
             )
         }
         
+        Log.d(TAG, "[updateTxtProgress] 保存新状态: $newState")
         saveProgress(newState)
     }
 
@@ -538,11 +589,11 @@ class TxtViewModel(
     fun goToPage(pageIndex: Int) {
         val pages = getCurrentPages()
         if (pageIndex in pages.indices) {
-            Log.d(TAG, "跳转到页码: $pageIndex")
+            Log.d(TAG, "[goToPage] 跳转到页码: $pageIndex, 总页数: ${pages.size}")
             _currentPage.value = pageIndex
             _onGoToPageListener?.invoke(pageIndex)
         } else {
-            Log.w(TAG, "页码超出范围: $pageIndex, 总页数: ${pages.size}")
+            Log.w(TAG, "[goToPage] 页码超出范围: pageIndex=$pageIndex, 总页数: ${pages.size}")
         }
     }
 

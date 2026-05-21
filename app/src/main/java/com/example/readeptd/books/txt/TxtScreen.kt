@@ -87,10 +87,13 @@ fun TxtScreen(
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
 ) {
+    Log.d("TxtScreen", "[TxtScreen] 组件创建, fileInfo=${fileInfo.fileName}")
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    Log.d("TxtScreen", "[TxtScreen] uiState=$uiState")
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
+        Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
     }
 
@@ -156,30 +159,35 @@ private fun ReadyState(
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel
 ) {
+    Log.d("TxtScreen", "[ReadyState] 组件创建")
     var lastClickTime by remember { mutableStateOf(0L) }
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val isSwipeLayout = readingState?.isSwipeLayout ?: true
+    Log.d("TxtScreen", "[ReadyState] readingState=$readingState, isSwipeLayout=$isSwipeLayout")
     // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
     val topPaddingDp = if (isSwipeLayout) 16 else 0
     val bottomPaddingDp = if (isSwipeLayout) 16 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
+    Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
 
     // 监听屏幕旋转
     LaunchedEffect(configuration.orientation) {
-        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
+        Log.d("TxtScreen", "[LaunchedEffect] 屏幕方向变化: ${configuration.orientation}")
         viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
     }
 
     // 监听分页模式切换
     LaunchedEffect(isSwipeLayout) {
-        Log.d("TxtScreen", "切换分页模式: $isSwipeLayout")
+        Log.d("TxtScreen", "[LaunchedEffect] 切换分页模式: $isSwipeLayout")
         if (isSwipeLayout) {
+            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLayoutSize 模式")
             viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
         } else {
+            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByCharsCount 模式")
             viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
         }
     }
@@ -201,9 +209,11 @@ private fun ReadyState(
 
     // ✅ 监听防抖后的尺寸变化事件
     LaunchedEffect(Unit) {
+        Log.d("TxtScreen", "[LaunchedEffect] 开始监听 sizeChangeFlow")
         sizeChangeFlow
             .debounce(500) // 500ms 防抖，等待布局稳定
             .collect { event ->
+                Log.d("TxtScreen", "[LaunchedEffect] 收到防抖后的尺寸变化事件: size=${event.size.width}x${event.size.height}")
                 viewModel.onEvent(event)
             }
     }
@@ -212,7 +222,9 @@ private fun ReadyState(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { size ->
+                Log.d("TxtScreen", "[onSizeChanged] 视图尺寸变化: ${size.width}x${size.height}")
                 scope.launch {
+                    Log.d("TxtScreen", "[onSizeChanged] 发射 OnViewMetricsChanged 事件")
                     sizeChangeFlow.emit(
                         TxtEvent.OnViewMetricsChanged(
                             size = size,
@@ -222,6 +234,7 @@ private fun ReadyState(
                             bottomPaddingDp = bottomPaddingDp
                         )
                     )
+                    Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
                 }
             }
             .pointerInput(Unit) {
@@ -242,9 +255,12 @@ private fun ReadyState(
                 }
             }
     ) {
+        Log.d("TxtScreen", "[ReadyState] 渲染分支: isPagesReady=$isPagesReady")
         if (!isPagesReady) {
+            Log.d("TxtScreen", "[ReadyState] 显示 PagingState（正在分页）")
             PagingState()
         } else {
+            Log.d("TxtScreen", "[ReadyState] 显示 ReaderContent（阅读内容）")
             ReaderContent(
                 fileInfo = fileInfo,
                 isSwipeLayout = isSwipeLayout,
@@ -406,10 +422,16 @@ private fun UpdateProgressText(
     viewModel: TxtViewModel
 ) {
     LaunchedEffect(currentPage, isSwipeLayout) {
+        Log.d("TxtScreen", "[UpdateProgressText] 更新进度文本: currentPage=$currentPage, isSwipeLayout=$isSwipeLayout")
         if (isSwipeLayout) {
-            contentViewModel.updateProgressText("${currentPage + 1}/${viewModel.getPagesCount()}")
+            val progressText = "${currentPage + 1}/${viewModel.getPagesCount()}"
+            Log.d("TxtScreen", "[UpdateProgressText] 滑动模式进度: $progressText")
+            contentViewModel.updateProgressText(progressText)
         } else {
-            contentViewModel.updateProgressText("${(viewModel.getProgress() * 100).roundToInt()}%")
+            val progressPercent = (viewModel.getProgress() * 100).roundToInt()
+            val progressText = "${progressPercent}%"
+            Log.d("TxtScreen", "[UpdateProgressText] 滚动模式进度: $progressText")
+            contentViewModel.updateProgressText(progressText)
         }
     }
 }
@@ -425,15 +447,20 @@ private fun SetupTtsCallbacks(
     scope: CoroutineScope
 ) {
     DisposableEffect(Unit) {
+        Log.d("TxtScreen", "[SetupTtsCallbacks] 设置 TTS 回调")
         ttsModel.setOnRequestSpeechStartListener {
-            Log.d("TxtScreen", "开始朗读")
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 开始朗读, currentPage=$currentPage")
             val text = viewModel.getPageContent(currentPage)
             if (text.isNotBlank()) {
+                Log.d("TxtScreen", "[SetupTtsCallbacks] 朗读文本长度: ${text.length}")
                 ttsModel.speak(text, "txt_${currentPage}")
+            } else {
+                Log.w("TxtScreen", "[SetupTtsCallbacks] 页面内容为空，无法朗读")
             }
         }
         
         ttsModel.setOnSpeechDoneListener { utteranceId ->
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 朗读完成: utteranceId=$utteranceId")
             val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
             val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
                 currentPage
@@ -442,20 +469,28 @@ private fun SetupTtsCallbacks(
             }
             
             val totalPages = viewModel.getPagesCount()
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 目标页码: $targetPage, 总页数: $totalPages")
             if (targetPage in 0 until totalPages) {
                 scope.launch {
                     if (targetPage != currentPage) {
+                        Log.d("TxtScreen", "[SetupTtsCallbacks] 翻页: $currentPage -> $targetPage")
                         viewModel.goToPage(targetPage)
                     }
                     val text = viewModel.getPageContent(targetPage)
                     if (text.isNotBlank()) {
+                        Log.d("TxtScreen", "[SetupTtsCallbacks] 继续朗读下一页, 文本长度: ${text.length}")
                         ttsModel.speak(text, "txt_$targetPage")
+                    } else {
+                        Log.w("TxtScreen", "[SetupTtsCallbacks] 下一页内容为空")
                     }
                 }
+            } else {
+                Log.d("TxtScreen", "[SetupTtsCallbacks] 已到达最后一页")
             }
         }
 
         onDispose {
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 清除 TTS 回调")
             ttsModel.clearCallbacks()
         }
     }
