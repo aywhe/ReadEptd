@@ -68,6 +68,9 @@ class TxtViewModel(
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
 
+    // ✅ 防抖相关：用于 debounceTriggerRePagination
+    private var debouncedRePaginationJob: Job? = null
+
     // ✅ 当前页码（不再依赖 _pages）
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
@@ -185,7 +188,21 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        triggerRePagination()
+        debounceTriggerRePagination()
+    }
+
+    /**
+     * 触发重新分页（防抖）
+     */
+    private fun debounceTriggerRePagination(){
+        // 取消之前的防抖任务
+        debouncedRePaginationJob?.cancel()
+        
+        // 启动新的防抖任务，300ms 后执行
+        debouncedRePaginationJob = viewModelScope.launch {
+            delay(500)
+            triggerRePagination()
+        }
     }
 
     /**
@@ -729,6 +746,10 @@ class TxtViewModel(
         super.onCleared()
         currentPageJob?.cancel()
         currentPageJob = null
+        
+        // ✅ 清理防抖任务
+        debouncedRePaginationJob?.cancel()
+        debouncedRePaginationJob = null
         
         // ✅ 清理缓存
         entireText = null
