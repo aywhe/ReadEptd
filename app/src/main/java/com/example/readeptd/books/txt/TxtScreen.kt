@@ -313,7 +313,6 @@ private fun ReaderContent(
         
         // ✅ 设置 TTS 回调
         SetupTtsCallbacks(
-            currentPage = currentPage,
             viewModel = viewModel,
             ttsModel = ttsModel,
             scope = scope
@@ -417,11 +416,11 @@ private fun UpdateProgressText(
  */
 @Composable
 private fun SetupTtsCallbacks(
-    currentPage: Int,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
     scope: CoroutineScope
 ) {
+    val currentPage by viewModel.currentPage.collectAsState()
     DisposableEffect(Unit) {
         Log.d("TxtScreen", "[SetupTtsCallbacks] 设置 TTS 回调")
         ttsModel.setOnRequestSpeechStartListener {
