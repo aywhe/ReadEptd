@@ -589,7 +589,6 @@ class TxtViewModel(
         val pages = getCurrentPages()
         if (pageIndex in pages.indices) {
             Log.d(TAG, "[goToPage] 跳转到页码: $pageIndex, 总页数: ${pages.size}")
-            _currentPage.value = pageIndex
             _onGoToPageListener?.invoke(pageIndex)
         } else {
             Log.w(TAG, "[goToPage] 页码超出范围: pageIndex=$pageIndex, 总页数: ${pages.size}")
