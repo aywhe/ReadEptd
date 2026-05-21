@@ -199,33 +199,13 @@ private fun ReadyState(
         bottom = bottomPaddingDp.dp
     )
     
-    // ✅ 创建防抖的 SharedFlow，用于减少 onSizeChanged 调用频率
-    val sizeChangeFlow = remember {
-        MutableSharedFlow<TxtEvent.OnViewMetricsChanged>(
-            replay = 0,
-            extraBufferCapacity = 1
-        )
-    }
-
-    // ✅ 监听防抖后的尺寸变化事件
-    LaunchedEffect(Unit) {
-        Log.d("TxtScreen", "[LaunchedEffect] 开始监听 sizeChangeFlow")
-        sizeChangeFlow
-            .debounce(500) // 500ms 防抖，等待布局稳定
-            .collect { event ->
-                Log.d("TxtScreen", "[LaunchedEffect] 收到防抖后的尺寸变化事件: size=${event.size.width}x${event.size.height}")
-                viewModel.onEvent(event)
-            }
-    }
-    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { size ->
                 Log.d("TxtScreen", "[onSizeChanged] 视图尺寸变化: ${size.width}x${size.height}")
                 scope.launch {
-                    Log.d("TxtScreen", "[onSizeChanged] 发射 OnViewMetricsChanged 事件")
-                    sizeChangeFlow.emit(
+                    viewModel.onEvent(
                         TxtEvent.OnViewMetricsChanged(
                             size = size,
                             leftPaddingDp = leftPaddingDp,
