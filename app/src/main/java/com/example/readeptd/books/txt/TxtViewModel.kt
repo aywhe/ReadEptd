@@ -98,7 +98,7 @@ class TxtViewModel(
         _SplitPagesMode = mode
         
         // ✅ 切换模式后触发重新分页
-        if (allowRePagination && viewSize.width > 0 && viewSize.height > 0) {
+        if (allowRePagination) {
             viewModelScope.launch {
                 rebuildPagesIfNeeded()
             }
@@ -109,6 +109,7 @@ class TxtViewModel(
      * ✅ 获取当前分页列表
      */
     private fun getCurrentPages(): List<TextChunk> {
+        //Log.d(TAG, "currentKey: $currentKey")
         return currentKey?.let { pagesCache[it] } ?: emptyList()
     }
     
@@ -305,18 +306,6 @@ class TxtViewModel(
         rePaginationDebounceJob = viewModelScope.launch {
             // 外部做防抖
             //delay(300)
-            
-            // 再次检查参数是否真的变化了（防止在延迟期间又发生了变化）
-            val finalCharsParams = calculatePageCharsParams()
-            val finalKey = buildLayoutSizeKey(finalCharsParams.avgCharsPerLine, finalCharsParams.maxLinesPerPage)
-            
-            if (pagesCache.containsKey(finalKey)) {
-                Log.d(TAG, "延迟后分页结果已缓存，key=$finalKey，直接使用")
-                currentKey = finalKey
-                _isPagesReady.value = true
-                restorePageFromProgress()
-                return@launch
-            }
             
             Log.d(TAG, "视图已稳定，开始重新分页")
             
@@ -534,17 +523,23 @@ class TxtViewModel(
      * 根据字符偏移量查找对应的页码
      */
     fun findPageByCharOffset(charOffset: Long): Int {
+        Log.d(TAG, "findPageByCharOffset: charOffset=$charOffset")
         val pages = getCurrentPages()
-        if (pages.isEmpty()) return 0
+        Log.d(TAG, "findPageByCharOffset: PageCount ${pages.size}")
+        if (pages.isEmpty()) {
+            return 0
+        }
 
         // 二分查找或直接遍历
         for ((index, page) in pages.withIndex()) {
             // 检查字符偏移量是否在当前页面范围内
             if (charOffset >= page.startPos && charOffset < page.endPos) {
+                Log.d(TAG, "找到页码: $index")
                 return index
             }
         }
 
+        Log.d(TAG, "findPageByCharOffset: 未找到页码")
         // 如果没找到，返回最后一页或第一页
         return if (charOffset >= pages.last().endPos) {
             pages.size - 1

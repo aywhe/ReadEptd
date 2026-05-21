@@ -123,7 +123,7 @@ class ContentViewModel(
      * @param progressText 进度文本
      */
     fun updateProgressText(progressText: String) {
-        Log.d("ContentViewModel", "更新进度信息: $progressText")
+        Log.d("ContentViewModel", "显示进度信息: $progressText")
         _progressText.value = progressText
     }
 

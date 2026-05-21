@@ -137,6 +137,14 @@ fun TxtScreen(
             viewModel.setSplitPagesMode(mode)
         }
     }
+    LaunchedEffect(isSwipeLayout) {
+        Log.d("TxtScreen", "切换分页模式: $isSwipeLayout")
+        if (isSwipeLayout) {
+            viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
+        } else {
+            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
+        }
+    }
     Column(
         modifier = modifier.fillMaxSize()
     ) {
@@ -210,6 +218,7 @@ fun TxtScreen(
                     } else {
                         // 分页成功
                         val currentPage by viewModel.currentPage.collectAsState()
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -294,7 +303,7 @@ fun TxtScreen(
                                 contentViewModel = contentViewModel,
                                 viewModel = viewModel
                             ){ page ->
-                                Log.d("TxtScreen", "当前页: $page")
+                                Log.d("TxtScreen", "触发页面: $page")
                                 // 注意：TextChunk保留不同TextChunk之间的换行信息，但是显示的时候，每个页面独立，不需要拼接，所以删除末尾的换行信息
                                 val pageContent = viewModel.getPageContent(page).trimEnd()
                                 val pageAnnotatedContent =
@@ -345,8 +354,8 @@ fun TxtScreen(
                                     isSwipeLayout = isSwipeLayout,
                                     onSwipeLayoutChange = { newValue ->
                                         // ✅ 直接从 readingState 创建新状态并保存
-                                        viewModel.readingState.value?.let { currentState ->
-                                            val newState = currentState.copy(isSwipeLayout = newValue)
+                                        readingState.let { currentState ->
+                                            val newState = currentState!!.copy(isSwipeLayout = newValue)
                                             viewModel.saveProgress(newState)
                                         }
                                     },
@@ -536,7 +545,23 @@ fun TxtScrollLayout(
             }
         }
     }
+    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
+    // ✅ 分页完成后，滚动到目标页并使其居中
+    LaunchedEffect(isPagesReady) {
+        if (isPagesReady && totalPages > 0) {
+            val targetPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+            val safePage = targetPage.coerceIn(0, totalPages - 1)
 
+            // ✅ 使用 animateScrollToItem 并指定偏移量，使目标页居中
+            val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+            val itemHeight = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: viewportHeight
+            val scrollOffset = (viewportHeight - itemHeight) / 2
+            scope.launch {
+                Log.d("TxtScrollLayout", "分页完成，滚动到页码 $safePage 并居中")
+                lazyListState.scrollToItem(safePage, scrollOffset)
+            }
+        }
+    }
     // 使用 snapshotFlow 监听滚动位置变化
     LaunchedEffect(lazyListState) {
         snapshotFlow { 
