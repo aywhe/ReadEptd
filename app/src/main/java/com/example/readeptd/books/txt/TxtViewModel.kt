@@ -51,9 +51,9 @@ class TxtViewModel(
 
     // ✅ 全文内容缓存（只加载一次）
     private var entireText: String? = null
-    
+
     // ✅ 分页结果缓存：key -> List<TextChunk>
-    // key 格式："ByLayoutSize:{avgCharsPerLine}:{maxLinesPerPage}" 或 "ByCharsCount:{minChunkSize}"
+    // key 格式："layout:{avgCharsPerLine}:{maxLinesPerPage}" 或 "chars:{minChunkSize}"
     private val pagesCache = mutableMapOf<String, List<TextChunk>>()
     
     // ✅ 当前使用的分页 key
@@ -67,10 +67,6 @@ class TxtViewModel(
 
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
-    private var jobSetAllowRePagination: Job? = null
-    
-    // 用于防抖的 Job，避免频繁重新分页
-    private var rePaginationDebounceJob: Job? = null
 
     // ✅ 当前页码（不再依赖 _pages）
     private val _currentPage = MutableStateFlow(0)
@@ -114,17 +110,18 @@ class TxtViewModel(
     }
     
     /**
-     * ✅ 构建 ByLayoutSize 模式的 key
+     * ✅ 构建分页缓存 key
      */
-    private fun buildLayoutSizeKey(avgCharsPerLine: Int, maxLinesPerPage: Int): String {
-        return "ByLayoutSize:${avgCharsPerLine}:${maxLinesPerPage}"
-    }
-    
-    /**
-     * ✅ 构建 ByCharsCount 模式的 key
-     */
-    private fun buildCharsCountKey(minChunkSize: Int): String {
-        return "ByCharsCount:${minChunkSize}"
+    private fun buildCacheKey(): String {
+        return when (_SplitPagesMode) {
+            SplitPagesMode.ByLayoutSize -> {
+                val charsParams = calculatePageCharsParams()
+                "layout:${charsParams.avgCharsPerLine}:${charsParams.maxLinesPerPage}"
+            }
+            SplitPagesMode.ByCharsCount -> {
+                "chars:$charCountThreshold"
+            }
+        }
     }
     /**
      * 处理 UI 事件
@@ -181,13 +178,7 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        if (allowRePagination) {
-            viewModelScope.launch {
-                rebuildPagesIfNeeded()
-            }
-        } else {
-            Log.d(TAG, "跳过重新分页")
-        }
+        triggerRePagination()
     }
 
     /**
@@ -214,14 +205,7 @@ class TxtViewModel(
 
         Log.d(TAG, "字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
-
-        if (allowRePagination) {
-            viewModelScope.launch {
-                rebuildPagesIfNeeded()
-            }
-        } else {
-            Log.d(TAG, "跳过重新分页")
-        }
+        triggerRePagination()
     }
 
     /**
@@ -232,13 +216,20 @@ class TxtViewModel(
 
         Log.d(TAG, "行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
+        triggerRePagination()
+    }
 
-        if (allowRePagination) {
-            viewModelScope.launch {
-                rebuildPagesIfNeeded()
-            }
-        } else {
+    /**
+     * ✅ 触发重新分页（统一入口）
+     */
+    private fun triggerRePagination() {
+        if (!allowRePagination) {
             Log.d(TAG, "跳过重新分页")
+            return
+        }
+
+        viewModelScope.launch {
+            rebuildPagesIfNeeded()
         }
     }
 
@@ -278,21 +269,14 @@ class TxtViewModel(
             return
         }
 
-        // ✅ 根据当前分页模式构建正确的 key
-        val newKey = when (_SplitPagesMode) {
-            SplitPagesMode.ByLayoutSize -> {
-                val charsParams = calculatePageCharsParams()
-                buildLayoutSizeKey(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage)
-            }
-            SplitPagesMode.ByCharsCount -> {
-                buildCharsCountKey(charCountThreshold)
-            }
-        }
+        // ✅ 构建新的缓存 key
+        val newKey = buildCacheKey()
+        
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
             Log.d(TAG, "分页结果已缓存，key=$newKey，直接使用")
             _isPagesReady.value = true
-            if(currentKey != newKey) {
+            if (currentKey != newKey) {
                 currentKey = newKey
                 restorePageFromProgress()
             }
@@ -300,52 +284,28 @@ class TxtViewModel(
         }
 
         Log.d(TAG, "分页参数变化，准备重新分页: key=$newKey")
-
-        // 取消之前的防抖任务
-        rePaginationDebounceJob?.cancel()
-
-        // 启动新的防抖任务，延迟 300ms 执行，等待视图稳定
-        rePaginationDebounceJob = viewModelScope.launch {
-            // 外部做防抖
-            //delay(300)
-            
-            Log.d(TAG, "视图已稳定，开始重新分页")
-            
-            // 取消之前正在执行的分页任务
-            currentPageJob?.cancel()
-            
-            // 启动新的分页任务
-            currentPageJob = launch {
-                buildPages()
-            }
+        
+        // 取消之前正在执行的分页任务
+        currentPageJob?.cancel()
+        
+        // 启动新的分页任务
+        currentPageJob = viewModelScope.launch {
+            buildPages()
         }
     }
 
     /**
-     * 构建分页（保证串行执行，避免并发问题）
+     * ✅ 统一的分页构建方法
      */
     private suspend fun buildPages() {
-        when (_SplitPagesMode) {
-            SplitPagesMode.ByLayoutSize -> {
-                Log.d(TAG, "使用布局尺寸分页")
-                buildPagesByLayoutSize()
-            }
-            SplitPagesMode.ByCharsCount -> {
-                Log.d(TAG, "使用字符数分页")
-                buildPagesByCharsCount()
-            }
-        }
-    }
-    private suspend fun buildPagesByCharsCount() {
-        // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
-            val key = buildCharsCountKey(charCountThreshold)
+            val key = buildCacheKey()
             
-            // ✅ 如果缓存中已有，直接使用
+            // ✅ 双重检查：如果缓存中已有，直接使用
             if (pagesCache.containsKey(key)) {
-                Log.d(TAG, "ByCharsCount 分页结果已缓存，key=$key")
+                Log.d(TAG, "分页结果已缓存，key=$key")
                 _isPagesReady.value = true
-                if(currentKey != key) {
+                if (currentKey != key) {
                     currentKey = key
                     restorePageFromProgress()
                 }
@@ -368,95 +328,26 @@ class TxtViewModel(
                 
                 val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
                 
-                // 使用临时可变列表
+                // ✅ 根据分页模式创建 TextSplitter
                 val tempPages = mutableListOf<TextChunk>()
-
-                val splitter = TextSplitter(
-                    minChunkSize = charCountThreshold
-                ) { chunk ->
-                    tempPages.add(chunk)
-                }
-
-                // ✅ 直接处理全文（无需再次读取文件）
-                splitter.processFullText(fullText)
-
-                // 处理剩余内容
-                splitter.flushRemaining()
-
-                // ✅ 存入缓存
-                pagesCache[key] = tempPages.toList()
-                currentKey = key
-
-                // 标记分页完成
-                _isPagesReady.value = true
-
-                Log.d(TAG, "分页完成，共 ${getCurrentPages().size} 页")
-
-                // 根据保存的阅读进度恢复页码
-                restorePageFromProgress()
-
-            } catch (e: Exception) {
-                Log.e(TAG, "分页失败", e)
-            }
-        }
-    }
-    private suspend fun buildPagesByLayoutSize() {
-
-        if (viewSize.width <= 0 || viewSize.height <= 0) {
-            Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
-            return
-        }
-
-        // 使用 Mutex 保证同一时间只有一个分页任务在执行
-        pagesMutex.withLock {
-            // 重置分页状态
-            _isPagesReady.value = false
-            // 从 UI 状态中获取临时文件路径
-            val currentState = uiState.value
-            if (currentState !is BookUiState.Ready) {
-                Log.d(TAG, "文件未准备好，当前状态: $currentState")
-                return
-            }
-
-            try {
-                val charsParams = this.calculatePageCharsParams()
-                val key = buildLayoutSizeKey(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage)
-                
-                // ✅ 如果缓存中已有，直接使用
-                if (pagesCache.containsKey(key)) {
-                    Log.d(TAG, "ByLayoutSize 分页结果已缓存，key=$key")
-                    _isPagesReady.value = true
-                    if(currentKey != key) {
-                        currentKey = key
-                        restorePageFromProgress()
+                val splitter = when (_SplitPagesMode) {
+                    SplitPagesMode.ByLayoutSize -> {
+                        val charsParams = calculatePageCharsParams()
+                        Log.d(TAG, "使用布局尺寸分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符")
+                        TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage) { chunk ->
+                            tempPages.add(chunk)
+                        }
                     }
-                    return@withLock
-                }
-
-                Log.d(
-                    TAG,
-                    "开始分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符"
-                )
-
-                // ✅ 确保全文内容已加载
-                ensureEntireTextLoaded(currentState.tempFilePath.toUri())
-                
-                val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
-                
-                // 使用临时可变列表
-                val tempPages = mutableListOf<TextChunk>()
-
-                val splitter = TextSplitter(
-                    charsParams.avgCharsPerLine,
-                    charsParams.maxLinesPerPage
-                ) { chunk ->
-                    tempPages.add(chunk)
+                    SplitPagesMode.ByCharsCount -> {
+                        Log.d(TAG, "使用字符数分页: minChunkSize=$charCountThreshold")
+                        TextSplitter(minChunkSize = charCountThreshold) { chunk ->
+                            tempPages.add(chunk)
+                        }
+                    }
                 }
 
                 // ✅ 直接处理全文（无需再次读取文件）
                 splitter.processFullText(fullText)
-
-                // 处理剩余内容
                 splitter.flushRemaining()
 
                 // ✅ 存入缓存
@@ -465,7 +356,6 @@ class TxtViewModel(
 
                 // 标记分页完成
                 _isPagesReady.value = true
-
                 Log.d(TAG, "分页完成，共 ${getCurrentPages().size} 页")
 
                 // 根据保存的阅读进度恢复页码
@@ -786,8 +676,6 @@ class TxtViewModel(
      */
     override fun onCleared() {
         super.onCleared()
-        jobSetAllowRePagination?.cancel()
-        jobSetAllowRePagination = null
         currentPageJob?.cancel()
         currentPageJob = null
         
