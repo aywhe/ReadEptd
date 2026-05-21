@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -89,32 +88,10 @@ fun TxtScreen(
     viewModel: TxtViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
-    val configuration = LocalConfiguration.current
-    val scope = rememberCoroutineScope()
-    
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isSwipeLayout = readingState?.isSwipeLayout ?: true
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
-    }
-    
-    // 监听屏幕旋转
-    LaunchedEffect(configuration.orientation) {
-        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
-        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
-    }
-    
-    // 监听分页模式切换
-    LaunchedEffect(isSwipeLayout) {
-        Log.d("TxtScreen", "切换分页模式: $isSwipeLayout")
-        if (isSwipeLayout) {
-            viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
-        } else {
-            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
-        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -122,13 +99,9 @@ fun TxtScreen(
             is BookUiState.Loading -> LoadingState()
             is BookUiState.Ready -> ReadyState(
                 fileInfo = fileInfo,
-                isPagesReady = isPagesReady,
-                isSwipeLayout = isSwipeLayout,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel,
-                ttsModel = ttsModel,
-                readingState = readingState,
-                scope = scope
+                ttsModel = ttsModel
             )
             is BookUiState.Error -> ErrorState(state.message)
         }
@@ -179,27 +152,37 @@ private fun ErrorState(message: String) {
 @Composable
 private fun ReadyState(
     fileInfo: FileInfo,
-    isPagesReady: Boolean,
-    isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
-    ttsModel: TtsViewModel,
-    readingState: ReadingState.Txt?,
-    scope: CoroutineScope
+    ttsModel: TtsViewModel
 ) {
     var lastClickTime by remember { mutableStateOf(0L) }
-    
-    // ✅ 对话框状态管理 - 就近定义
-    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
-    var isShowSearchDialog by remember { mutableStateOf(false) }
-    
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isSwipeLayout = readingState?.isSwipeLayout ?: true
     // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
     val topPaddingDp = if (isSwipeLayout) 16 else 0
     val bottomPaddingDp = if (isSwipeLayout) 16 else 0
-    
+    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val scope = rememberCoroutineScope()
+
+    // 监听屏幕旋转
+    LaunchedEffect(configuration.orientation) {
+        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
+        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
+    }
+
+    // 监听分页模式切换
+    LaunchedEffect(isSwipeLayout) {
+        Log.d("TxtScreen", "切换分页模式: $isSwipeLayout")
+        if (isSwipeLayout) {
+            viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
+        } else {
+            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
+        }
+    }
     // ✅ 在这里计算 contentPadding
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
@@ -269,12 +252,6 @@ private fun ReadyState(
                 viewModel = viewModel,
                 ttsModel = ttsModel,
                 contentPadding = contentPadding,
-                isShowJumpToPageDialog = isShowJumpToPageDialog,
-                isShowLayoutSettingDialog = isShowLayoutSettingDialog,
-                isShowSearchDialog = isShowSearchDialog,
-                onJumpToPageDialogChange = { isShowJumpToPageDialog = it },
-                onLayoutSettingDialogChange = { isShowLayoutSettingDialog = it },
-                onSearchDialogChange = { isShowSearchDialog = it },
                 readingState = readingState,
                 scope = scope
             )
@@ -312,25 +289,24 @@ private fun ReaderContent(
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
     contentPadding: PaddingValues,
-    isShowJumpToPageDialog: Boolean,
-    isShowLayoutSettingDialog: Boolean,
-    isShowSearchDialog: Boolean,
-    onJumpToPageDialogChange: (Boolean) -> Unit,
-    onLayoutSettingDialogChange: (Boolean) -> Unit,
-    onSearchDialogChange: (Boolean) -> Unit,
     readingState: ReadingState.Txt?,
     scope: CoroutineScope
 ) {
     val currentPage by viewModel.currentPage.collectAsState()
     var currentKeyword by remember { mutableStateOf("") }
 
+    // ✅ 对话框状态管理 - 就近定义
+    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
+    var isShowSearchDialog by remember { mutableStateOf(false) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // ✅ 设置回调
         SetupCallbacks(
             contentViewModel = contentViewModel,
-            onJumpToPageDialogChange = onJumpToPageDialogChange,
-            onLayoutSettingDialogChange = onLayoutSettingDialogChange,
-            onSearchDialogChange = onSearchDialogChange
+            onClickProgressInfo = { isShowJumpToPageDialog = true },
+            onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
+            onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
         )
         
         // ✅ 更新进度文本
@@ -352,6 +328,7 @@ private fun ReaderContent(
         // ✅ 阅读内容 - 直接在这里处理，避免额外传递参数
         TxtLayoutWrapper(
             isSwipeLayout = isSwipeLayout,
+            readingState = readingState,
             viewModel = viewModel
         ) { page ->
             val pageContent = viewModel.getPageContent(page).trimEnd()
@@ -370,7 +347,7 @@ private fun ReaderContent(
             isSwipeLayout = isSwipeLayout,
             currentPage = currentPage,
             viewModel = viewModel,
-            onDismiss = { onJumpToPageDialogChange(false) },
+            onDismiss = { isShowJumpToPageDialog = false },
             scope = scope
         )
         
@@ -379,7 +356,7 @@ private fun ReaderContent(
             isSwipeLayout = isSwipeLayout,
             readingState = readingState,
             viewModel = viewModel,
-            onDismiss = { onLayoutSettingDialogChange(false) }
+            onDismiss = { isShowLayoutSettingDialog = false }
         )
         
         SearchPanel(
@@ -388,7 +365,7 @@ private fun ReaderContent(
             currentPage = currentPage,
             currentKeyword = currentKeyword,
             viewModel = viewModel,
-            onSearchDialogChange = onSearchDialogChange,
+            onVisibleChange = { isShowSearchDialog = it },
             onKeywordChange = { currentKeyword = it },
             scope = scope
         )
@@ -401,14 +378,14 @@ private fun ReaderContent(
 @Composable
 private fun SetupCallbacks(
     contentViewModel: ContentViewModel,
-    onJumpToPageDialogChange: (Boolean) -> Unit,
-    onLayoutSettingDialogChange: (Boolean) -> Unit,
-    onSearchDialogChange: (Boolean) -> Unit
+    onClickProgressInfo: (String) -> Unit,
+    onLongPressProgressInfo: (String) -> Unit,
+    onClickSearchButton: () -> Unit
 ) {
     DisposableEffect(Unit) {
-        contentViewModel.setOnClickProgressInfoCallback { onJumpToPageDialogChange(true) }
-        contentViewModel.setOnLongPressProgressInfoCallback { onLayoutSettingDialogChange(true) }
-        contentViewModel.setOnClickSearchButtonCallback { onSearchDialogChange(true) }
+        contentViewModel.setOnClickProgressInfoCallback { onClickProgressInfo(it) }
+        contentViewModel.setOnLongPressProgressInfoCallback { onLongPressProgressInfo(it) }
+        contentViewModel.setOnClickSearchButtonCallback { onClickSearchButton() }
 
         onDispose {
             contentViewModel.setOnClickProgressInfoCallback(null)
@@ -555,14 +532,14 @@ private fun SearchPanel(
     currentPage: Int,
     currentKeyword: String,
     viewModel: TxtViewModel,
-    onSearchDialogChange: (Boolean) -> Unit,
+    onVisibleChange: (Boolean) -> Unit,
     onKeywordChange: (String) -> Unit,
     scope: CoroutineScope
 ) {
     SlideInSearchPanel(
         visible = isShowSearchDialog,
-        onVisibleChange = onSearchDialogChange,
-        onClose = { onSearchDialogChange(false) },
+        onVisibleChange = { onVisibleChange(it) },
+        onClose = { onVisibleChange(false) },
         getCurrentPosition = { currentPage },
         onResultClick = {
             scope.launch {
@@ -585,7 +562,7 @@ private fun SearchPanel(
  * 
  * 使用 SelectionContainer 包裹以支持文本选择
  *
- * @param pageAnnotatedString 带样式的页面文本
+ * @param pageAnnotatedContent 带样式的页面文本
  * @param fontSize 字体大小（sp）
  * @param lineHeight 行高（sp）
  * @param contentPadding 内容边距
@@ -664,18 +641,21 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
 fun TxtLayoutWrapper(
     modifier: Modifier = Modifier,
     isSwipeLayout: Boolean,
+    readingState: ReadingState.Txt?,
     viewModel: TxtViewModel,
     pageContent: @Composable (Int) -> Unit
 ) {
         if (isSwipeLayout) {
             TxtSwipeLayout(
                 modifier = modifier,
+                readingState = readingState,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
         } else {
             TxtScrollLayout(
                 modifier = modifier,
+                readingState = readingState,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
@@ -685,10 +665,10 @@ fun TxtLayoutWrapper(
 @Composable
 fun TxtSwipeLayout(
     modifier: Modifier = Modifier,
+    readingState: ReadingState.Txt?,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ){
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
@@ -728,12 +708,12 @@ fun TxtSwipeLayout(
 @Composable
 fun TxtScrollLayout(
     modifier: Modifier = Modifier,
+    readingState: ReadingState.Txt?,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val totalPages = viewModel.getPagesCount()
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
