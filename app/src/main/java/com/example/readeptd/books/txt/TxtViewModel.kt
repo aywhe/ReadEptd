@@ -291,9 +291,11 @@ class TxtViewModel(
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
             Log.d(TAG, "分页结果已缓存，key=$newKey，直接使用")
-            currentKey = newKey
             _isPagesReady.value = true
-            restorePageFromProgress()
+            if(currentKey != newKey) {
+                currentKey = newKey
+                restorePageFromProgress()
+            }
             return
         }
 
@@ -342,9 +344,11 @@ class TxtViewModel(
             // ✅ 如果缓存中已有，直接使用
             if (pagesCache.containsKey(key)) {
                 Log.d(TAG, "ByCharsCount 分页结果已缓存，key=$key")
-                currentKey = key
                 _isPagesReady.value = true
-                restorePageFromProgress()
+                if(currentKey != key) {
+                    currentKey = key
+                    restorePageFromProgress()
+                }
                 return@withLock
             }
             
@@ -397,21 +401,21 @@ class TxtViewModel(
         }
     }
     private suspend fun buildPagesByLayoutSize() {
-        // 重置分页状态
-        _isPagesReady.value = false
+
+        if (viewSize.width <= 0 || viewSize.height <= 0) {
+            Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
+            return
+        }
 
         // 使用 Mutex 保证同一时间只有一个分页任务在执行
         pagesMutex.withLock {
-            if (viewSize.width <= 0 || viewSize.height <= 0) {
-                Log.d(TAG, "分页条件不满足: viewSize=$viewSize")
-                return@withLock
-            }
-
+            // 重置分页状态
+            _isPagesReady.value = false
             // 从 UI 状态中获取临时文件路径
             val currentState = uiState.value
             if (currentState !is BookUiState.Ready) {
                 Log.d(TAG, "文件未准备好，当前状态: $currentState")
-                return@withLock
+                return
             }
 
             try {
@@ -421,9 +425,11 @@ class TxtViewModel(
                 // ✅ 如果缓存中已有，直接使用
                 if (pagesCache.containsKey(key)) {
                     Log.d(TAG, "ByLayoutSize 分页结果已缓存，key=$key")
-                    currentKey = key
                     _isPagesReady.value = true
-                    restorePageFromProgress()
+                    if(currentKey != key) {
+                        currentKey = key
+                        restorePageFromProgress()
+                    }
                     return@withLock
                 }
 
@@ -502,6 +508,7 @@ class TxtViewModel(
 
         Log.d(TAG, "字符偏移量对应的页码: $targetPageIndex")
         _currentPage.value = targetPageIndex
+        goToPage(targetPageIndex)
     }
 
     fun getProgress(): Float{
@@ -516,16 +523,14 @@ class TxtViewModel(
     fun findPageByProgress(progress: Float): Int {
         val pages = getCurrentPages()
         if (pages.isEmpty()) return 0
-        val charOffset = (progress * pages.last().endPos).toLong()
+        val charOffset = (progress.toDouble() * pages.last().endPos).toLong()
         return findPageByCharOffset(charOffset)
     }
     /**
      * 根据字符偏移量查找对应的页码
      */
     fun findPageByCharOffset(charOffset: Long): Int {
-        Log.d(TAG, "findPageByCharOffset: charOffset=$charOffset")
         val pages = getCurrentPages()
-        Log.d(TAG, "findPageByCharOffset: PageCount ${pages.size}")
         if (pages.isEmpty()) {
             return 0
         }
@@ -534,7 +539,7 @@ class TxtViewModel(
         for ((index, page) in pages.withIndex()) {
             // 检查字符偏移量是否在当前页面范围内
             if (charOffset >= page.startPos && charOffset < page.endPos) {
-                Log.d(TAG, "找到页码: $index")
+                Log.d(TAG, "charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}")
                 return index
             }
         }
@@ -565,17 +570,28 @@ class TxtViewModel(
         }
         
         val page = pages[pageIndex]
-        try {
-            // ✅ 使用位置信息从全文中截取，确保不越界
-            val safeStartPos = page.startPos.toInt().coerceAtLeast(0).coerceAtMost(entireText.length)
-            val safeEndPos = page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
-            
-            val content = entireText.substring(safeStartPos, safeEndPos)
-            Log.d(TAG, "获取页码 $pageIndex 的内容: ${content.take(50)} ...")
-            return content
-        } catch (e: Exception) {
-            Log.e(TAG, "截取页面内容失败: pageIndex=$pageIndex, startPos=${page.startPos}, endPos=${page.endPos}", e)
-            return ""
+        if(page.content?.isNotEmpty() == true) {
+            Log.d(TAG, "使用页码 $pageIndex 的内容: ${page.content.take(50)} ...")
+            return page.content
+        } else {
+            try {
+                // ✅ 使用位置信息从全文中截取，确保不越界
+                val safeStartPos =
+                    page.startPos.toInt().coerceAtLeast(0).coerceAtMost(entireText.length)
+                val safeEndPos =
+                    page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
+
+                val content = entireText.substring(safeStartPos, safeEndPos)
+                Log.d(TAG, "获取页码 $pageIndex 的内容: ${content.take(50)} ...")
+                return content
+            } catch (e: Exception) {
+                Log.e(
+                    TAG,
+                    "截取页面内容失败: pageIndex=$pageIndex, startPos=${page.startPos}, endPos=${page.endPos}",
+                    e
+                )
+                return ""
+            }
         }
     }
 
@@ -596,7 +612,7 @@ class TxtViewModel(
     ) {
         val pages = getCurrentPages()
         val progress =
-            if (pages.isNotEmpty()) pages[pageIndex].startPos.toFloat() / pages.last().endPos else 0f
+            if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos).toFloat() else 0f
             //if (pages.isNotEmpty()) pageIndex.toFloat() / pages.size else 0f
         val charOffset = pages.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "保存进度: $progress, 保存字符偏移量: $charOffset")
@@ -632,8 +648,11 @@ class TxtViewModel(
     fun goToPage(pageIndex: Int) {
         val pages = getCurrentPages()
         if (pageIndex in pages.indices) {
+            Log.d(TAG, "跳转到页码: $pageIndex")
             _currentPage.value = pageIndex
             _onGoToPageListener?.invoke(pageIndex)
+        } else {
+            Log.w(TAG, "页码超出范围: $pageIndex, 总页数: ${pages.size}")
         }
     }
 
