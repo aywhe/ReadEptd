@@ -698,7 +698,7 @@ fun TxtSwipeLayout(
     }
 
     LaunchedEffect(pagerState.currentPage) {
-        Log.d("TxtSwipeLayout", "TxtSwipeLayout PageChanged: ${pagerState.currentPage}")
+        Log.d("TxtSwipeLayout", "[TxtSwipeLayout] PageChanged: ${pagerState.currentPage}")
         viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
     }
     HorizontalPager(
@@ -760,7 +760,7 @@ fun TxtScrollLayout(
         .filterNotNull()
         .distinctUntilChanged()
         .collect { centerIndex ->
-            Log.d("TxtScrollLayout", "TxtScrollLayout PageChanged: $centerIndex")
+            Log.d("TxtScrollLayout", "[TxtScrollLayout] PageChanged: $centerIndex")
             viewModel.onEvent(TxtEvent.OnPageChanged(centerIndex))
         }
     }

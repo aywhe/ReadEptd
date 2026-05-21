@@ -494,12 +494,12 @@ class TxtViewModel(
         for ((index, page) in pages.withIndex()) {
             // 检查字符偏移量是否在当前页面范围内
             if (charOffset >= page.startPos && charOffset < page.endPos) {
-                Log.d(TAG, "charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}")
+                Log.d(TAG, "[findPageByCharOffset]] charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}")
                 return index
             }
         }
 
-        Log.d(TAG, "findPageByCharOffset: 未找到页码")
+        Log.d(TAG, "[findPageByCharOffset] 未找到页码")
         // 如果没找到，返回最后一页或第一页
         return if (charOffset >= pages.last().endPos) {
             pages.size - 1
