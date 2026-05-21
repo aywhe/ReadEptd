@@ -63,6 +63,22 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+/**
+ * ✅ TXT 阅读器主屏幕
+ * 
+ * 负责显示 TXT 文件的阅读界面，支持：
+ * - 滑动/滚动两种阅读模式
+ * - 字体大小和行距调整
+ * - 全文搜索和高亮
+ * - TTS 语音朗读
+ * - 阅读进度保存和恢复
+ *
+ * @param fileInfo 文件信息
+ * @param contentViewModel 内容 ViewModel
+ * @param ttsModel TTS ViewModel
+ * @param modifier 修饰符
+ * @param viewModel TXT ViewModel
+ */
 @OptIn(FlowPreview::class)
 @Composable
 fun TxtScreen(
@@ -75,46 +91,10 @@ fun TxtScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    // ✅ 对话框状态管理
-    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
-    var isShowSearchDialog by remember { mutableStateOf(false) }
-    
-    val config by contentViewModel.configData.collectAsStateWithLifecycle()
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val isSwipeLayout = readingState?.isSwipeLayout ?: true
-
-    // 定义 padding（UI 层决定）
-    val leftPaddingDp = 16
-    val rightPaddingDp = 16
-    val topPaddingDp = if(isSwipeLayout) 16 else 0
-    val bottomPaddingDp = if(isSwipeLayout) 16 else 0
-    val contentPadding = PaddingValues(
-        start = leftPaddingDp.dp,
-        end = rightPaddingDp.dp,
-        top = topPaddingDp.dp,
-        bottom = bottomPaddingDp.dp
-    )
-
-    // ✅ 创建防抖的 SharedFlow，用于减少 onSizeChanged 调用频率
-    val sizeChangeFlow = remember {
-        MutableSharedFlow<TxtEvent.OnViewMetricsChanged>(
-            replay = 0,
-            extraBufferCapacity = 1
-        )
-    }
-
-    // ✅ 监听防抖后的尺寸变化事件
-    LaunchedEffect(Unit) {
-        sizeChangeFlow
-            .debounce(500) // 500ms 防抖，等待布局稳定
-            .collect { event ->
-                viewModel.onEvent(event)
-            }
-    }
 
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
@@ -141,23 +121,12 @@ fun TxtScreen(
         when (val state = uiState) {
             is BookUiState.Loading -> LoadingState()
             is BookUiState.Ready -> ReadyState(
+                fileInfo = fileInfo,
                 isPagesReady = isPagesReady,
                 isSwipeLayout = isSwipeLayout,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel,
-                contentPadding = contentPadding,
-                sizeChangeFlow = sizeChangeFlow,
-                leftPaddingDp = leftPaddingDp,
-                rightPaddingDp = rightPaddingDp,
-                topPaddingDp = topPaddingDp,
-                bottomPaddingDp = bottomPaddingDp,
-                isShowJumpToPageDialog = isShowJumpToPageDialog,
-                isShowLayoutSettingDialog = isShowLayoutSettingDialog,
-                isShowSearchDialog = isShowSearchDialog,
-                onJumpToPageDialogChange = { isShowJumpToPageDialog = it },
-                onLayoutSettingDialogChange = { isShowLayoutSettingDialog = it },
-                onSearchDialogChange = { isShowSearchDialog = it },
                 readingState = readingState,
                 scope = scope
             )
@@ -206,29 +175,55 @@ private fun ErrorState(message: String) {
 /**
  * ✅ 就绪状态组件（主要阅读界面）
  */
+@OptIn(FlowPreview::class)
 @Composable
 private fun ReadyState(
+    fileInfo: FileInfo,
     isPagesReady: Boolean,
     isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
-    contentPadding: PaddingValues,
-    sizeChangeFlow: MutableSharedFlow<TxtEvent.OnViewMetricsChanged>,
-    leftPaddingDp: Int,
-    rightPaddingDp: Int,
-    topPaddingDp: Int,
-    bottomPaddingDp: Int,
-    isShowJumpToPageDialog: Boolean,
-    isShowLayoutSettingDialog: Boolean,
-    isShowSearchDialog: Boolean,
-    onJumpToPageDialogChange: (Boolean) -> Unit,
-    onLayoutSettingDialogChange: (Boolean) -> Unit,
-    onSearchDialogChange: (Boolean) -> Unit,
     readingState: ReadingState.Txt?,
     scope: CoroutineScope
 ) {
     var lastClickTime by remember { mutableStateOf(0L) }
+    
+    // ✅ 对话框状态管理 - 就近定义
+    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
+    var isShowSearchDialog by remember { mutableStateOf(false) }
+    
+    // ✅ 在这里计算 padding，避免从上层传递
+    val leftPaddingDp = 16
+    val rightPaddingDp = 16
+    val topPaddingDp = if (isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if (isSwipeLayout) 16 else 0
+    
+    // ✅ 在这里计算 contentPadding
+    val contentPadding = PaddingValues(
+        start = leftPaddingDp.dp,
+        end = rightPaddingDp.dp,
+        top = topPaddingDp.dp,
+        bottom = bottomPaddingDp.dp
+    )
+    
+    // ✅ 创建防抖的 SharedFlow，用于减少 onSizeChanged 调用频率
+    val sizeChangeFlow = remember {
+        MutableSharedFlow<TxtEvent.OnViewMetricsChanged>(
+            replay = 0,
+            extraBufferCapacity = 1
+        )
+    }
+
+    // ✅ 监听防抖后的尺寸变化事件
+    LaunchedEffect(Unit) {
+        sizeChangeFlow
+            .debounce(500) // 500ms 防抖，等待布局稳定
+            .collect { event ->
+                viewModel.onEvent(event)
+            }
+    }
     
     Box(
         modifier = Modifier
@@ -268,6 +263,7 @@ private fun ReadyState(
             PagingState()
         } else {
             ReaderContent(
+                fileInfo = fileInfo,
                 isSwipeLayout = isSwipeLayout,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel,
@@ -276,9 +272,9 @@ private fun ReadyState(
                 isShowJumpToPageDialog = isShowJumpToPageDialog,
                 isShowLayoutSettingDialog = isShowLayoutSettingDialog,
                 isShowSearchDialog = isShowSearchDialog,
-                onJumpToPageDialogChange = onJumpToPageDialogChange,
-                onLayoutSettingDialogChange = onLayoutSettingDialogChange,
-                onSearchDialogChange = onSearchDialogChange,
+                onJumpToPageDialogChange = { isShowJumpToPageDialog = it },
+                onLayoutSettingDialogChange = { isShowLayoutSettingDialog = it },
+                onSearchDialogChange = { isShowSearchDialog = it },
                 readingState = readingState,
                 scope = scope
             )
@@ -310,6 +306,7 @@ private fun PagingState() {
  */
 @Composable
 private fun ReaderContent(
+    fileInfo: FileInfo,
     isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
@@ -352,13 +349,11 @@ private fun ReaderContent(
             scope = scope
         )
         
-        // ✅ 阅读内容
+        // ✅ 阅读内容 - 直接在这里处理，避免额外传递参数
         TxtLayoutWrapper(
             isSwipeLayout = isSwipeLayout,
-            contentViewModel = contentViewModel,
             viewModel = viewModel
         ) { page ->
-            Log.d("TxtScreen", "触发页面: $page")
             val pageContent = viewModel.getPageContent(page).trimEnd()
             val pageAnnotatedContent = highLightText(pageContent, currentKeyword)
             PageContent(
@@ -388,6 +383,7 @@ private fun ReaderContent(
         )
         
         SearchPanel(
+            fileInfo = fileInfo,
             isShowSearchDialog = isShowSearchDialog,
             currentPage = currentPage,
             currentKeyword = currentKeyword,
@@ -554,6 +550,7 @@ private fun LayoutSettingDialogs(
  */
 @Composable
 private fun SearchPanel(
+    fileInfo: FileInfo,
     isShowSearchDialog: Boolean,
     currentPage: Int,
     currentKeyword: String,
@@ -579,10 +576,20 @@ private fun SearchPanel(
         },
         onKeywordChange = onKeywordChange,
         searchExecutor = { keyword -> viewModel.search(keyword) },
-        fileUri = "" // TODO: 需要传递文件 URI
+        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
     )
 }
 
+/**
+ * ✅ 页面内容显示组件
+ * 
+ * 使用 SelectionContainer 包裹以支持文本选择
+ *
+ * @param pageAnnotatedString 带样式的页面文本
+ * @param fontSize 字体大小（sp）
+ * @param lineHeight 行高（sp）
+ * @param contentPadding 内容边距
+ */
 @Composable
 fun PageContent(
     pageAnnotatedContent: AnnotatedString,
@@ -602,6 +609,15 @@ fun PageContent(
     }
 }
 
+/**
+ * ✅ 文本高亮函数
+ * 
+ * 在文本中查找关键词并添加高亮样式
+ *
+ * @param content 原始文本
+ * @param keyword 要高亮的关键词
+ * @return 带高亮样式的 AnnotatedString
+ */
 @Composable
 fun highLightText(content: String, keyword: String): AnnotatedString {
     return if (keyword.isNotBlank()) {
@@ -634,14 +650,23 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
     }
 }
 
+/**
+ * ✅ TXT 布局包装器
+ * 
+ * 根据 isSwipeLayout 参数选择滑动或滚动布局
+ *
+ * @param modifier 修饰符
+ * @param isSwipeLayout 是否为滑动布局
+ * @param viewModel TXT ViewModel
+ * @param pageContent 页面内容 Composable
+ */
 @Composable
 fun TxtLayoutWrapper(
     modifier: Modifier = Modifier,
     isSwipeLayout: Boolean,
-    contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
     pageContent: @Composable (Int) -> Unit
-    ) {
+) {
         if (isSwipeLayout) {
             TxtSwipeLayout(
                 modifier = modifier,
