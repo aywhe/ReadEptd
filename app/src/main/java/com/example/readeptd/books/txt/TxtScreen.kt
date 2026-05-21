@@ -248,7 +248,6 @@ private fun ReadyState(
                 viewModel = viewModel,
                 ttsModel = ttsModel,
                 contentPadding = contentPadding,
-                readingState = readingState,
                 scope = scope
             )
         }
@@ -285,7 +284,6 @@ private fun ReaderContent(
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
     contentPadding: PaddingValues,
-    readingState: ReadingState.Txt?,
     scope: CoroutineScope
 ) {
     val currentPage by viewModel.currentPage.collectAsState()
@@ -324,7 +322,6 @@ private fun ReaderContent(
         // ✅ 阅读内容 - 直接在这里处理，避免额外传递参数
         TxtLayoutWrapper(
             isSwipeLayout = isSwipeLayout,
-            readingState = readingState,
             viewModel = viewModel
         ) { page ->
             val pageContent = viewModel.getPageContent(page).trimEnd()
@@ -350,7 +347,6 @@ private fun ReaderContent(
         LayoutSettingDialogs(
             isShowLayoutSettingDialog = isShowLayoutSettingDialog,
             isSwipeLayout = isSwipeLayout,
-            readingState = readingState,
             viewModel = viewModel,
             onDismiss = { isShowLayoutSettingDialog = false }
         )
@@ -519,12 +515,12 @@ private fun JumpDialogs(
 private fun LayoutSettingDialogs(
     isShowLayoutSettingDialog: Boolean,
     isSwipeLayout: Boolean,
-    readingState: ReadingState.Txt?,
     viewModel: TxtViewModel,
     onDismiss: () -> Unit
 ) {
     if (!isShowLayoutSettingDialog) return
-    
+
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     LayoutSettingDialog(
         isSwipeLayout = isSwipeLayout,
         onSwipeLayoutChange = { newValue ->
@@ -656,21 +652,22 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
 fun TxtLayoutWrapper(
     modifier: Modifier = Modifier,
     isSwipeLayout: Boolean,
-    readingState: ReadingState.Txt?,
     viewModel: TxtViewModel,
     pageContent: @Composable (Int) -> Unit
 ) {
-        if (isSwipeLayout) {
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    if (isSwipeLayout) {
             TxtSwipeLayout(
                 modifier = modifier,
-                readingState = readingState,
+                initialPage = initialPage,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
         } else {
             TxtScrollLayout(
                 modifier = modifier,
-                readingState = readingState,
+                initialPage = initialPage,
                 viewModel = viewModel,
                 itemContent = pageContent
             )
@@ -680,11 +677,10 @@ fun TxtLayoutWrapper(
 @Composable
 fun TxtSwipeLayout(
     modifier: Modifier = Modifier,
-    readingState: ReadingState.Txt?,
+    initialPage: Int,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ){
-    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialPage.coerceIn(
@@ -723,13 +719,12 @@ fun TxtSwipeLayout(
 @Composable
 fun TxtScrollLayout(
     modifier: Modifier = Modifier,
-    readingState: ReadingState.Txt?,
+    initialPage: Int,
     viewModel: TxtViewModel,
     itemContent: @Composable (Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val totalPages = viewModel.getPagesCount()
-    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
         initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
