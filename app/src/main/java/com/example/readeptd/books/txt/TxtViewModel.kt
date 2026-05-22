@@ -128,9 +128,19 @@ class TxtViewModel(
             }
             SplitPagesMode.ByLinesCount -> {
                 val charsParams = calculatePageCharsParams()
-                "lines:${charsParams.maxLinesPerPage}"
+                val minLineCount = getByLinesModeCountThreshold(charsParams)
+                "lines:${minLineCount}:${charsParams.avgCharsPerLine}:${charsParams.maxLinesPerPage}"
             }
         }
+    }
+
+    /**
+     * 获取 ByLinesCount 模式的分页阈值
+     *
+     * 在 ByLinesCount 模式下,使用 maxLinesPerPage 作为触发分页的行数阈值
+     */
+    private fun getByLinesModeCountThreshold(charsParams: Utils.CharsParams): Int{
+        return charsParams.maxLinesPerPage
     }
 
     /**
@@ -410,7 +420,7 @@ class TxtViewModel(
                     }
                     SplitPagesMode.ByLinesCount -> {
                         val charsParams = calculatePageCharsParams()
-                        val minLineCount = charsParams.maxLinesPerPage
+                        val minLineCount = getByLinesModeCountThreshold(charsParams)
                         Log.d(
                             TAG,
                             "[buildPages] 使用行数分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符，行内不截断"
