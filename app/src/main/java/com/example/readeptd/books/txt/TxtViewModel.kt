@@ -48,6 +48,7 @@ class TxtViewModel(
     private var bottomPaddingDp: Int = 0
 
     private val charCountThreshold: Int = 512
+    private var lineCountThreshold: Int = 0
 
     // ✅ 全文内容缓存（只加载一次）
     private var entireText: String? = null
@@ -126,7 +127,33 @@ class TxtViewModel(
             SplitPagesMode.ByCharsCount -> {
                 "chars:$charCountThreshold"
             }
+            SplitPagesMode.ByLinesCount -> {
+                val charsParams = calculatePageCharsParams()
+                val minLineCount = getLineCountThreshold(charsParams)
+                "lines:${minLineCount}" // 不使用 avgCharsPerLine，maxLinesPerPage，避免滚动模式下切换全屏触发分页
+                //"lines:${minLineCount}:${charsParams.avgCharsPerLine}:${charsParams.maxLinesPerPage}"
+            }
         }
+    }
+
+    /**
+     * 获取 SplitPagesMode.ByLinesCount 模式的分页阈值
+     *
+     * 在 SplitPagesMode.ByLinesCount 模式下,使用第一次的 maxLinesPerPage 作为触发分页的行数阈值
+     * 在屏幕翻转时重置，全屏切换时不重置，避免滚动模式下切换全屏时触发分页
+     */
+    private fun getLineCountThreshold(charsParams: Utils.CharsParams): Int{
+        if(lineCountThreshold <= 0){
+            lineCountThreshold = charsParams.maxLinesPerPage
+        }
+        return lineCountThreshold
+    }
+
+    /**
+     * 重置 SplitPagesMode.ByLinesCount 模式的分页阈值
+     */
+    private fun resetLineCountThreshold(threshold: Int = 0){
+        lineCountThreshold = threshold
     }
 
     /**
@@ -150,6 +177,7 @@ class TxtViewModel(
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {
+                resetLineCountThreshold()
                 allowRePagination = true
             }
         }
@@ -187,6 +215,10 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
+        if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
+            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
+            return
+        }
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
         rebuildPagesIfNeeded()
     }
@@ -224,6 +256,12 @@ class TxtViewModel(
 
         Log.d(TAG, "[handleFontSizeChanged] 字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
+
+        if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
+            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
+            return
+        }
+
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
         rebuildPagesIfNeeded()
     }
@@ -239,6 +277,12 @@ class TxtViewModel(
 
         Log.d(TAG, "[handleLineHeightChanged] 行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
+
+        if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
+            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
+            return
+        }
+
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
         rebuildPagesIfNeeded()
     }
@@ -401,6 +445,17 @@ class TxtViewModel(
                     SplitPagesMode.ByCharsCount -> {
                         Log.d(TAG, "[buildPages] 使用字符数分页: minChunkSize=$charCountThreshold")
                         TextSplitter(minChunkSize = charCountThreshold) { chunk ->
+                            tempPages.add(chunk)
+                        }
+                    }
+                    SplitPagesMode.ByLinesCount -> {
+                        val charsParams = calculatePageCharsParams()
+                        val minLineCount = getLineCountThreshold(charsParams)
+                        Log.d(
+                            TAG,
+                            "[buildPages] 使用行数分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符，行内不截断"
+                        )
+                        TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage, minLineCount = minLineCount) { chunk ->
                             tempPages.add(chunk)
                         }
                     }
