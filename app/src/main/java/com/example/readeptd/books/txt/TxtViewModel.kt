@@ -416,7 +416,7 @@ class TxtViewModel(
                         } else {
                             Log.d(
                                 TAG,
-                                "[buildPages] 使用行数分页: maxLinesPerPage=$${charsParams.maxLinesPerPage}"
+                                "[buildPages] 使用行数分页: maxLinesPerPage=${charsParams.maxLinesPerPage}"
                             )
                             TextSplitter(maxLinesPerPage = charsParams.maxLinesPerPage) { chunk ->
                                 tempPages.add(chunk)
