@@ -188,8 +188,10 @@ private fun ReadyState(
             Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLayoutSize 模式")
             viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
         } else {
-            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByCharsCount 模式")
-            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
+            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLinesCount 模式")
+            viewModel.setSplitPagesMode(SplitPagesMode.ByLinesCount)
+//            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByCharsCount 模式")
+//            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
         }
     }
     

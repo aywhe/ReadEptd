@@ -32,9 +32,11 @@ class TextSplitter(
 
     suspend fun processLine(line: String) {
         if(avgCharsPerLine > 0 && maxLinesPerPage > 0){
-            processLineByLines(line)
+            processLineByPage(line)
+        } else if (maxLinesPerPage > 0){
+            processLineByLineCount(line)
         } else if(minChunkSize > 0){
-            processLineBySize(line)
+            processLineByCharCount(line)
         } else {
             processLineBySingleLine(line)
         }
@@ -45,14 +47,21 @@ class TextSplitter(
         flushCurrentPage()
     }
 
-    suspend fun processLineBySize(line: String) {
+    suspend fun processLineByLineCount(line: String) {
+        appendLineToCurrentPage(line)
+        if(currentLines >= maxLinesPerPage){
+            flushCurrentPage()
+        }
+    }
+
+    suspend fun processLineByCharCount(line: String) {
         appendLineToCurrentPage(line)
         if(currentContent.length >= minChunkSize){
             flushCurrentPage()
         }
     }
 
-    suspend fun processLineByLines(line: String) {
+    suspend fun processLineByPage(line: String) {
 
         val linesNeeded = calculateLinesNeeded(line)
 
