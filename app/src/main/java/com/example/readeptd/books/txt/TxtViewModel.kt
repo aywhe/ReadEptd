@@ -243,6 +243,9 @@ class TxtViewModel(
         rebuildPagesIfNeeded()
     }
 
+    /**
+     * 计算分页参数
+     */
     private fun calculatePageCharsParams(): Utils.CharsParams {
         val context = getApplication<Application>()
         val density = context.resources.displayMetrics.density
@@ -576,7 +579,8 @@ class TxtViewModel(
                     page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
 
                 val content = entireText.substring(safeStartPos, safeEndPos)
-                Log.d(TAG, "[getPageContent] 从全文截取页码 $pageIndex 的内容: startPos=$safeStartPos, endPos=$safeEndPos, length=${content.length}, currentKey=$currentKey, pageSize=${pages.size}")
+                Log.d(TAG, "[getPageContent] 从全文截取页码 $pageIndex 的内容: startPos=$safeStartPos, endPos=$safeEndPos, length=${content.length}" +
+                        ", currentKey=$currentKey, pageSize=${pages.size}, content=${content.take(10)}")
                 return content
             } catch (e: Exception) {
                 Log.e(
