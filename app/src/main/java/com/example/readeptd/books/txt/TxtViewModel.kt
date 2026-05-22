@@ -410,17 +410,13 @@ class TxtViewModel(
                     }
                     SplitPagesMode.ByLinesCount -> {
                         val charsParams = calculatePageCharsParams()
-                        if(charsParams.maxLinesPerPage <= 0){
-                            // 这里要考虑 maxLinesPerPage <= 0 的情况
-                            throw IllegalArgumentException("maxLinesPerPage <= 0")
-                        } else {
-                            Log.d(
-                                TAG,
-                                "[buildPages] 使用行数分页: maxLinesPerPage=${charsParams.maxLinesPerPage}"
-                            )
-                            TextSplitter(maxLinesPerPage = charsParams.maxLinesPerPage) { chunk ->
-                                tempPages.add(chunk)
-                            }
+                        val minLineCount = charsParams.maxLinesPerPage
+                        Log.d(
+                            TAG,
+                            "[buildPages] 使用行数分页: 每页约 ${charsParams.maxLinesPerPage} 行，每行约 ${charsParams.avgCharsPerLine} 字符，行内不截断"
+                        )
+                        TextSplitter(charsParams.avgCharsPerLine, charsParams.maxLinesPerPage, minLineCount = minLineCount) { chunk ->
+                            tempPages.add(chunk)
                         }
                     }
                 }

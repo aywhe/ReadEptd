@@ -48,6 +48,7 @@ data class TextChunk(
 class TextSplitter(
     private val avgCharsPerLine: Int = 0,
     private val maxLinesPerPage: Int = 0,
+    private val minLineCount: Int = 0,
     private val minChunkSize: Int = 0,
     private val includeContent: Boolean = false,  // ✅ 控制 TextChunk 是否包含 content
     private val emitCallback: suspend (TextChunk) -> Unit
@@ -78,9 +79,11 @@ class TextSplitter(
      */
     suspend fun processLine(line: String) {
         if(avgCharsPerLine > 0 && maxLinesPerPage > 0){
-            processLineByPage(line)
-        } else if (maxLinesPerPage > 0){
-            processLineByLineCount(line)
+            if(minLineCount > 0){
+                processLineByLineCount(line)
+            } else {
+                processLineByPage(line)
+            }
         } else if(minChunkSize > 0){
             processLineByCharCount(line)
         } else {
