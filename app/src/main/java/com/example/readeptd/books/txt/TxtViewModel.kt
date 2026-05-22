@@ -215,8 +215,8 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        if(_splitPagesMode != SplitPagesMode.ByLayoutSize){
-            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，跳过")
+        if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
+            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
             return
         }
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
