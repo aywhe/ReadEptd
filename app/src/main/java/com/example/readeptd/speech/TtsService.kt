@@ -23,7 +23,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class TtsService : Service() {
 
@@ -32,6 +31,7 @@ class TtsService : Service() {
         fun onInitFailure(errorCode: Int)
         fun onSpeechStart(utteranceId: String?)
         fun onSpeechDone(utteranceId: String?)
+        fun onSpeechPause(utteranceId: String?)
         fun onSpeechError(utteranceId: String?)
         fun onRequestNextPage(utteranceId: String?)
         fun onRequestPreviousPage(utteranceId: String?)
@@ -331,7 +331,7 @@ class TtsService : Service() {
         val playPauseAction = if (isPlaying) {
             NotificationCompat.Action.Builder(
                 android.R.drawable.ic_media_pause,
-                "停止",
+                "暂停",
                 createPendingIntent(ACTION_TOGGLE_PLAY)
             ).build()
         } else {
@@ -394,6 +394,7 @@ class TtsService : Service() {
         if (isPlaying) {
             // 当前正在播放，执行暂停
             stop()
+            notifySpeechPause(null)
             showNotification()
         } else {
             // 当前未播放，执行播放
@@ -545,6 +546,10 @@ class TtsService : Service() {
 
     private fun notifySpeechDone(utteranceId: String?) {
         listeners.forEach { it.onSpeechDone(utteranceId) }
+    }
+
+    private fun notifySpeechPause(utteranceId: String?) {
+        listeners.forEach { it.onSpeechPause(utteranceId) }
     }
 
     private fun notifySpeechError(utteranceId: String?) {

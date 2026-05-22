@@ -96,6 +96,10 @@ class TtsViewModel(application: Application) : AndroidViewModel(application),
         onSpeechStartCallback?.invoke()
     }
 
+    override fun onSpeechPause(utteranceId: String?) {
+        _isSpeaking.value = false
+    }
+
     override fun onSpeechDone(utteranceId: String?) {
         _isSpeaking.value = false
         onSpeechDoneCallback?.invoke(utteranceId)
