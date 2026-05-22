@@ -466,49 +466,101 @@ class TxtViewModel(
         // 暂时没什么需要做的
     }
 
-    fun getProgress(): Float{
-        val savedState = readingState.value
-        val pages = getCurrentPages()
-        if (savedState == null || pages.isEmpty()) {
-            Log.d(TAG, "[getProgress] 没有保存状态或页面为空，返回 0f")
-            return 0f
-        }
-        Log.d(TAG, "[getProgress] progress=${savedState.progress}")
-        return savedState.progress
-    }
-
+    /**
+     * ✅ 根据阅读进度查找对应的页码
+     * 
+     * 将进度百分比转换为字符偏移量,然后查找对应的页码
+     *
+     * @param progress 阅读进度 (0.0 - 1.0)
+     * @return 对应的页码索引
+     */
     fun findPageByProgress(progress: Float): Int {
         val pages = getCurrentPages()
-        if (pages.isEmpty()) return 0
+        if (pages.isEmpty()) {
+            Log.w(TAG, "[findPageByProgress] 页面列表为空,返回默认页码 0")
+            return 0
+        }
+        
+        // 根据进度计算字符偏移量: progress * 全文总字符数
         val charOffset = (progress.toDouble() * pages.last().endPos).toLong()
-        Log.d(TAG, "[findPageByProgress] progress $progress, 找到 charOffset=$charOffset, currentKey $currentKey, pageSize ${pages.size}")
+        
+        Log.d(
+            TAG, 
+            "[findPageByProgress] 输入参数: progress=$progress, currentKey=$currentKey, pageSize=${pages.size}, " +
+            "totalChars=${pages.last().endPos}, 计算得到 charOffset=$charOffset"
+        )
+        
         return findPageByCharOffset(charOffset)
     }
     /**
-     * 根据字符偏移量查找对应的页码
+     * ✅ 获取当前阅读进度
+     * 
+     * @return 阅读进度 (0.0 - 1.0),如果没有保存状态或页面为空则返回 0f
+     */
+    fun getProgress(): Float {
+        val savedState = readingState.value
+        val pages = getCurrentPages()
+        if (savedState == null || pages.isEmpty()) {
+            Log.d(TAG, "[getProgress] 没有保存状态或页面为空,返回 0f")
+            return 0f
+        }
+        Log.d(TAG, "[getProgress] 当前进度: progress=${savedState.progress}, currentKey=$currentKey, pageSize=${pages.size}")
+        return savedState.progress
+    }
+
+    /**
+     * ✅ 根据字符偏移量查找对应的页码
+     * 
+     * 遍历所有页面,找到包含指定字符偏移量的页面。
+     * 如果未找到精确匹配,则返回边界页码(第一页或最后一页)。
+     *
+     * @param charOffset 字符偏移量(从文档开头计算的字符位置)
+     * @return 对应的页码索引,如果页面为空则返回 0
      */
     fun findPageByCharOffset(charOffset: Long): Int {
         val pages = getCurrentPages()
         if (pages.isEmpty()) {
+            Log.w(TAG, "[findPageByCharOffset] 页面列表为空,返回默认页码 0, currentKey=$currentKey")
             return 0
         }
 
-        // 二分查找或直接遍历
+        Log.d(
+            TAG,
+            "[findPageByCharOffset] 开始查找: charOffset=$charOffset, currentKey=$currentKey, pageSize=${pages.size}"
+        )
+
+        // 遍历所有页面,查找包含该字符偏移量的页面
         for ((index, page) in pages.withIndex()) {
-            // 检查字符偏移量是否在当前页面范围内
+            // 检查字符偏移量是否在当前页面范围内 [startPos, endPos)
             if (charOffset >= page.startPos && charOffset < page.endPos) {
-                Log.d(TAG, "[findPageByCharOffset]] charOffset: $charOffset 找到 page: $index, startPos: ${page.startPos}, endPos: ${page.endPos}, currentKey $currentKey, pageSize ${pages.size}")
+                Log.d(
+                    TAG,
+                    "[findPageByCharOffset] ✅ 找到匹配页面: index=$index, startPos=${page.startPos}, " +
+                    "endPos=${page.endPos}, pageLength=${page.endPos - page.startPos}, " +
+                    "currentKey=$currentKey, pageSize=${pages.size}"
+                )
                 return index
             }
         }
 
-        Log.d(TAG, "[findPageByCharOffset] 未找到页码, currentKey $currentKey, pageSize ${pages.size}")
-        // 如果没找到，返回最后一页或第一页
-        return if (charOffset >= pages.last().endPos) {
+        // 未找到精确匹配,返回边界页码
+        val resultPage = if (charOffset >= pages.last().endPos) {
+            Log.d(
+                TAG,
+                "[findPageByCharOffset] ⚠️ charOffset($charOffset) 超出最大范围(${pages.last().endPos}),返回最后一页: ${pages.size - 1}, " +
+                "currentKey=$currentKey, pageSize=${pages.size}"
+            )
             pages.size - 1
         } else {
+            Log.d(
+                TAG,
+                "[findPageByCharOffset] ⚠️ charOffset($charOffset) 小于最小范围(${pages.first().startPos}),返回第一页: 0, " +
+                "currentKey=$currentKey, pageSize=${pages.size}"
+            )
             0
         }
+        
+        return resultPage
     }
 
     /**

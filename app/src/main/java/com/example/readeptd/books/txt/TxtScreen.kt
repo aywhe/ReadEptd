@@ -675,6 +675,16 @@ fun TxtLayoutWrapper(
     }
 }
 
+/**
+ * ✅ TXT 滑动布局组件
+ * 
+ * 使用 HorizontalPager 实现水平翻页效果,支持手势滑动切换页面。
+ *
+ * @param modifier 修饰符
+ * @param initialPage 初始页码
+ * @param viewModel TXT ViewModel
+ * @param itemContent 页面内容 Composable
+ */
 @Composable
 fun TxtSwipeLayout(
     modifier: Modifier = Modifier,
@@ -721,6 +731,17 @@ fun TxtSwipeLayout(
     }
 }
 
+/**
+ * ✅ TXT 滚动布局组件
+ * 
+ * 使用 LazyColumn 实现垂直滚动效果,支持快速滚动和位置记忆。
+ * 通过 snapshotFlow 监听滚动位置变化,自动更新当前页码。
+ *
+ * @param modifier 修饰符
+ * @param initialPage 初始页码
+ * @param viewModel TXT ViewModel
+ * @param itemContent 页面内容 Composable
+ */
 @Composable
 fun TxtScrollLayout(
     modifier: Modifier = Modifier,
