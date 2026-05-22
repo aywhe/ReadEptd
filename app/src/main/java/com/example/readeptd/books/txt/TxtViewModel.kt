@@ -97,21 +97,12 @@ class TxtViewModel(
         Log.d(TAG, "[setSplitPagesMode] 分页模式变化: $_splitPagesMode -> $mode")
         _splitPagesMode = mode
         
-        // ✅ 切换模式后立即设置为 false，防止 UI 在重新分页前重组
-        Log.d(TAG, "[setSplitPagesMode] 设置 _isPagesReady = false，等待重新分页")
-        _isPagesReady.value = false
-        
-        // ✅ 切换模式后触发重新分页
+        // ✅ 切换模式后触发重新分页（统一走防抖流程）
         if (allowRePagination) {
-            Log.d(TAG, "[setSplitPagesMode] 允许重新分页，启动协程")
-            viewModelScope.launch {
-                rebuildPagesIfNeeded()
-            }
+            Log.d(TAG, "[setSplitPagesMode] 允许重新分页，调用 rebuildPagesIfNeeded")
+            rebuildPagesIfNeeded()
         } else {
             Log.w(TAG, "[setSplitPagesMode] 不允许重新分页，跳过")
-            // ✅ 如果跳过分页，需要恢复 ready 状态
-            _isPagesReady.value = true
-            Log.d(TAG, "[setSplitPagesMode] 恢复 _isPagesReady = true")
         }
     }
     
@@ -196,24 +187,8 @@ class TxtViewModel(
         this.topPaddingDp = topPaddingDp
         this.bottomPaddingDp = bottomPaddingDp
 
-        debounceTriggerRePagination()
-    }
-
-    /**
-     * 触发重新分页（防抖）
-     */
-    private fun debounceTriggerRePagination(){
-        // 取消之前的防抖任务
-        debouncedRePaginationJob?.cancel()
-        
-        // ✅ 立即设置为 false，防止在防抖等待期间 UI 重组
-        Log.d(TAG, "[debounceTriggerRePagination] 设置 _isPagesReady = false，开始防抖等待")
-        _isPagesReady.value = false
-        
-        debouncedRePaginationJob = viewModelScope.launch {
-            delay(500)
-            triggerRePagination()
-        }
+        // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
+        rebuildPagesIfNeeded()
     }
 
     /**
@@ -249,7 +224,8 @@ class TxtViewModel(
 
         Log.d(TAG, "[handleFontSizeChanged] 字体大小变化: $fontSizeSp -> $newFontSize")
         fontSizeSp = newFontSize
-        triggerRePagination()
+        // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
+        rebuildPagesIfNeeded()
     }
 
     /**
@@ -263,26 +239,8 @@ class TxtViewModel(
 
         Log.d(TAG, "[handleLineHeightChanged] 行距变化: $lineHeightSp -> $newLineHeight")
         lineHeightSp = newLineHeight
-        triggerRePagination()
-    }
-
-    /**
-     * ✅ 触发重新分页（统一入口）
-     */
-    private fun triggerRePagination() {
-        Log.d(TAG, "[triggerRePagination] 调用: allowRePagination=$allowRePagination, viewSize=$viewSize")
-        if (!allowRePagination) {
-            Log.w(TAG, "[triggerRePagination] 跳过重新分页：allowRePagination=false")
-            // ✅ 如果跳过,需要恢复 ready 状态
-            _isPagesReady.value = true
-            Log.d(TAG, "[triggerRePagination] 恢复 _isPagesReady = true")
-            return
-        }
-
-        Log.d(TAG, "[triggerRePagination] 启动协程执行 rebuildPagesIfNeeded")
-        viewModelScope.launch {
-            rebuildPagesIfNeeded()
-        }
+        // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
+        rebuildPagesIfNeeded()
     }
 
     private fun calculatePageCharsParams(): Utils.CharsParams {
@@ -313,9 +271,15 @@ class TxtViewModel(
     }
 
     /**
-     * 根据参数变化判断是否需要重新分页
+     * ✅ 根据参数变化判断是否需要重新分页（统一入口，内置防抖）
+     * 
+     * 所有触发重新分页的调用都应该通过此方法，它会：
+     * 1. 检查是否需要重新分页
+     * 2. 设置 _isPagesReady = false，阻止 UI 重组
+     * 3. 启动防抖任务（500ms）
+     * 4. 防抖结束后执行实际的分页逻辑
      */
-    private suspend fun rebuildPagesIfNeeded() {
+    private fun rebuildPagesIfNeeded() {
         Log.d(TAG, "[rebuildPagesIfNeeded] 调用: viewSize=$viewSize, fontSizeSp=$fontSizeSp, lineHeightSp=$lineHeightSp, " +
                 "paddings=($leftPaddingDp,$rightPaddingDp,$topPaddingDp,$bottomPaddingDp)")
         if (viewSize.width <= 0 || viewSize.height <= 0) {
@@ -323,33 +287,53 @@ class TxtViewModel(
             return
         }
 
+        // ✅ 取消之前的防抖任务
+        debouncedRePaginationJob?.cancel()
+        
+        // ✅ 立即设置为 false，防止在防抖等待期间 UI 重组
+        Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = false，开始防抖等待")
+        _isPagesReady.value = false
+        
+        // ✅ 启动新的防抖任务，500ms 后执行实际分页
+        debouncedRePaginationJob = viewModelScope.launch {
+            delay(500)
+            executeRePagination()
+        }
+    }
+    
+    /**
+     * ✅ 执行实际的重新分页逻辑（防抖后调用）
+     */
+    private suspend fun executeRePagination() {
+        Log.d(TAG, "[executeRePagination] 防抖结束，开始执行重新分页")
+        
         // ✅ 构建新的缓存 key
         val newKey = buildCacheKey()
-        Log.d(TAG, "[rebuildPagesIfNeeded] 构建缓存 key: $newKey")
+        Log.d(TAG, "[executeRePagination] 构建缓存 key: $newKey")
         
         // ✅ 如果缓存中已有该 key 的分页结果，直接使用
         if (pagesCache.containsKey(newKey)) {
-            Log.d(TAG, "[rebuildPagesIfNeeded] 分页结果已缓存，key=$newKey，直接使用")
+            Log.d(TAG, "[executeRePagination] 分页结果已缓存，key=$newKey，直接使用")
             if (currentKey != newKey) {
-                Log.d(TAG, "[rebuildPagesIfNeeded] currentKey 变化: $currentKey -> $newKey")
+                Log.d(TAG, "[executeRePagination] currentKey 变化: $currentKey -> $newKey")
                 currentKey = newKey
                 afterRePaginationActions()
             }
             _isPagesReady.value = true
-            Log.d(TAG, "[rebuildPagesIfNeeded] 设置 _isPagesReady = true")
+            Log.d(TAG, "[executeRePagination] 设置 _isPagesReady = true")
             return
         }
 
-        Log.d(TAG, "[rebuildPagesIfNeeded] 分页参数变化，准备重新分页: key=$newKey")
+        Log.d(TAG, "[executeRePagination] 分页参数变化，准备重新分页: key=$newKey")
         
         // 取消之前正在执行的分页任务
         if (currentPageJob?.isActive == true) {
-            Log.d(TAG, "[rebuildPagesIfNeeded] 取消之前的分页任务")
+            Log.d(TAG, "[executeRePagination] 取消之前的分页任务")
             currentPageJob?.cancel()
         }
         
         // 启动新的分页任务
-        Log.d(TAG, "[rebuildPagesIfNeeded] 启动新的分页任务")
+        Log.d(TAG, "[executeRePagination] 启动新的分页任务")
         currentPageJob = viewModelScope.launch {
             buildPages()
         }
@@ -592,7 +576,7 @@ class TxtViewModel(
                     page.endPos.toInt().coerceAtLeast(safeStartPos).coerceAtMost(entireText.length)
 
                 val content = entireText.substring(safeStartPos, safeEndPos)
-                Log.d(TAG, "[getPageContent] 从全文截取页码 $pageIndex 的内容: startPos=$safeStartPos, endPos=$safeEndPos, length=${content.length}")
+                Log.d(TAG, "[getPageContent] 从全文截取页码 $pageIndex 的内容: startPos=$safeStartPos, endPos=$safeEndPos, length=${content.length}, currentKey=$currentKey, pageSize=${pages.size}")
                 return content
             } catch (e: Exception) {
                 Log.e(
