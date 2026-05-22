@@ -173,6 +173,7 @@ private fun ReadyState(
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
+    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
 
     // 监听屏幕旋转
     LaunchedEffect(configuration.orientation) {
@@ -248,11 +249,20 @@ private fun ReadyState(
                 contentViewModel = contentViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel,
+                onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
                 contentPadding = contentPadding,
                 scope = scope
             )
         }
     }
+    
+    // ✅ 放在 Box 外部，完全独立于 Box 的重组，避免分页时 dialog 重组
+    LayoutSettingDialogs(
+        isShowLayoutSettingDialog = isShowLayoutSettingDialog,
+        isSwipeLayout = isSwipeLayout,
+        viewModel = viewModel,
+        onDismiss = { isShowLayoutSettingDialog = false }
+    )
 }
 
 /**
@@ -284,6 +294,7 @@ private fun ReaderContent(
     contentViewModel: ContentViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
+    onLongPressProgressInfo: (String) -> Unit,
     contentPadding: PaddingValues,
     scope: CoroutineScope
 ) {
@@ -292,7 +303,6 @@ private fun ReaderContent(
 
     // ✅ 对话框状态管理 - 就近定义
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -300,7 +310,7 @@ private fun ReaderContent(
         SetupCallbacks(
             contentViewModel = contentViewModel,
             onClickProgressInfo = { isShowJumpToPageDialog = true },
-            onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
+            onLongPressProgressInfo = onLongPressProgressInfo,
             onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
         )
         
@@ -342,13 +352,6 @@ private fun ReaderContent(
             viewModel = viewModel,
             onDismiss = { isShowJumpToPageDialog = false },
             scope = scope
-        )
-        
-        LayoutSettingDialogs(
-            isShowLayoutSettingDialog = isShowLayoutSettingDialog,
-            isSwipeLayout = isSwipeLayout,
-            viewModel = viewModel,
-            onDismiss = { isShowLayoutSettingDialog = false }
         )
         
         SearchPanel(
