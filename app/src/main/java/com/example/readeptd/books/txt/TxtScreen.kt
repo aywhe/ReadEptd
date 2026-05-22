@@ -335,7 +335,11 @@ private fun ReaderContent(
             viewModel = viewModel
         ) { page ->
             val pageContent = viewModel.getPageContent(page).trimEnd()
-            val pageAnnotatedContent = highLightText(pageContent, currentKeyword)
+            val pageAnnotatedContent = if(isShowSearchDialog) {
+                highLightText(pageContent, currentKeyword)
+            } else {
+                AnnotatedString(pageContent)
+            }
             PageContent(
                 pageAnnotatedContent = pageAnnotatedContent,
                 fontSize = viewModel.currentFontSizeSp,
