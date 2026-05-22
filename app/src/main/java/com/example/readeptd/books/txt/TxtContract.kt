@@ -51,4 +51,5 @@ sealed interface TxtEvent {
 sealed interface SplitPagesMode {
     object ByLayoutSize : SplitPagesMode
     object ByCharsCount : SplitPagesMode
+    object ByLinesCount : SplitPagesMode
 }
