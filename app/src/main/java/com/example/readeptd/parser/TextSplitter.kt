@@ -25,22 +25,40 @@ data class TextChunk(
  * ✅ 文本分页器
  * 
  * 负责将文本按行分割成适合显示的页面。支持四种分页模式：
- * 1. **ByLayoutSize**: 根据布局尺寸分页（avgCharsPerLine + maxLinesPerPage）
- * 2. **ByLinesCount**: 根据行数分页（仅 maxLinesPerPage）
+ * 1. **ByLayoutSize**: 根据布局尺寸分页（avgCharsPerLine + maxLinesPerPage），长行会截断
+ * 2. **ByLinesCount**: 根据行数分页（maxLinesPerPage + minLineCount），行内不截断
  * 3. **ByCharsCount**: 根据字符数分页（minChunkSize）
  * 4. **SingleLine**: 每行作为一页
  * 
  * 使用流程：
  * ```kotlin
+ * // ByLayoutSize 模式（长行会截断）
  * val splitter = TextSplitter(avgCharsPerLine=30, maxLinesPerPage=20) { chunk ->
  *     pages.add(chunk)
  * }
+ * 
+ * // ByLinesCount 模式（行内不截断，达到 minLineCount 行才输出）
+ * val splitter = TextSplitter(avgCharsPerLine=30, maxLinesPerPage=20, minLineCount=20) { chunk ->
+ *     pages.add(chunk)
+ * }
+ * 
+ * // ByCharsCount 模式（按字符数分页）
+ * val splitter = TextSplitter(minChunkSize=512) { chunk ->
+ *     pages.add(chunk)
+ * }
+ * 
+ * // SingleLine 模式（每行一页）
+ * val splitter = TextSplitter() { chunk ->
+ *     pages.add(chunk)
+ * }
+ * 
  * splitter.processFullText(fullText)
  * splitter.flushRemaining()
  * ```
  *
- * @param avgCharsPerLine 每行平均字符数（用于 ByLayoutSize 模式，0 表示不使用）
+ * @param avgCharsPerLine 每行平均字符数（用于计算显示行数，0 表示不使用）
  * @param maxLinesPerPage 每页最大行数（用于 ByLayoutSize 和 ByLinesCount 模式，0 表示不使用）
+ * @param minLineCount 最小行数阈值（>0 时启用 ByLinesCount 模式，达到此行数才输出页面；=0 时使用 ByLayoutSize 模式）
  * @param minChunkSize 最小分块字符数（用于 ByCharsCount 模式，0 表示不使用）
  * @param includeContent 是否在 TextChunk 中包含 content 字段（默认 false，节省内存）
  * @param emitCallback 分页完成后的回调函数，接收生成的 TextChunk
@@ -70,8 +88,9 @@ class TextSplitter(
      * ✅ 处理单行文本（自动选择分页模式）
      * 
      * 根据构造函数参数自动选择合适的分页策略：
-     * - 如果 avgCharsPerLine > 0 且 maxLinesPerPage > 0 → ByLayoutSize
-     * - 如果仅 maxLinesPerPage > 0 → ByLinesCount
+     * - 如果 avgCharsPerLine > 0 且 maxLinesPerPage > 0：
+     *   - 如果 minLineCount > 0 → ByLinesCount（行内不截断，达到 minLineCount 行才输出）
+     *   - 否则 → ByLayoutSize（长行会截断到多页）
      * - 如果仅 minChunkSize > 0 → ByCharsCount
      * - 否则 → SingleLine
      *
@@ -105,16 +124,20 @@ class TextSplitter(
     }
 
     /**
-     * ✅ ByLinesCount 模式：按行数分页
+     * ✅ ByLinesCount 模式：按行数分页（行内不截断）
      * 
-     * 将行添加到当前页面，当行数达到 maxLinesPerPage 时输出页面。
-     * 不考虑每行的字符数，只关注行数。
+     * 将行添加到当前页面，当行数达到 minLineCount 时输出页面。
+     * 与 ByLayoutSize 的区别：
+     * - ByLinesCount：不考虑每行的字符数，即使某行很长也不会截断，保证整行完整性
+     * - ByLayoutSize：会根据 avgCharsPerLine 计算显示行数，超长行会被截断到多页
+     * 
+     * 适用场景：滚动阅读模式，希望保持段落完整性，避免在行中间断开。
      *
      * @param line 要处理的文本行
      */
     suspend fun processLineByLineCount(line: String) {
         appendLineToCurrentPage(line)
-        if(currentLines >= maxLinesPerPage){
+        if(currentLines >= minLineCount){
             flushCurrentPage()
         }
     }
