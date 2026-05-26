@@ -28,6 +28,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     private var currentTheme: EpubTheme = EpubTheme.Light
+    private var currentFlowMode: EpubFlowMode = EpubFlowMode.Paginated
 
     // ✅ 添加翻页完成的临时回调
     private var pageActionPendingCallback: (() -> Unit)? = null
@@ -144,12 +145,19 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         this.startCfi = cfi
         Log.d(TAG, "设置起始位置 CFI: ${cfi ?: "(无)"}")
     }
+
+    private fun setLastReadingCfi(cfi: String?) {
+        Log.d(TAG, "设置最后阅读位置 CFI: ${cfi ?: "(无)"}")
+        executeJs("window.EpubReader.setLastReadingCfi('$cfi')") { result ->
+            Log.d(TAG, "JavaScript 执行结果: $result")
+        }
+    }
     
     /**
      * 加载 EPUB 文件
      * @param epubFilePath EPUB 文件的绝对路径
      */
-    fun loadEpub(epubFilePath: String) {
+    private fun initEpubWebSite(epubFilePath: String) {
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
         Log.d(TAG, "起始位置 CFI: ${startCfi ?: "(无，将显示首页)"}")
@@ -164,21 +172,47 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             "null"
         }
         
-        executeJs("window.EpubReader.init('$epubFilePath', $cfiParam)") { result ->
+        executeJs("window.EpubReader.init('$epubFilePath')") { result ->
             Log.d(TAG, "JavaScript 执行结果: $result")
         }
+    }
+
+    fun startEpubWebsite(){
+        setLastReadingCfi(startCfi)
+        updateFlowMode(currentFlowMode)
+        setHtmlTheme(currentTheme) // 设置当前主题
+        initEpubWebSite(epubFilePath)
+    }
+
+    fun setFlowMode(epubFlowMode: EpubFlowMode){
+        currentFlowMode = epubFlowMode
+        Log.d(TAG, "设置流式模式: $epubFlowMode")
+    }
+
+    private fun updateFlowMode(epubFlowMode: EpubFlowMode) {
+        currentFlowMode = epubFlowMode
+        val flowMode = when (epubFlowMode) {
+            EpubFlowMode.Paginated -> "paginated"
+            EpubFlowMode.Scrolled -> "scrolled"
+        }
+        
+        // ✅ 构建 JSON 配置对象
+        val configJson = """{"flowMode":"$flowMode"}"""
+        
+        Log.d(TAG, "执行 JavaScript 设置流式模式: $flowMode")
+        executeJs("window.EpubReader.updateConfig('$configJson')")
     }
 
     /**
      * 设置主题
      * @param epubTheme 主题名称
      */
-    fun initTheme(epubTheme: EpubTheme) {
+    fun setTheme(epubTheme: EpubTheme) {
         currentTheme = epubTheme
         Log.d(TAG, "设置主题: $epubTheme")
     }
 
-    private fun setTheme(epubTheme: EpubTheme) {
+    private fun setHtmlTheme(epubTheme: EpubTheme) {
         currentTheme = epubTheme
         val theme = when (epubTheme) {
             EpubTheme.Night -> "dark"
@@ -279,6 +313,14 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
 
     fun highlight(cfi: String, isRemove: Boolean){
         executeJs("window.EpubReader.highlight('$cfi', $isRemove)")
+    }
+
+    /**
+     * ✅ 取消正在进行的搜索
+     */
+    fun cancelSearch() {
+        Log.d(TAG, "执行 JavaScript 取消搜索...")
+        executeJs("window.EpubReader.cancelSearch()")
     }
 
     /**
@@ -410,8 +452,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
-            setTheme(currentTheme) // 设置当前主题
-            loadEpub(epubFilePath)
+            startEpubWebsite()
         }
 
         @JavascriptInterface

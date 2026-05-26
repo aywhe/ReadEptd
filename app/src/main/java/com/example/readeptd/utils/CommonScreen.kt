@@ -2,12 +2,17 @@ package com.example.readeptd.utils
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -15,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,9 +30,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.readeptd.activity.ContentViewModel
+import java.util.Locale
 
 /**
  * 跳转到指定页码的对话框
@@ -42,8 +52,8 @@ fun JumpToPageDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    var pageNumber by remember { mutableStateOf((currentPage+1).toString()) }
-    var sliderPosition by remember { mutableFloatStateOf(1.0f*currentPage/totalPages*100f) }
+    var pageNumber by remember { mutableStateOf((currentPage + 1).toString()) }
+    var sliderPosition by remember { mutableFloatStateOf(1.0f * currentPage / totalPages * 100f) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -63,7 +73,8 @@ fun JumpToPageDialog(
                         if (input.all { it.isDigit() }) {
                             pageNumber = input
                         }
-                        sliderPosition = input.toIntOrNull()?.let { it.toFloat()/totalPages*100f } ?: 0f
+                        sliderPosition =
+                            input.toIntOrNull()?.let { it.toFloat() / totalPages * 100f } ?: 0f
                     },
                     label = { Text("页码") },
                     placeholder = { Text("请输入页码") },
@@ -77,7 +88,9 @@ fun JumpToPageDialog(
                     value = sliderPosition,
                     onValueChange = {
                         sliderPosition = it
-                        pageNumber = (sliderPosition/100f*totalPages+1).toInt().coerceIn(1, totalPages).toString()
+                        pageNumber =
+                            (sliderPosition / 100f * totalPages + 1).toInt().coerceIn(1, totalPages)
+                                .toString()
                     },
                     valueRange = 0f..100f,
                     steps = 99,  // 100 个值需要 99 个间隔
@@ -101,6 +114,12 @@ fun JumpToPageDialog(
                         }
                     }
                 },
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 enabled = pageNumber.toIntOrNull()?.let { it in 1..totalPages } == true
             ) {
                 Text("跳转")
@@ -127,7 +146,7 @@ fun JumpToProgressDialog(
     onConfirm: (Float) -> Unit
 ) {
     var progressValue by remember { mutableFloatStateOf(progress) }
-    var sliderPosition by remember { mutableFloatStateOf(progress*100) }
+    var sliderPosition by remember { mutableFloatStateOf(progress * 100) }
     var onValueChanged by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -156,8 +175,14 @@ fun JumpToProgressDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(sliderPosition/100f)
+                    onConfirm(sliderPosition / 100f)
                 },
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 enabled = onValueChanged
             ) {
                 Text("跳转")
@@ -183,28 +208,86 @@ fun TimerDialog(
     var sliderPosition by remember {
         mutableFloatStateOf(initialMinutes)
     }
-    // 防止自动刷新影响操作，不要更新
-//    LaunchedEffect(currentRemainingMillis) {
-//        val newMinutes = (currentRemainingMillis / 1000f / 60f).coerceIn(0f, maxMinutes.toFloat())
-//        sliderPosition = newMinutes
-//    }
+    var inputMinutes by remember {
+        mutableStateOf(initialMinutes.toInt().toString())
+    }
 
     val minMinutes = 0
 
+    LaunchedEffect(sliderPosition) {
+        val minutes = sliderPosition.toInt()
+        if (inputMinutes != minutes.toString()) {
+            inputMinutes = minutes.toString()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("定时关闭朗读") },
         text = {
             Column {
-                Text(
-                    text = if ((sliderPosition).toInt() > 0) {
-                        "剩余时间：${(sliderPosition).toInt()}分钟"
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val remainingSeconds = (currentRemainingMillis / 1000).toInt()
+                    val minutes = remainingSeconds / 60
+                    val seconds = remainingSeconds % 60
+                        
+                    if (currentRemainingMillis > 0) {
+                        Text(
+                            text = String.format(Locale.getDefault(), "剩余时间 %02d:%02d", minutes, seconds),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        TextButton(
+                            onClick = onStopTimer,
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            contentPadding = PaddingValues(0.dp) // 清除默认内边距
+                        ) {
+                            Text("停止")
+                        }
                     } else {
-                        "设置时间：0 分钟"
+                        Text(
+                            text = "未设置定时",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = inputMinutes,
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.all { it.isDigit() }) {
+                            inputMinutes = input
+                            val minutes = input.toIntOrNull()
+                            if (minutes != null && minutes in minMinutes..maxMinutes) {
+                                sliderPosition = minutes.toFloat()
+                            }
+                        }
                     },
-                    style = MaterialTheme.typography.bodyLarge
+                    label = { Text("分钟") },
+                    placeholder = { Text("请输入分钟数") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes }
+                        ?: false
                 )
+
+                if (inputMinutes.toIntOrNull()?.let { it !in minMinutes..maxMinutes } == true) {
+                    Text(
+                        text = "请输入 $minMinutes 到 $maxMinutes 之间的数字",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -212,6 +295,7 @@ fun TimerDialog(
                     value = sliderPosition,
                     onValueChange = {
                         sliderPosition = it
+                        inputMinutes = it.toInt().toString()
                     },
                     valueRange = minMinutes.toFloat()..maxMinutes.toFloat(),
                     steps = (maxMinutes - minMinutes),
@@ -241,30 +325,84 @@ fun TimerDialog(
             Button(
                 onClick = {
                     val selectedMillis = (sliderPosition * 60 * 1000).toLong()
-                    onConfirm(selectedMillis.coerceIn(0L, maxMinutes.toLong() * 60 * 1000))
-                }
+                    onConfirm(
+                        selectedMillis.coerceIn(
+                            minMinutes.toLong() * 60 * 1000,
+                            maxMinutes.toLong() * 60 * 1000
+                        )
+                    )
+                },
+                enabled = inputMinutes.toIntOrNull()?.let { it in minMinutes..maxMinutes } == true
             ) {
                 Text("确定")
             }
         },
         dismissButton = {
-            Row {
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
-                }
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
 
-                // 只有当有正在运行的定时器时才显示停止按钮
-                if (currentRemainingMillis > 0) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = onStopTimer,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
+@Composable
+fun LayoutSettingDialog(
+    isSwipeLayout: Boolean,
+    onSwipeLayoutChange: (Boolean) -> Unit = {},
+    isRtl: Boolean? = null,
+    onRtlChange: (Boolean) -> Unit = {},
+    onDismiss: () -> Unit = {}
+) {
+    var isSwipeLayoutState by remember { mutableStateOf(isSwipeLayout) }
+    var isRtlState by remember { mutableStateOf(isRtl) }
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        title = { Text("布局设置") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 滑动布局开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("分页")
+                    Switch(
+                        checked = isSwipeLayoutState,
+                        onCheckedChange = { newValue ->
+                            isSwipeLayoutState = newValue
+                            onSwipeLayoutChange(newValue)
+                        }
+                    )
+                }
+                if (isRtlState != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("关闭")
+                        Text("文言文")
+                        Switch(
+                            checked = isRtlState == true,
+                            onCheckedChange = { newValue ->
+                                isRtlState = newValue
+                                onRtlChange(newValue)
+                            }
+                        )
                     }
                 }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onDismiss() },
+            ) {
+                Text("关闭")
             }
         }
     )

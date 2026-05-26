@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -26,12 +28,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -41,6 +43,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
@@ -48,8 +51,34 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.JumpToProgressDialog
+import com.example.readeptd.utils.LayoutSettingDialog
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
+/**
+ * ✅ TXT 阅读器主屏幕
+ *
+ * 负责显示 TXT 文件的阅读界面，支持：
+ * - 滑动/滚动两种阅读模式
+ * - 字体大小和行距调整
+ * - 全文搜索和高亮
+ * - TTS 语音朗读
+ * - 阅读进度保存和恢复
+ *
+ * @param fileInfo 文件信息
+ * @param contentViewModel 内容 ViewModel
+ * @param ttsModel TTS ViewModel
+ * @param modifier 修饰符
+ * @param viewModel TXT ViewModel
+ */
+@OptIn(FlowPreview::class)
 @Composable
 fun TxtScreen(
     fileInfo: FileInfo,
@@ -58,21 +87,115 @@ fun TxtScreen(
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
 ) {
+    Log.d("TxtScreen", "[TxtScreen] 组件创建, fileInfo=${fileInfo.fileName}")
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val initialPage by viewModel.initialPage.collectAsStateWithLifecycle()
-    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
-    val isFullScreen by contentViewModel.isFullScreen.collectAsStateWithLifecycle()
-    val configuration = LocalConfiguration.current
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-    var isShowSearchDialog by remember { mutableStateOf(false) }
+    Log.d("TxtScreen", "[TxtScreen] uiState=$uiState")
 
-    // 定义 padding（UI 层决定）
+    // 准备 TXT 文件
+    LaunchedEffect(fileInfo.uri) {
+        Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
+        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        when (val state = uiState) {
+            is BookUiState.Loading -> LoadingState()
+            is BookUiState.Ready -> ReadyState(
+                fileInfo = fileInfo,
+                contentViewModel = contentViewModel,
+                viewModel = viewModel,
+                ttsModel = ttsModel
+            )
+            is BookUiState.Error -> ErrorState(state.message)
+        }
+    }
+}
+
+/**
+ * ✅ 加载状态组件
+ */
+@Composable
+private fun LoadingState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
+        Text(
+            text = "准备阅读器...",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+    }
+}
+
+/**
+ * ✅ 错误状态组件
+ */
+@Composable
+private fun ErrorState(message: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+}
+
+/**
+ * ✅ 就绪状态组件（主要阅读界面）
+ */
+@OptIn(FlowPreview::class)
+@Composable
+private fun ReadyState(
+    fileInfo: FileInfo,
+    contentViewModel: ContentViewModel,
+    viewModel: TxtViewModel,
+    ttsModel: TtsViewModel
+) {
+    Log.d("TxtScreen", "[ReadyState] 组件创建")
+    var lastClickTime by remember { mutableStateOf(0L) }
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isSwipeLayout = readingState?.isSwipeLayout ?: true
+    Log.d("TxtScreen", "[ReadyState] readingState=$readingState, isSwipeLayout=$isSwipeLayout")
+    // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = 16
-    val bottomPaddingDp = 16
+    val topPaddingDp = if (isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if (isSwipeLayout) 16 else 0
+    val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
+    Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
+    val configuration = LocalConfiguration.current
+    val scope = rememberCoroutineScope()
+    var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
+
+    // 监听屏幕旋转
+    LaunchedEffect(configuration.orientation) {
+        Log.d("TxtScreen", "[LaunchedEffect] 屏幕方向变化: ${configuration.orientation}")
+        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
+    }
+
+    // 监听分页模式切换
+    LaunchedEffect(isSwipeLayout) {
+        Log.d("TxtScreen", "[LaunchedEffect] 切换分页模式: isSwipeLayout=$isSwipeLayout")
+        if (isSwipeLayout) {
+            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLayoutSize 模式")
+            viewModel.setSplitPagesMode(SplitPagesMode.ByLayoutSize)
+        } else {
+            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByLinesCount 模式")
+            viewModel.setSplitPagesMode(SplitPagesMode.ByLinesCount)
+//            Log.d("TxtScreen", "[LaunchedEffect] 设置为 ByCharsCount 模式")
+//            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
+        }
+    }
+
+    // ✅ 在这里计算 contentPadding
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
         end = rightPaddingDp.dp,
@@ -80,281 +203,377 @@ fun TxtScreen(
         bottom = bottomPaddingDp.dp
     )
 
-    // 准备 TXT 文件
-    LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
-    }
-    // 监听屏幕旋转，恢复重新分页功能
-    LaunchedEffect(configuration.orientation) {
-        Log.d("TxtScreen", "屏幕方向变化: ${configuration.orientation}")
-        viewModel.onEvent(TxtEvent.OnScreenOrientationChanged(configuration.orientation))
-    }
-    Column(
-        modifier = modifier.fillMaxSize()
-    ) {
-        when (val state = uiState) {
-            is BookUiState.Loading -> {
-                // 加载中
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = "准备阅读器...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 16.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { size ->
+                Log.d("TxtScreen", "[onSizeChanged] 视图尺寸变化: ${size.width}x${size.height}")
+                scope.launch {
+                    viewModel.onEvent(
+                        TxtEvent.OnViewMetricsChanged(
+                            size = size,
+                            leftPaddingDp = leftPaddingDp,
+                            rightPaddingDp = rightPaddingDp,
+                            topPaddingDp = topPaddingDp,
+                            bottomPaddingDp = bottomPaddingDp
+                        )
                     )
+                    Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
                 }
             }
-
-            is BookUiState.Ready -> {
-                var lastClickTime by remember { mutableStateOf(0L)}
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .onSizeChanged { size ->
-                            if(!isFullScreen){
-                                viewModel.onEvent(
-                                    TxtEvent.OnViewMetricsChanged(
-                                        size = size,
-                                        leftPaddingDp = leftPaddingDp,
-                                        rightPaddingDp = rightPaddingDp,
-                                        topPaddingDp = topPaddingDp,
-                                        bottomPaddingDp = bottomPaddingDp
-                                    )
-                                )
-                            }
-                        }
-                        .pointerInput(Unit) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown()
-                                val up = waitForUpOrCancellation()
-                                if (up != null) {
-                                    val clickTime = SystemClock.uptimeMillis()
-                                    val timeDiff = clickTime - lastClickTime
-                                    lastClickTime = clickTime
-                                    val isDoubleClick = timeDiff <= 300
-                                    if (isDoubleClick) {
-                                        Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
-                                        contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
-                                        viewModel.onEvent(TxtEvent.OnDoubleClickScreen)
-                                    }
-                                }
-                            }
-                        }
-                ) {
-                    if (!isPagesReady) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator()
-                            Text(
-                                text = "正在分页...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(top = 16.dp)
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                        ) {
-                            val pagerState = rememberPagerState(
-                                initialPage = initialPage.coerceIn(
-                                    0,
-                                    viewModel.getPagesCount() - 1
-                                ),
-                                pageCount = { viewModel.getPagesCount() }
-                            )
-
-                            LaunchedEffect(initialPage) {
-                                if (initialPage >= 0 && initialPage < viewModel.getPagesCount()) {
-                                    pagerState.scrollToPage(initialPage)
-                                }
-                            }
-                            LaunchedEffect(Unit) {
-                                contentViewModel.setOnClickProgressInfoCallback { progressText ->
-                                    isShowJumpToPageDialog = true
-                                }
-                                contentViewModel.setOnClickSearchButtonCallback {
-                                    isShowSearchDialog = !isShowSearchDialog
-                                }
-                            }
-
-                            LaunchedEffect(pagerState.currentPage) {
-                                viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
-                                contentViewModel.updateProgressText(
-                                    "${pagerState.currentPage + 1}/${viewModel.getPagesCount()}"
-                                )
-                            }
-
-                            DisposableEffect(Unit) {
-                                // 设置自动朗读回调
-                                // 当 TTS 开始朗读时,获取当前页文本并开始朗读
-                                ttsModel.setOnRequestSpeechStartListener {
-                                    Log.d("TxtScreen", "开始朗读")
-                                    val text = viewModel.getPageContent(pagerState.currentPage)
-                                    if (text.isNotBlank()) {
-                                        ttsModel.speak(text, "txt_${pagerState.currentPage}")
-                                    }
-                                }
-                                // 当 TTS 朗读完成时,自动翻页并朗读下一页
-                                ttsModel.setOnSpeechDoneListener { utteranceId ->
-                                    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                                    val currentPage = pagerState.currentPage
-                                    
-                                    // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                                    val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                                        // 用户手动翻页，从当前页继续
-                                        currentPage
-                                    } else {
-                                        // 正常顺序播放，朗读下一页
-                                        currentPage + 1
-                                    }
-                                    
-                                    val totalPages = viewModel.getPagesCount()
-                                    if (targetPage in 0 until totalPages) {
-                                        scope.launch {
-                                            // 如果需要翻页（目标页不是当前页），先滚动
-                                            if (targetPage != currentPage) {
-                                                pagerState.scrollToPage(targetPage)
-                                            }
-
-                                            // 朗读目标页
-                                            val text = viewModel.getPageContent(targetPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(text, "txt_$targetPage")
-                                            }
-                                        }
-                                    }
-                                }
-                                ttsModel.setOnRequestNextPageListener {
-                                    if (pagerState.currentPage < viewModel.getPagesCount() - 1) {
-                                        scope.launch {
-                                            pagerState.scrollToPage(pagerState.currentPage + 1)
-                                            val text =
-                                                viewModel.getPageContent(pagerState.currentPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(
-                                                    text,
-                                                    "txt_${pagerState.currentPage}"
-                                                )
-                                                val text =
-                                                    viewModel.getPageContent(pagerState.currentPage)
-                                                if (text.isNotBlank()) {
-                                                    ttsModel.speak(
-                                                        text,
-                                                        "txt_${pagerState.currentPage}"
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                ttsModel.setOnRequestPreviousPageListener{
-                                    if (pagerState.currentPage > 0) {
-                                        scope.launch {
-                                            pagerState.scrollToPage(pagerState.currentPage - 1)
-                                            val text =
-                                                viewModel.getPageContent(pagerState.currentPage)
-                                            if (text.isNotBlank()) {
-                                                ttsModel.speak(
-                                                    text,
-                                                    "txt_${pagerState.currentPage}"
-                                                )
-                                                val text =
-                                                    viewModel.getPageContent(pagerState.currentPage)
-                                                if (text.isNotBlank()) {
-                                                    ttsModel.speak(
-                                                        text,
-                                                        "txt_${pagerState.currentPage}"
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                onDispose {
-                                    ttsModel.clearCallbacks()
-                                }
-                            }
-                            var currentKeyword by remember { mutableStateOf("") }
-                            HorizontalPager(
-                                state = pagerState,
-                                modifier = Modifier.fillMaxSize(),
-                                beyondViewportPageCount = 10
-                            ) { page ->
-                                Log.d("TxtScreen", "当前页: $page")
-                                val pageContent = viewModel.getPageContent(page)
-                                val pageAnnotatedContent =
-                                    if(isShowSearchDialog) highLightText(pageContent, currentKeyword)
-                                    else highLightText(pageContent, "")
-                                PageContent(
-                                    pageAnnotatedContent = pageAnnotatedContent,
-                                    fontSize = viewModel.currentFontSizeSp,
-                                    lineHeight = viewModel.currentLineHeightSp,
-                                    contentPadding = contentPadding
-                                )
-                            }
-                            if(isShowJumpToPageDialog){
-                                JumpToPageDialog(
-                                    currentPage = pagerState.currentPage,
-                                    totalPages = viewModel.getPagesCount(),
-                                    onDismiss = {
-                                        isShowJumpToPageDialog = false
-                                    },
-                                    onConfirm = {
-                                        scope.launch {
-                                            pagerState.scrollToPage(it)
-                                        }
-                                        isShowJumpToPageDialog = false
-                                    }
-                                )
-                            }
-                            SlideInSearchPanel(
-                                initialVisible = isShowSearchDialog,
-                                onClose =  {isShowSearchDialog =  false},
-                                getCurrentPosition = {pagerState.currentPage},
-                                onResultClick = {
-                                    scope.launch {
-                                        try{
-                                            pagerState.scrollToPage((it as SearchData.TxtSearchResult).pageIndex)
-                                        } catch (e: Exception){
-                                            Log.e("TxtScreen", "跳转页失败: ${e.message}")
-                                        }
-                                    }
-                                },
-                                onKeywordChange = {currentKeyword = it},
-                                searchExecutor = {keyword -> viewModel.search(keyword) }
-                            )
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    val up = waitForUpOrCancellation()
+                    if (up != null) {
+                        val clickTime = SystemClock.uptimeMillis()
+                        val timeDiff = clickTime - lastClickTime
+                        lastClickTime = clickTime
+                        val isDoubleClick = timeDiff <= 300
+                        if (isDoubleClick) {
+                            Log.d("TxtScreen", "双击屏幕，切换全屏，时间间隔: ${timeDiff}ms")
+                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                            viewModel.onEvent(TxtEvent.OnDoubleClickScreen)
                         }
                     }
                 }
             }
+    ) {
+        Log.d("TxtScreen", "[ReadyState] 渲染分支: isPagesReady=$isPagesReady")
+        if (!isPagesReady) {
+            Log.d("TxtScreen", "[ReadyState] 显示 PagingState（正在分页）")
+            PagingState()
+        } else {
+            Log.d("TxtScreen", "[ReadyState] 显示 ReaderContent（阅读内容）")
+            ReaderContent(
+                fileInfo = fileInfo,
+                isSwipeLayout = isSwipeLayout,
+                contentViewModel = contentViewModel,
+                viewModel = viewModel,
+                ttsModel = ttsModel,
+                onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
+                contentPadding = contentPadding,
+                scope = scope
+            )
+        }
+    }
 
-            is BookUiState.Error -> {
-                // 显示错误
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+    // ✅ 放在 Box 外部，完全独立于 Box 的重组，避免分页时 dialog 重组
+    LayoutSettingDialogs(
+        isShowLayoutSettingDialog = isShowLayoutSettingDialog,
+        isSwipeLayout = isSwipeLayout,
+        viewModel = viewModel,
+        onDismiss = { isShowLayoutSettingDialog = false }
+    )
+}
+
+/**
+ * ✅ 分页中状态
+ */
+@Composable
+private fun PagingState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
+        Text(
+            text = "正在分页...",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+    }
+}
+
+/**
+ * ✅ 阅读器内容（分页完成后）
+ */
+@Composable
+private fun ReaderContent(
+    fileInfo: FileInfo,
+    isSwipeLayout: Boolean,
+    contentViewModel: ContentViewModel,
+    viewModel: TxtViewModel,
+    ttsModel: TtsViewModel,
+    onLongPressProgressInfo: (String) -> Unit,
+    contentPadding: PaddingValues,
+    scope: CoroutineScope
+) {
+    val currentPage by viewModel.currentPage.collectAsState()
+    var currentKeyword by remember { mutableStateOf("") }
+
+    // ✅ 对话框状态管理 - 就近定义
+    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+    var isShowSearchDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ✅ 设置回调
+        SetupCallbacks(
+            contentViewModel = contentViewModel,
+            onClickProgressInfo = { isShowJumpToPageDialog = true },
+            onLongPressProgressInfo = onLongPressProgressInfo,
+            onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
+        )
+
+        // ✅ 更新进度文本
+        UpdateProgressText(
+            currentPage = currentPage,
+            isSwipeLayout = isSwipeLayout,
+            contentViewModel = contentViewModel,
+            viewModel = viewModel
+        )
+
+        // ✅ 设置 TTS 回调
+        SetupTtsCallbacks(
+            viewModel = viewModel,
+            ttsModel = ttsModel,
+            scope = scope
+        )
+
+        // ✅ 阅读内容 - 直接在这里处理，避免额外传递参数
+        TxtLayoutWrapper(
+            isSwipeLayout = isSwipeLayout,
+            viewModel = viewModel
+        ) { page ->
+            val pageContent = viewModel.getPageContent(page).trimEnd()
+            val pageAnnotatedContent = if(isShowSearchDialog) {
+                highLightText(pageContent, currentKeyword)
+            } else {
+                AnnotatedString(pageContent)
             }
+            PageContent(
+                pageAnnotatedContent = pageAnnotatedContent,
+                fontSize = viewModel.currentFontSizeSp,
+                lineHeight = viewModel.currentLineHeightSp,
+                contentPadding = contentPadding
+            )
+        }
+
+        // ✅ 对话框
+        JumpDialogs(
+            isShowJumpToPageDialog = isShowJumpToPageDialog,
+            isSwipeLayout = isSwipeLayout,
+            currentPage = currentPage,
+            viewModel = viewModel,
+            onDismiss = { isShowJumpToPageDialog = false },
+            scope = scope
+        )
+
+        SearchPanel(
+            fileInfo = fileInfo,
+            isShowSearchDialog = isShowSearchDialog,
+            currentPage = currentPage,
+            currentKeyword = currentKeyword,
+            viewModel = viewModel,
+            onVisibleChange = { isShowSearchDialog = it },
+            onKeywordChange = { currentKeyword = it },
+            scope = scope
+        )
+    }
+}
+
+/**
+ * ✅ 设置 ContentViewModel 回调
+ */
+@Composable
+private fun SetupCallbacks(
+    contentViewModel: ContentViewModel,
+    onClickProgressInfo: (String) -> Unit,
+    onLongPressProgressInfo: (String) -> Unit,
+    onClickSearchButton: () -> Unit
+) {
+    DisposableEffect(Unit) {
+        contentViewModel.setOnClickProgressInfoCallback { onClickProgressInfo(it) }
+        contentViewModel.setOnLongPressProgressInfoCallback { onLongPressProgressInfo(it) }
+        contentViewModel.setOnClickSearchButtonCallback { onClickSearchButton() }
+
+        onDispose {
+            contentViewModel.setOnClickProgressInfoCallback(null)
+            contentViewModel.setOnLongPressProgressInfoCallback(null)
+            contentViewModel.setOnClickSearchButtonCallback(null)
         }
     }
 }
 
+/**
+ * ✅ 更新进度文本
+ */
+@Composable
+private fun UpdateProgressText(
+    currentPage: Int,
+    isSwipeLayout: Boolean,
+    contentViewModel: ContentViewModel,
+    viewModel: TxtViewModel
+) {
+    LaunchedEffect(currentPage, isSwipeLayout) {
+        Log.d("TxtScreen", "[UpdateProgressText] 更新进度文本: currentPage=$currentPage, isSwipeLayout=$isSwipeLayout")
+        if (isSwipeLayout) {
+            val progressText = "${currentPage + 1}/${viewModel.getPagesCount()}"
+            Log.d("TxtScreen", "[UpdateProgressText] 滑动模式进度: $progressText")
+            contentViewModel.updateProgressText(progressText)
+        } else {
+            val progressPercent = (viewModel.getProgress() * 100).roundToInt()
+            val progressText = "${progressPercent}%"
+            Log.d("TxtScreen", "[UpdateProgressText] 滚动模式进度: $progressText")
+            contentViewModel.updateProgressText(progressText)
+        }
+    }
+}
+
+/**
+ * ✅ 设置 TTS 回调
+ */
+@Composable
+private fun SetupTtsCallbacks(
+    viewModel: TxtViewModel,
+    ttsModel: TtsViewModel,
+    scope: CoroutineScope
+) {
+    val currentPage by viewModel.currentPage.collectAsState()
+    DisposableEffect(Unit) {
+        Log.d("TxtScreen", "[SetupTtsCallbacks] 设置 TTS 回调")
+        ttsModel.setOnRequestSpeechStartListener {
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 开始朗读, currentPage=$currentPage")
+            val text = viewModel.getPageContent(currentPage)
+            if (text.isNotBlank()) {
+                Log.d("TxtScreen", "[SetupTtsCallbacks] 朗读文本长度: ${text.length}")
+                ttsModel.speak(text, "txt_${currentPage}")
+            } else {
+                Log.w("TxtScreen", "[SetupTtsCallbacks] 页面内容为空，无法朗读")
+            }
+        }
+
+        // 当 TTS 朗读完成时,自动翻页并朗读下一页
+        ttsModel.setOnSpeechDoneListener { utteranceId ->
+            handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, isAutoPlay = true) {
+                it + 1 // 下一页
+            }
+        }
+        ttsModel.setOnRequestNextPageListener { utteranceId ->
+            handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, isAutoPlay = false) {
+                it + 1 // 下一页
+            }
+        }
+        ttsModel.setOnRequestPreviousPageListener { utteranceId ->
+            handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, isAutoPlay = false) {
+                it - 1 // 上一页
+            }
+        }
+
+        onDispose {
+            Log.d("TxtScreen", "[SetupTtsCallbacks] 清除 TTS 回调")
+            ttsModel.clearCallbacks()
+        }
+    }
+}
+
+/**
+ * ✅ 跳转对话框
+ */
+@Composable
+private fun JumpDialogs(
+    isShowJumpToPageDialog: Boolean,
+    isSwipeLayout: Boolean,
+    currentPage: Int,
+    viewModel: TxtViewModel,
+    onDismiss: () -> Unit,
+    scope: CoroutineScope
+) {
+    if (!isShowJumpToPageDialog) return
+
+    if (isSwipeLayout) {
+        JumpToPageDialog(
+            currentPage = currentPage,
+            totalPages = viewModel.getPagesCount(),
+            onDismiss = onDismiss,
+            onConfirm = {
+                scope.launch { viewModel.goToPage(it) }
+                onDismiss()
+            }
+        )
+    } else {
+        JumpToProgressDialog(
+            progress = viewModel.getProgress(),
+            onDismiss = onDismiss,
+            onConfirm = {
+                scope.launch { viewModel.goToPage(viewModel.findPageByProgress(it)) }
+                onDismiss()
+            }
+        )
+    }
+}
+
+/**
+ * ✅ 布局设置对话框
+ */
+@Composable
+private fun LayoutSettingDialogs(
+    isShowLayoutSettingDialog: Boolean,
+    isSwipeLayout: Boolean,
+    viewModel: TxtViewModel,
+    onDismiss: () -> Unit
+) {
+    if (!isShowLayoutSettingDialog) return
+
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    LayoutSettingDialog(
+        isSwipeLayout = isSwipeLayout,
+        onSwipeLayoutChange = { newValue ->
+            readingState?.let { currentState ->
+                val newState = currentState.copy(isSwipeLayout = newValue)
+                viewModel.saveProgress(newState)
+            }
+        },
+        onDismiss = onDismiss
+    )
+}
+
+/**
+ * ✅ 搜索面板
+ */
+@Composable
+private fun SearchPanel(
+    fileInfo: FileInfo,
+    isShowSearchDialog: Boolean,
+    currentPage: Int,
+    currentKeyword: String,
+    viewModel: TxtViewModel,
+    onVisibleChange: (Boolean) -> Unit,
+    onKeywordChange: (String) -> Unit,
+    scope: CoroutineScope
+) {
+    SlideInSearchPanel(
+        visible = isShowSearchDialog,
+        onVisibleChange = { onVisibleChange(it) },
+        onClose = { onVisibleChange(false) },
+        getCurrentPosition = { currentPage },
+        onResultClick = {
+            scope.launch {
+                try {
+                    val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
+                    viewModel.goToPage(pageIndex)
+                } catch (e: Exception) {
+                    Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                }
+            }
+        },
+        onKeywordChange = onKeywordChange,
+        searchExecutor = { keyword -> viewModel.search(keyword) },
+        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
+    )
+}
+
+/**
+ * ✅ 页面内容显示组件
+ *
+ * 使用 SelectionContainer 包裹以支持文本选择
+ *
+ * @param pageAnnotatedContent 带样式的页面文本
+ * @param fontSize 字体大小（sp）
+ * @param lineHeight 行高（sp）
+ * @param contentPadding 内容边距
+ */
 @Composable
 fun PageContent(
     pageAnnotatedContent: AnnotatedString,
@@ -374,6 +593,15 @@ fun PageContent(
     }
 }
 
+/**
+ * ✅ 文本高亮函数
+ *
+ * 在文本中查找关键词并添加高亮样式
+ *
+ * @param content 原始文本
+ * @param keyword 要高亮的关键词
+ * @return 带高亮样式的 AnnotatedString
+ */
 @Composable
 fun highLightText(content: String, keyword: String): AnnotatedString {
     return if (keyword.isNotBlank()) {
@@ -402,6 +630,236 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
     } else {
         buildAnnotatedString {
             append(content)
+        }
+    }
+}
+
+/**
+ * ✅ TXT 布局包装器
+ *
+ * 根据 isSwipeLayout 参数选择滑动或滚动布局
+ *
+ * @param modifier 修饰符
+ * @param isSwipeLayout 是否为滑动布局
+ * @param viewModel TXT ViewModel
+ * @param pageContent 页面内容 Composable
+ */
+@Composable
+fun TxtLayoutWrapper(
+    modifier: Modifier = Modifier,
+    isSwipeLayout: Boolean,
+    viewModel: TxtViewModel,
+    pageContent: @Composable (Int) -> Unit
+) {
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    Log.d("TxtScreen", "[TxtLayoutWrapper] 初始页: $initialPage")
+    if (isSwipeLayout) {
+        TxtSwipeLayout(
+            modifier = modifier,
+            initialPage = initialPage,
+            viewModel = viewModel,
+            itemContent = pageContent
+        )
+    } else {
+        TxtScrollLayout(
+            modifier = modifier,
+            initialPage = initialPage,
+            viewModel = viewModel,
+            itemContent = pageContent
+        )
+    }
+}
+
+/**
+ * ✅ TXT 滑动布局组件
+ *
+ * 使用 HorizontalPager 实现水平翻页效果,支持手势滑动切换页面。
+ *
+ * @param modifier 修饰符
+ * @param initialPage 初始页码
+ * @param viewModel TXT ViewModel
+ * @param itemContent 页面内容 Composable
+ */
+@Composable
+fun TxtSwipeLayout(
+    modifier: Modifier = Modifier,
+    initialPage: Int,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+){
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.coerceIn(
+            0,
+            viewModel.getPagesCount() - 1
+        ),
+        pageCount = { viewModel.getPagesCount() }
+    )
+
+    DisposableEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                Log.d("TxtSwipeLayout", "[TxtSwipeLayout] 跳转页: $it")
+                pagerState.scrollToPage(it)
+            }
+        }
+        onDispose {
+            viewModel.setOnGoToPageListener(null)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        Log.d("TxtSwipeLayout", "[TxtSwipeLayout] PageChanged: ${pagerState.currentPage}")
+        viewModel.onEvent(TxtEvent.OnPageChanged(pagerState.currentPage))
+    }
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+        beyondViewportPageCount = 10
+    ) { page ->
+
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            itemContent(page)
+        }
+    }
+}
+
+/**
+ * ✅ TXT 滚动布局组件
+ *
+ * 使用 LazyColumn 实现垂直滚动效果,支持快速滚动和位置记忆。
+ * 通过 snapshotFlow 监听滚动位置变化,自动更新当前页码。
+ *
+ * @param modifier 修饰符
+ * @param initialPage 初始页码
+ * @param viewModel TXT ViewModel
+ * @param itemContent 页面内容 Composable
+ */
+@Composable
+fun TxtScrollLayout(
+    modifier: Modifier = Modifier,
+    initialPage: Int,
+    viewModel: TxtViewModel,
+    itemContent: @Composable (Int) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val totalPages = viewModel.getPagesCount()
+    // 创建 LazyListState 用于控制滚动
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialPage.coerceIn(0, totalPages - 1),
+        initialFirstVisibleItemScrollOffset = 0
+    )
+
+    DisposableEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                Log.d("TxtScrollLayout", "[TxtScrollLayout] 跳转页: $it")
+                lazyListState.scrollToItem(it)
+            }
+        }
+        onDispose {
+            viewModel.setOnGoToPageListener(null)
+        }
+    }
+
+    // 使用 snapshotFlow 监听滚动位置变化
+    LaunchedEffect(lazyListState) {
+        snapshotFlow {
+            val layoutInfo = lazyListState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+
+            if (visibleItems.isNotEmpty()) {
+                val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
+
+                val centerItem = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }
+
+                centerItem?.index
+            } else {
+                null
+            }
+        }
+        .filterNotNull()
+        .distinctUntilChanged()
+        .collect { centerIndex ->
+            Log.d("TxtScrollLayout", "[TxtScrollLayout] PageChanged: $centerIndex")
+            viewModel.onEvent(TxtEvent.OnPageChanged(centerIndex))
+        }
+    }
+
+    // 使用 LazyColumn 实现垂直滚动布局，提升性能
+    LazyColumn(
+        state = lazyListState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 0.dp)
+    ) {
+        items(
+            count = totalPages,
+            key = { index -> "txt_page_$index" }
+        ) { page ->
+
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemContent(page)
+            }
+        }
+    }
+}
+
+/**
+ * 处理 TTS 页面变化的通用逻辑
+ * @param utteranceId TTS 朗读完成的标识符
+ * @param currentPage 当前页码
+ * @param viewModel TXT ViewModel
+ * @param ttsModel TTS ViewModel
+ * @param scope CoroutineScope
+ * @param isAutoPlay 是否为自动播放完成（true=朗读完成自动跳转，false=用户手动请求跳转）
+ * @param pageCalculator 页码计算函数，接收当前页码，返回目标页码
+ */
+private fun handleTtsPageChange(
+    utteranceId: String?,
+    currentPage: Int,
+    viewModel: TxtViewModel,
+    ttsModel: TtsViewModel,
+    scope: kotlinx.coroutines.CoroutineScope,
+    isAutoPlay: Boolean,
+    pageCalculator: (Int) -> Int
+) {
+    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
+
+    // 判断是否需要调整页码
+    val targetPage = if (isAutoPlay) {
+        // 自动播放完成：如果用户手动翻页了，从当前页继续
+        if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+            currentPage
+        } else {
+            // 正常顺序播放，根据计算器确定目标页
+            pageCalculator(currentPage)
+        }
+    } else {
+        // 用户手动请求跳转：强制跳转到计算的目标页
+        pageCalculator(currentPage)
+    }
+
+    val totalPages = viewModel.getPagesCount()
+    if (targetPage in 0 until totalPages) {
+        scope.launch {
+            // 如果需要翻页（目标页不是当前页），先滚动
+            if (targetPage != currentPage) {
+                viewModel.goToPage(targetPage)
+            }
+
+            // 朗读目标页
+            val text = viewModel.getPageContent(targetPage)
+            if (text.isNotBlank()) {
+                ttsModel.speak(text, "txt_$targetPage")
+            }
         }
     }
 }

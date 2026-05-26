@@ -30,8 +30,10 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.LayoutSettingDialog
 
 @Composable
 fun EpubScreen(
@@ -67,14 +69,28 @@ fun EpubScreen(
                 }
             }
             is BookUiState.Ready -> {
-                // 获取上次阅读位置
-                val savedCfi = viewModel.getCurrentState()?.cfi
+                // ✅ 使用 readingState Flow 获取上次阅读位置
+                val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+                val savedCfi = readingState?.cfi
+                val isSwipeLayout = readingState?.isSwipeLayout ?: true
                 Log.d("EpubScreen", "上次阅读位置 CFI: ${savedCfi ?: "(无，将显示首页)"}")
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
+                var isShowLayoutSettingDialog by remember { mutableStateOf(false)}
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
+
+                LaunchedEffect(isSwipeLayout) {
+                    webView?.setFlowMode(
+                        when(isSwipeLayout) {
+                            true -> EpubFlowMode.Paginated
+                            false -> EpubFlowMode.Scrolled
+                        }
+                    )
+                    webView?.setStartCfi(savedCfi)
+                    webView?.startEpubWebsite()
+                }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 准备完成，显示 WebView
@@ -89,10 +105,19 @@ fun EpubScreen(
 
                                 // 设置起始位置 CFI
                                 setStartCfi(savedCfi)
-                                initTheme(
+                                setTheme(
                                     when(config.isNightMode) {
                                         true -> EpubTheme.Night
-                                        false -> EpubTheme.EyeCare
+                                        false -> when(config.isDynamicColor) {
+                                            true -> EpubTheme.Light
+                                            false -> EpubTheme.EyeCare
+                                        }
+                                    }
+                                )
+                                setFlowMode(
+                                    when(isSwipeLayout) {
+                                        true -> EpubFlowMode.Paginated
+                                        false -> EpubFlowMode.Scrolled
                                     }
                                 )
 
@@ -102,7 +127,7 @@ fun EpubScreen(
                                     contentViewModel.updateProgressText("${(epubLocation.start.percentage * 100).toInt()}%")
                                     Log.d("EpubScreen", "保存进度: $epubLocation")
                                     // 并保存进度
-                                    viewModel.saveEpubProgress(
+                                    viewModel.updateEpubProgress(
                                         uri = fileInfo.uri,
                                         cfi = epubLocation.start.cfi,
                                         page = epubLocation.start.displayed.page,
@@ -113,7 +138,10 @@ fun EpubScreen(
 
                                 setOnLoadCompleteListener {
                                     contentViewModel.setOnClickProgressInfoCallback {
-                                        toggleNavPanel();
+                                        toggleNavPanel()
+                                    }
+                                    contentViewModel.setOnLongPressProgressInfoCallback {
+                                        isShowLayoutSettingDialog = true
                                     }
                                     contentViewModel.setOnClickSearchButtonCallback {
                                         isShowSearchDialog = !isShowSearchDialog
@@ -215,9 +243,29 @@ fun EpubScreen(
                             }
                         )
                     }
-                    
+                    if(isShowLayoutSettingDialog){
+                        LayoutSettingDialog(
+                            isSwipeLayout = isSwipeLayout,
+                            onSwipeLayoutChange = { newValue ->
+                                // ✅ 直接从 readingState 创建新状态并保存
+                                if(readingState == null){
+                                    viewModel.saveProgress(ReadingState.Epub(fileInfo.uri, isSwipeLayout = newValue))
+                                } else {
+                                    readingState?.let { currentState ->
+                                        val newState = currentState.copy(isSwipeLayout = newValue)
+                                        viewModel.saveProgress(newState)
+                                    }
+                                }
+                            },
+                            onDismiss = {
+                                isShowLayoutSettingDialog = false
+                            }
+                        )
+                    }
+
                     SlideInSearchPanel(
-                        initialVisible = isShowSearchDialog,
+                        visible = isShowSearchDialog,
+                        onVisibleChange =  {isShowSearchDialog = it},
                         onClose = {
                             isShowSearchDialog = false
                             viewModel.removeAllHighlights(epubWebView = webView)
@@ -230,7 +278,8 @@ fun EpubScreen(
                             viewModel.highlightSingle(epubResult.cfi, webView)
                             webView?.goToLocation(epubResult.cfi)
                         },
-                        onKeywordChange = { keyword -> currentKeyword = keyword}
+                        onKeywordChange = { keyword -> currentKeyword = keyword},
+                        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
                     )
                 }
             }

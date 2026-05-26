@@ -10,20 +10,32 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,13 +45,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
@@ -47,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.speech.TtsViewModel
 import kotlinx.coroutines.launch
@@ -57,6 +66,8 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
+import com.example.readeptd.utils.LayoutSettingDialog
+import kotlinx.coroutines.delay
 
 @Composable
 fun PdfScreen(
@@ -92,7 +103,7 @@ fun PdfScreen(
 
             is BookUiState.Ready -> {
                 PdfLazyViewer(
-                    filePath = state.tempFilePath,
+                    fileInfo = fileInfo,
                     contentViewModel = contentViewModel,
                     viewModel = viewModel,
                     ttsModel = ttsModel,
@@ -120,248 +131,581 @@ fun PdfScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PdfLazyViewer(
-    filePath: String,
+    fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    var isShowJumpToPageDialog by remember { mutableStateOf(false) }
-    
+
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val currentPage by viewModel.currentPage.collectAsState()
     val configuration = LocalConfiguration.current
-    
-    // 收集配置信息，获取夜间模式状态
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
 
-    DisposableEffect(filePath) {
+    // ✅ 使用 StateFlow 获取阅读状态
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    
+    // ✅ 从 readingState 中提取 isSwipeLayout，默认为 true
+    val isSwipeLayout = readingState?.isSwipeLayout ?: true
+    val isRtl = readingState?.isRtl ?: false
+
+    // ✅ 根据当前屏幕方向获取对应的缩放状态
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    DisposableEffect(Unit) {
         // 初始化 PDF 渲染器
-        viewModel.initializeRenderer(filePath)
+        viewModel.initializeRenderer()
         onDispose {
             viewModel.cleanupRenderer()
             Log.d("PdfLazyViewer", "资源已释放")
         }
     }
 
-    if (totalPages > 0) {
-        var scale by remember { mutableFloatStateOf(1f) }
-        var offset by remember { mutableStateOf(Offset.Zero) }
-        var containerSize by remember { mutableStateOf(IntSize.Zero) }
-        var isShowSearchDialog by remember { mutableStateOf(false) }
+    val pdfState by viewModel.pdfState.collectAsStateWithLifecycle()
 
-        val initialPage = viewModel.getInitialPage()
-        val pagerState = rememberPagerState(
-            initialPage = initialPage,
-            pageCount = { totalPages }
-        )
-        Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
-        
-        LaunchedEffect(pagerState.currentPage) {
-            Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
-            contentViewModel.updateProgressText("${pagerState.currentPage + 1}/$totalPages")
-            viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
-
-            val currentPage = pagerState.currentPage
-            viewModel.cleanupUnusedPages(currentPage)
-        }
-        DisposableEffect(Unit) {
-            contentViewModel.setOnClickProgressInfoCallback { progressText ->
-                if (totalPages > 0) {
-                    isShowJumpToPageDialog = true
+    when (pdfState) {
+        is PdfState.Loading -> {
+            // 显示加载状态
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "加载中...",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
-            }
-            contentViewModel.setOnClickSearchButtonCallback {
-                isShowSearchDialog = !isShowSearchDialog
-            }
-
-            ttsModel.setOnRequestSpeechStartListener {
-                val text = viewModel.getPageText(pagerState.currentPage)
-                if (!text.isNullOrBlank()) {
-                    ttsModel.speak(text, "pdf_${pagerState.currentPage}")
-                }
-            }
-
-            ttsModel.setOnSpeechDoneListener { utteranceId ->
-                val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
-                val currentPage = pagerState.currentPage
-                
-                // 判断是否需要调整页码：如果用户手动翻页了，从当前页开始朗读
-                val targetPage = if (lastPlayedPage != null && lastPlayedPage != currentPage) {
-                    // 用户手动翻页，从当前页继续
-                    currentPage
-                } else {
-                    // 正常顺序播放，朗读下一页
-                    currentPage + 1
-                }
-                
-                if (targetPage in 0 until totalPages) {
-                    scope.launch {
-                        // 如果需要翻页（目标页不是当前页），先滚动
-                        if (targetPage != currentPage) {
-                            pagerState.scrollToPage(targetPage)
-                        }
-                        
-                        // 朗读目标页
-                        val text = viewModel.getPageText(targetPage)
-                        if (!text.isNullOrBlank()) {
-                            ttsModel.speak(text, "pdf_$targetPage")
-                        }
-                    }
-                }
-            }
-            ttsModel.setOnRequestNextPageListener {
-                if (pagerState.currentPage < totalPages - 1) {
-                    scope.launch {
-                        pagerState.scrollToPage(pagerState.currentPage + 1)
-                        val text = viewModel.getPageText(pagerState.currentPage)
-                        if (!text.isNullOrBlank()) {
-                            ttsModel.speak(text, "pdf_${pagerState.currentPage}")
-                        }
-                    }
-                }
-            }
-            ttsModel.setOnRequestPreviousPageListener {
-                if (pagerState.currentPage > 0) {
-                    scope.launch {
-                        pagerState.scrollToPage(pagerState.currentPage - 1)
-                        val text = viewModel.getPageText(pagerState.currentPage)
-                        if (!text.isNullOrBlank()) {
-                            ttsModel.speak(text, "pdf_${pagerState.currentPage}")
-                        }
-                    }
-                }
-            }
-
-            onDispose {
-                ttsModel.clearCallbacks()
             }
         }
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .onGloballyPositioned { coordinates ->
-                    containerSize = coordinates.size
+
+        is PdfState.Ready -> {
+            var containerSize by remember { mutableStateOf(IntSize.Zero) }
+            var isShowJumpToPageDialog by remember { mutableStateOf(false) }
+            var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
+            var isShowSearchDialog by remember { mutableStateOf(false) }
+            var showNoTextHint by remember { mutableStateOf(false) }
+
+            LaunchedEffect(currentPage) {
+                Log.d("PdfLazyViewer", "当前页: $currentPage")
+                contentViewModel.updateProgressText("${currentPage + 1}/$totalPages")
+            }
+            DisposableEffect(Unit) {
+                contentViewModel.setOnClickProgressInfoCallback { progressText ->
+                    if (totalPages > 0) {
+                        isShowJumpToPageDialog = true
+                    }
                 }
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = { tapOffset ->
-                            Log.d("PdfScreen", "双击屏幕，切换全屏")
-                            contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                contentViewModel.setOnLongPressProgressInfoCallback { progressText ->
+                    isShowLayoutSettingDialog = true
+                }
+                contentViewModel.setOnClickSearchButtonCallback {
+                    isShowSearchDialog = !isShowSearchDialog
+                }
+
+                ttsModel.setOnRequestSpeechStartListener {
+                    val text = viewModel.getPageText(currentPage)
+                    if (!text.isNullOrBlank()) {
+                        ttsModel.speak(text, "pdf_${currentPage}")
+                    } else {
+                        showNoTextHint = true
+                    }
+                }
+
+                ttsModel.setOnSpeechDoneListener { utteranceId ->
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = true) {
+                        it + 1 // 下一页
+                    }
+                }
+
+                ttsModel.setOnRequestNextPageListener { utteranceId ->
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = false) {
+                        it + 1 // 下一页
+                    }
+                }
+                ttsModel.setOnRequestPreviousPageListener { utteranceId ->
+                    handleTtsPageChange(utteranceId, currentPage, viewModel, ttsModel, scope, totalPages, isAutoPlay = false) {
+                        it - 1 // 上一页
+                    }
+                }
+                onDispose {
+                    ttsModel.clearCallbacks()
+                    contentViewModel.setOnClickProgressInfoCallback(null)
+                    contentViewModel.setOnLongPressProgressInfoCallback(null)
+                    contentViewModel.setOnClickSearchButtonCallback(null)
+                }
+            }
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offset by remember { mutableStateOf(Offset.Zero) }
+
+                LaunchedEffect( isSwipeLayout, isRtl) {
+                    scale = 1f
+                    offset = Offset.Zero
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coordinates ->
+                            containerSize = coordinates.size
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = { tapOffset ->
+                                    Log.d("PdfLazyViewer", "双击屏幕，切换全屏")
+                                    contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                }
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            delay(100)
+                            detectTransformGestures(
+                                onGesture = { centroid, pan, zoom, rotation ->
+                                    scale *= zoom
+                                    scale = scale.coerceIn(0.5f, 5f)
+                                    offset += pan
+                                }
+                            )
+                        }
+                ) {
+                    if (isSwipeLayout) {
+                        PdfSwipeLayout(
+                            contentViewModel = contentViewModel,
+                            viewModel = viewModel,
+                            scale = scale,
+                            offset = offset
+                        )
+                    } else {
+                        PdfScrollLayout(
+                            contentViewModel = contentViewModel,
+                            viewModel = viewModel,
+                            scale = scale,
+                            offset = offset
+                        )
+                    }
+                }
+                if (isShowJumpToPageDialog) {
+                    JumpToPageDialog(
+                        currentPage = currentPage,
+                        totalPages = totalPages,
+                        onDismiss = {
+                            isShowJumpToPageDialog = false
+                        },
+                        onConfirm = {
+                            scope.launch {
+                                viewModel.goToPage(it)
+                            }
+                            isShowJumpToPageDialog = false
                         }
                     )
                 }
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        scale *= zoom
-                        offset += pan
-                    }
-                }
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                val scrollState = rememberScrollState()
-                var contentAlignment = Alignment.Center
-                var modifier: Modifier? = null
-                if(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE){
-                    modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
-                    contentAlignment = Alignment.TopCenter
-                } else {
-                    modifier = Modifier.fillMaxSize()
-                    contentAlignment = Alignment.Center
-                }
-                Box(
-                    contentAlignment = contentAlignment,
-                ) {
-                    viewModel.renderPage(currentPage, 1)
-                    val bitmap = viewModel.getPageBitmap( page)
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "PDF_Page_$page",
-                            contentScale = ContentScale.FillWidth,
-                            colorFilter = if (config.isNightMode) {
-                                ColorFilter.colorMatrix(
-                                    ColorMatrix(
-                                        floatArrayOf(
-                                            -1f, 0f, 0f, 0f, 255f,
-                                            0f, -1f, 0f, 0f, 255f,
-                                            0f, 0f, -1f, 0f, 255f,
-                                            0f, 0f, 0f, 1f, 0f
-                                        )
-                                    )
-                                )
-                            } else null,
-                            modifier = modifier
-                                .graphicsLayer(
-                                    scaleX = scale,
-                                    scaleY = scale,
-                                    translationX = offset.x,
-                                    translationY = offset.y,
-                                )
-                        )
-                    } else {
-                        Log.d("PdfLazyViewer", "PDF page $page bmp is null")
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(40.dp)
-                            )
+                if (isShowLayoutSettingDialog) {
+                    LayoutSettingDialog(
+                        isSwipeLayout = isSwipeLayout,
+                        onSwipeLayoutChange = { newValue ->
+                            // ✅ 直接从 readingState 创建新状态并保存
+                            readingState?.let { currentState ->
+                                val newState = currentState.copy(isSwipeLayout = newValue)
+                                viewModel.saveProgress(newState)
+                            }
+                        },
+                        isRtl = isRtl,
+                        onRtlChange = { newValue ->
+                            readingState?.let { currentState ->
+                                val newState = currentState.copy(isRtl = newValue)
+                                viewModel.saveProgress(newState)
+                            }
+                        },
+                        onDismiss = {
+                            isShowLayoutSettingDialog = false
                         }
+                    )
+                }
+                SlideInSearchPanel(
+                    visible = isShowSearchDialog,
+                    onVisibleChange = {
+                        isShowSearchDialog = it
+                    },
+                    searchExecutor = { query ->
+                        viewModel.search(query)
+                    },
+                    getCurrentPosition = {
+                        currentPage
+                    },
+                    onResultClick = { result ->
+                        scope.launch {
+                            viewModel.goToPage((result as SearchData.PdfSearchResult).pageIndex)
+                        }
+                    },
+                    onClose = {
+                        isShowSearchDialog = false
+                    },
+                    fileUri = fileInfo.uri
+                )
+
+                if (showNoTextHint) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 32.dp)
+                            .background(
+                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "没有文本",
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    LaunchedEffect(Unit) {
+                        delay(1500)
+                        showNoTextHint = false
                     }
                 }
             }
-            if (isShowJumpToPageDialog) {
-                JumpToPageDialog(
-                    currentPage = pagerState.currentPage,
-                    totalPages = totalPages,
-                    onDismiss = {
-                        isShowJumpToPageDialog = false
-                    },
-                    onConfirm = {
-                        scope.launch {
-                            pagerState.scrollToPage(it)
+        }
+
+        is PdfState.Error -> {
+            // 显示错误状态
+            val errorMessage = (pdfState as PdfState.Error).message
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "错误",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "加载失败",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PdfPageContent(
+    page: Int,
+    isSwipeLayout: Boolean = true,
+    contentViewModel: ContentViewModel,
+    viewModel: PdfViewModel,
+    scale: Float = 1f,
+    offset: Offset = Offset.Zero
+){
+    val colorMatrix = remember{
+        ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    }
+    val config by contentViewModel.configData.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isRtl = readingState?.isRtl?: false
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthDp = configuration.screenWidthDp
+
+    val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
+
+    Box(modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "PDF_Page_$page",
+                colorFilter = if (config.isNightMode) {
+                    ColorFilter.colorMatrix(colorMatrix)
+                } else null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (isSwipeLayout) {
+                            Modifier.graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y)
+                        } else {
+                            Modifier
                         }
-                        isShowJumpToPageDialog = false
+                    )
+            )
+        } else {
+            LaunchedEffect(page, bitmap) {
+                if(bitmap == null) {
+                    scope.launch {
+                        Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
+                        viewModel.renderPage(page, 2)
                     }
+                }
+            }
+            Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
+            Box(
+                modifier = if(isSwipeLayout) {
+                    Modifier.fillMaxSize()
+                } else {
+                    if(isRtl){
+                        Modifier.fillMaxWidth().height(screenHeightDp.dp)
+                    }
+                    else {
+                        Modifier.fillMaxHeight().width(screenWidthDp.dp)
+                    }
+                },
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp)
                 )
             }
-            SlideInSearchPanel(
-                initialVisible = isShowSearchDialog,
-                searchExecutor = { query ->
-                    viewModel.search(query)
-                },
-                getCurrentPosition = {
-                    pagerState.currentPage
-                },
-                onResultClick = { result ->
-                    scope.launch {
-                        pagerState.scrollToPage((result as SearchData.PdfSearchResult).pageIndex)
-                    }
-                },
-                onClose = {
-                    isShowSearchDialog = false
+        }
+    }
+}
+
+@Composable
+fun PdfSwipeLayout(
+    modifier: Modifier = Modifier,
+    contentViewModel: ContentViewModel,
+    viewModel: PdfViewModel,
+    scale: Float,
+    offset: Offset,
+) {
+    val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
+    val initialPage = viewModel.getInitialPage()
+    val scope = rememberCoroutineScope()
+    // ✅ 使用 StateFlow 获取阅读状态
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isRtl = readingState?.isRtl?: false
+
+    Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
+
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { totalPages }
+    )
+    LaunchedEffect(pagerState.currentPage) {
+        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
+        viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
+        // 使用 LinkedHashMap 实现 LRU 缓存，不需要手动清理过期页面
+        //val currentPage = pagerState.currentPage
+        //viewModel.cleanupUnusedPages(currentPage)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener {
+            scope.launch {
+                pagerState.scrollToPage(it)
+            }
+        }
+    }
+    HorizontalPager(
+        reverseLayout = isRtl,
+        state = pagerState,
+        modifier = Modifier.fillMaxSize()
+    ) { page ->
+        PdfPageContent(
+            page = page,
+            isSwipeLayout = true,
+            contentViewModel = contentViewModel,
+            viewModel = viewModel,
+            scale = scale,
+            offset = offset
+        )
+    }
+}
+
+@Composable
+fun PdfScrollLayout(
+    modifier: Modifier = Modifier,
+    contentViewModel: ContentViewModel,
+    viewModel: PdfViewModel,
+    scale: Float,
+    offset: Offset
+) {
+    val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
+    val initialPage = viewModel.getInitialPage()
+    val scope = rememberCoroutineScope()
+// ✅ 使用 StateFlow 获取阅读状态
+    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isRtl = readingState?.isRtl?: false
+
+    // 创建 LazyListState 用于控制滚动
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialPage,
+        initialFirstVisibleItemScrollOffset = 0
+    )
+
+    // 监听页面跳转请求
+    LaunchedEffect(Unit) {
+        viewModel.setOnGoToPageListener { targetPage ->
+            scope.launch {
+                lazyListState.scrollToItem(targetPage)
+            }
+        }
+    }
+
+    // 监听滚动位置变化，更新当前页码（使用可见区域中间的页码）
+    val centerPageIndex by remember {
+        derivedStateOf {
+            val layoutInfo = lazyListState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+
+            if (visibleItems.isNotEmpty()) {
+                // ✅ 根据滚动方向计算中心位置
+                val viewportCenter = if (isRtl) {
+                    // 横向滚动：使用宽度
+                    layoutInfo.viewportStartOffset + layoutInfo.viewportSize.width / 2
+                } else {
+                    // 纵向滚动：使用高度
+                    layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
                 }
+
+                // 找到最接近视口中心的 item
+                val centerItem = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }
+
+                centerItem?.index ?: 0
+            } else {
+                0
+            }
+        }
+    }
+
+    LaunchedEffect(centerPageIndex) {
+        viewModel.onEvent(PdfEvent.OnPageChanged(centerPageIndex))
+    }
+
+    // 使用 LazyColumn 实现垂直滚动布局，提升性能
+    Box(modifier = modifier.fillMaxSize()
+        .graphicsLayer(
+            scaleX = scale,
+            scaleY = scale,
+            translationX = offset.x,
+            translationY = offset.y,
+        )
+    ) {
+        val item: @Composable (page:Int)-> Unit ={ page->
+            PdfPageContent(
+                page = page,
+                isSwipeLayout = false,
+                contentViewModel = contentViewModel,
+                viewModel = viewModel
             )
         }
+        if(isRtl) {
+            LazyRow(
+                reverseLayout =  true,
+                state = lazyListState,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(totalPages,key = { it }) { page ->
+                    item(page)
+                }
+            }
+        } else {
+            LazyColumn(
+                state = lazyListState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(totalPages,key = { it }) { page ->
+                    item(page)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 处理 TTS 页面变化的通用逻辑（PDF 版本）
+ * @param utteranceId TTS 朗读完成的标识符
+ * @param currentPage 当前页码
+ * @param viewModel PDF ViewModel
+ * @param ttsModel TTS ViewModel
+ * @param scope CoroutineScope
+ * @param totalPages 总页数
+ * @param isAutoPlay 是否为自动播放完成（true=朗读完成自动跳转，false=用户手动请求跳转）
+ * @param pageCalculator 页码计算函数，接收当前页码，返回目标页码
+ */
+private fun handleTtsPageChange(
+    utteranceId: String?,
+    currentPage: Int,
+    viewModel: PdfViewModel,
+    ttsModel: TtsViewModel,
+    scope: kotlinx.coroutines.CoroutineScope,
+    totalPages: Int,
+    isAutoPlay: Boolean,
+    pageCalculator: (Int) -> Int
+) {
+    val lastPlayedPage = utteranceId?.substringAfter("_")?.toIntOrNull()
+    
+    // 判断是否需要调整页码
+    val targetPage = if (isAutoPlay) {
+        // 自动播放完成：如果用户手动翻页了，从当前页继续
+        if (lastPlayedPage != null && lastPlayedPage != currentPage) {
+            currentPage
+        } else {
+            // 正常顺序播放，根据计算器确定目标页
+            pageCalculator(currentPage)
+        }
     } else {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            CircularProgressIndicator()
-            Text(
-                text = "正在渲染...",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 16.dp)
-            )
+        // 用户手动请求跳转：强制跳转到计算的目标页
+        pageCalculator(currentPage)
+    }
+    
+    if (targetPage in 0 until totalPages) {
+        scope.launch {
+            // 如果需要翻页（目标页不是当前页），先滚动
+            if (targetPage != currentPage) {
+                viewModel.goToPage(targetPage)
+            }
+
+            // 朗读目标页
+            val text = viewModel.getPageText(targetPage)
+            if (!text.isNullOrBlank()) {
+                ttsModel.speak(text, "pdf_$targetPage")
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
@@ -24,12 +25,14 @@ class ContentViewModel(
 
     private val _uiState = MutableStateFlow<ContentUiState>(ContentUiState.Loading)
     val uiState: StateFlow<ContentUiState> = _uiState.asStateFlow()
-    private val _progressText = MutableStateFlow("")
+    private val _progressText = MutableStateFlow("-%")
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
+    private var _onLongPressProgressInfoCallback: ((String) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
-    private val _isFullScreen = MutableStateFlow(false)
-    val isFullScreen: StateFlow<Boolean> = _isFullScreen.asStateFlow()
+
+    // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
+    private var currentFileUri: String? = null
 
     init {
         Log.d("ContentViewModel", "ViewModel 创建: ${this.hashCode()}")
@@ -54,6 +57,7 @@ class ContentViewModel(
     override fun onCleared() {
         super.onCleared()
         _onClickProgressInfoCallback = null
+        _onLongPressProgressInfoCallback = null
         _onClickSearchButtonCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
@@ -64,32 +68,74 @@ class ContentViewModel(
             is ContentUiEvent.OnClickProgressInfo -> {
                 _onClickProgressInfoCallback?.invoke(event.progressText)
             }
+            is ContentUiEvent.OnLongPressProgressInfo -> {
+                _onLongPressProgressInfoCallback?.invoke(event.progressText)
+            }
             is ContentUiEvent.OnClickSearchButton -> {
                 _onClickSearchButtonCallback?.invoke()
             }
             is ContentUiEvent.OnDoubleClickScreen -> {
-                _isFullScreen.value = !_isFullScreen.value
+                // ✅ 使用 AppMemoryStore 管理全屏状态
+                currentFileUri?.let { uri ->
+                    AppMemoryStore.toggleFullScreen(uri)
+                    Log.d("ContentViewModel", "切换全屏状态: $uri -> ${AppMemoryStore.isFullScreen(uri)}")
+                }
             }
             is ContentUiEvent.OnScreenOrientationChanged ->{
-                _isFullScreen.value = false
+                // ✅ 屏幕旋转时重置全屏状态
+                currentFileUri?.let { uri ->
+                    //AppMemoryStore.setFullScreen(uri, false)
+                    Log.d("ContentViewModel", "屏幕旋转，重置全屏状态: $uri")
+                }
             }
         }
     }
 
+    /**
+     * 设置进度信息点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onClickProgressInfoCallback = callback
     }
+    /**
+     * 设置进度信息长按回调
+     *
+     * @param callback 长按回调函数
+     */
+    fun setOnLongPressProgressInfoCallback(callback: ((String) -> Unit)?) {
+        _onLongPressProgressInfoCallback = callback
+    }
 
+    /**
+     * 设置搜索按钮点击回调
+     *
+     * @param callback 点击回调函数
+     */
     fun setOnClickSearchButtonCallback(callback: (() -> Unit)?) {
         _onClickSearchButtonCallback = callback
     }
 
     /**
      * 更新进度信息
+     *
+     * @param progressText 进度文本
      */
     fun updateProgressText(progressText: String) {
-        Log.d("ContentViewModel", "更新进度信息: $progressText")
+        Log.d("ContentViewModel", "显示进度信息: $progressText")
         _progressText.value = progressText
+    }
+
+    /**
+     * ✅ 获取当前文件的全屏状态（从 AppMemoryStore 读取）
+     *
+     * @return 是否全屏
+     */
+    fun getIsFullScreen(): Boolean {
+        return currentFileUri?.let { uri ->
+            AppMemoryStore.isFullScreen(uri)
+        } ?: false
     }
 
     /**
@@ -102,7 +148,9 @@ class ContentViewModel(
                 _uiState.value = ContentUiState.Loading
                 
                 if (fileInfo != null) {
-                    Log.d("ContentViewModel", "成功加载文件信息: ${fileInfo.fileName}")
+                    // ✅ 保存当前文件 URI，用于关联全屏状态
+                    currentFileUri = fileInfo.uri
+                    Log.d("ContentViewModel", "成功加载文件信息: ${fileInfo.fileName}, URI: ${fileInfo.uri}")
                     _uiState.value = ContentUiState.Success(fileInfo)
                 } else {
                     Log.e("ContentViewModel", "未找到文件信息")

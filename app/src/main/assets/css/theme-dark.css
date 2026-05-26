@@ -1,43 +1,43 @@
 /* ============================================
-   深色主题
+   深色主题 - 洋红色系（夜晚使用）
    ============================================ */
 :root {
-    /* 主色调 */
-    --color-primary: #bb86fc;
-    --color-primary-dark: #9965f4;
-    --color-primary-light: #372650;
-    --color-primary-border: #7c4dff;
+    /* 主色调 - 柔和的洋红色，适合夜间阅读 */
+    --color-primary: #d500f9;
+    --color-primary-dark: #aa00ff;
+    --color-primary-light: #2a1a30;
+    --color-primary-border: #e040fb;
     
-    /* 文字颜色 */
-    --color-text-primary: #ffffff;
+    /* 文字颜色 - 浅灰色，确保对比度但不刺眼 */
+    --color-text-primary: #e0e0e0;
     --color-text-secondary: #b0b0b0;
     --color-text-muted: #808080;
     --color-text-inverse: #121212;
     
-    /* 背景颜色 */
+    /* 背景颜色 - Material Dark 标准 */
     --color-background: #121212;
     --color-background-light: #1e1e1e;
     --color-background-overlay: rgba(255, 255, 255, 0.1);
     
-    /* 边框颜色 */
-    --color-border: #333333;
-    --color-border-light: #2a2a2a;
+    /* 边框颜色 - 深灰色 */
+    --color-border: #2d2d2d;
+    --color-border-light: #252525;
     
-    /* 功能色 */
+    /* 功能色 - 调整为适合深色模式 */
     --color-error: #cf6679;
     --color-success: #03dac6;
     --color-warning: #ffb74d;
     
-    /* 阴影 */
+    /* 阴影 - 深色模式需要更强的阴影 */
     --shadow-panel: -2px 0 10px rgba(0, 0, 0, 0.8);
     --shadow-button: 0 2px 4px rgba(0, 0, 0, 0.5);
     
-    /* 特殊元素颜色 */
-    --color-toc-button: rgba(187, 134, 252, 0.7);
+    /* ✅ 特殊元素颜色 - 柔和的洋红色 */
+    --color-toc-button: rgba(213, 0, 249, 0.7);
 
-    /* 高亮颜色（深色模式使用明亮的品红色，配合 exclusion 混合模式和 fill-opacity） */
-    --color-highlight: rgb(187, 134, 252);
+    /* ✅ 高亮颜色 - 更深的紫红色，强烈醒目（无透明度） */
+    --color-highlight: rgb(170, 0, 200);
 
-    /* 选中文本的背景色（半透明紫色，与主色调一致） */
-    --color-selection: rgba(138, 43, 226, 0.5);
+    /* ✅ 选中文本的背景色 - 更浅的淡紫色，柔和提示（无透明度） */
+    --color-selection: rgb(234, 128, 252);
 }

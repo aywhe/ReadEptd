@@ -46,3 +46,10 @@ sealed interface TxtEvent {
     data  class OnScreenOrientationChanged(val orientation: Int): TxtEvent
 
 }
+
+
+sealed interface SplitPagesMode {
+    object ByLayoutSize : SplitPagesMode
+    object ByCharsCount : SplitPagesMode
+    object ByLinesCount : SplitPagesMode
+}

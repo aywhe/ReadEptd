@@ -32,12 +32,12 @@
     --shadow-panel: -2px 0 10px rgba(61, 64, 91, 0.2);
     --shadow-button: 0 2px 2px rgba(61, 64, 91, 0.15);
     
-    /* 特殊元素颜色 */
+    /* ✅ 特殊元素颜色 - 温暖的橙棕色 */
     --color-toc-button: rgba(212, 163, 115, 0.7);
 
-    /* 高亮颜色（护眼模式使用温暖的橙色，配合 exclusion 混合模式和 fill-opacity） */
-    --color-highlight: rgb(255, 152, 0);
+    /* ✅ 高亮颜色 - 更深的橙红色，强烈醒目（无透明度） */
+    --color-highlight: rgb(200, 100, 50);
 
-    /* 选中文本的背景色（半透明橙色，与主色调 #d4a373 一致） */
-    --color-selection: rgba(212, 163, 115, 0.5);
+    /* ✅ 选中文本的背景色 - 更浅的米黄色，柔和提示（无透明度） */
+    --color-selection: rgb(250, 230, 200);
 }

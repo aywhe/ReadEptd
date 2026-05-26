@@ -1,8 +1,14 @@
 package com.example.readeptd.utils
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import android.view.View
 import android.view.Window
+import androidx.activity.ComponentActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 /**
  * 系统 UI 工具类
@@ -12,6 +18,7 @@ object SystemUiUtils {
 
     /**
      * ✅ 更新系统栏颜色（状态栏和导航栏）
+     *
      * @param window 窗口实例
      * @param isNightMode 是否为夜间模式
      */
@@ -62,5 +69,34 @@ object SystemUiUtils {
                 }
             }
         }
+    }
+
+
+    /**
+     * 检查并请求通知权限（Android 13+）
+     * @param activity Activity 实例
+     * @return 是否已拥有权限
+     */
+    fun checkAndRequestNotificationPermission(activity: ComponentActivity): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+                Log.d("Utils", "请求通知权限")
+                return false
+            }
+            Log.d("Utils", "已拥有通知权限")
+            return true
+        }
+        // Android 13 以下不需要运行时权限
+        return true
     }
 }
