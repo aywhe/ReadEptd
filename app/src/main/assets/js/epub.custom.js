@@ -41,10 +41,15 @@ const cus = {
 		var range;
 		var pos;
 		var left, top, right;
-
-		if (ranges.length === 0) {
-			return null;
+        if (ranges.length === 0) {
+			// ✅ 创建默认范围而不是返回 null
+			range = node.ownerDocument.createRange();
+			range.selectNodeContents(node);
+			return range;
 		}
+		//if (ranges.length === 0) {
+		//	return null;
+		//}
 
 		for (var i = 0; i < ranges.length; i++) {
 			range = ranges[i];
@@ -93,10 +98,15 @@ const cus = {
 		var range;
 		var pos;
 		var left, right, top, bottom;
-
-		if (ranges.length === 0) {
-			return null;
+        if (ranges.length === 0) {
+			// ✅ 创建默认范围而不是返回 null
+			range = node.ownerDocument.createRange();
+			range.selectNodeContents(node);
+			return range;
 		}
+		//if (ranges.length === 0) {
+		//	return null;
+		//}
 
 		for (var i = 0; i < ranges.length; i++) {
 			range = ranges[i];

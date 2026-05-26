@@ -847,16 +847,57 @@ const ReaderCore = {
                 originalUpdateLayout();
                 if (this.mapping) {
                     const mapping = AppState.rendition.manager.mapping;
+                    if(mapping.mappingFunctionsReplaced){
+                        console.log('Mapping functions already replaced, skip');
+                        return;
+                    }
                     console.log('Replacing mapping functions ...');
+                    // ✅ 保存原始函数作为降级方案
+                    const originalFindTextStartRange = mapping.findTextStartRange.bind(mapping);
+                    const originalFindTextEndRange = mapping.findTextEndRange.bind(mapping);
+                    const originalSplitTextNode = mapping.splitTextNodeIntoRanges.bind(mapping);
                     mapping.findTextStartRange = (node, start, end) => {
-                        return cus.findTextStartRangeByChar.call(mapping, node, start, end);
+                        try {
+                            const result = cus.findTextStartRangeByChar.call(mapping, node, start, end);
+                            if (!result) {
+                                console.warn('findTextStartRange returned null, using original function');
+                                return originalFindTextStartRange(node, start, end);
+                            }
+                            return result;
+                        } catch (err) {
+                            console.error('Error in custom findTextStartRange:', err);
+                            return originalFindTextStartRange(node, start, end);
+                        }
                     };
+
                     mapping.findTextEndRange = (node, start, end) => {
-                        return cus.findTextEndRangeByChar.call(mapping, node, start, end);
+                        try {
+                            const result = cus.findTextEndRangeByChar.call(mapping, node, start, end);
+                            if (!result) {
+                                console.warn('findTextEndRange returned null, using original function');
+                                return originalFindTextEndRange(node, start, end);
+                            }
+                            return result;
+                        } catch (err) {
+                            console.error('Error in custom findTextEndRange:', err);
+                            return originalFindTextEndRange(node, start, end);
+                        }
                     };
+
                     mapping.splitTextNodeIntoRanges = (node) => {
-                        return cus.splitTextNodeIntoCharRanges.call(mapping, node);
+                        try {
+                            const result = cus.splitTextNodeIntoCharRanges.call(mapping, node);
+                            if (!result || result.length === 0) {
+                                console.warn('splitTextNodeIntoRanges returned empty, using original function');
+                                return originalSplitTextNode(node);
+                            }
+                            return result;
+                        } catch (err) {
+                            console.error('Error in custom splitTextNodeIntoRanges:', err);
+                            return originalSplitTextNode(node);
+                        }
                     };
+                    mapping.mappingFunctionsReplaced = true;
                 }
             };
             // ✅ 标记为已绑定

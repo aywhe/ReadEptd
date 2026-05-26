@@ -30,6 +30,7 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
@@ -247,9 +248,13 @@ fun EpubScreen(
                             isSwipeLayout = isSwipeLayout,
                             onSwipeLayoutChange = { newValue ->
                                 // ✅ 直接从 readingState 创建新状态并保存
-                                viewModel.readingState.value?.let { currentState ->
-                                    val newState = currentState.copy(isSwipeLayout = newValue)
-                                    viewModel.saveProgress(newState)
+                                if(readingState == null){
+                                    viewModel.saveProgress(ReadingState.Epub(fileInfo.uri, isSwipeLayout = newValue))
+                                } else {
+                                    readingState?.let { currentState ->
+                                        val newState = currentState.copy(isSwipeLayout = newValue)
+                                        viewModel.saveProgress(newState)
+                                    }
                                 }
                             },
                             onDismiss = {
