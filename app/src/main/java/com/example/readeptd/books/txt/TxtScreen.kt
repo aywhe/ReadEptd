@@ -319,7 +319,7 @@ private fun ReaderContent(
     LaunchedEffect(Unit) {
         // 4. 监听预览缩放的变化
         snapshotFlow { previewScale }
-            .debounce(3000) // 300ms 防抖，等待用户手指松开或停止缩放
+            .debounce(1500) // 300ms 防抖，等待用户手指松开或停止缩放
             .collectLatest { finalScale ->
                 // 5. 只有当用户停止操作后，才更新最终的 scale 状态
                 // 这会触发 viewModel 发送 OnFontSizeChanged 事件
