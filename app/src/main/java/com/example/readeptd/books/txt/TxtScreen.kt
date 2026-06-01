@@ -4,6 +4,11 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateCentroidSize
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateRotation
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -64,6 +71,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.text.toInt
 
@@ -291,6 +300,72 @@ private fun PagingState() {
     }
 }
 
+suspend fun PointerInputScope.detectTransformGesturesWithEnd(
+    panZoomLock: Boolean = false,
+    onGestureStart: () -> Unit = {}, // 新增：手势开始（第一根手指按下且通过阈值）
+    onGesture: (centroid: Offset, pan: Offset, zoom: Float, rotation: Float) -> Unit,
+    onGestureEnd: () -> Unit = {} // 新增：手势结束（所有手指抬起）
+) {
+    awaitEachGesture {
+        // 1. 等待第一根手指按下
+        val down = awaitFirstDown()
+
+        var rotation = 0f
+        var zoom = 1f
+        var pan = Offset.Zero
+        var pastTouchSlop = false
+        val touchSlop = viewConfiguration.touchSlop
+
+        do {
+            // 2. 等待下一个指针事件
+            val event = awaitPointerEvent()
+
+            // 如果所有手指都已抬起，跳出循环并触发结束回调
+            if (event.changes.all { !it.pressed }) {
+                break
+            }
+
+            if (!pastTouchSlop) {
+                // 3. 检查是否达到了触摸阈值（防止误触）
+                val centroidSize = event.calculateCentroidSize(useCurrent = false)
+                val zoomMotion = abs(1 - event.calculateZoom()) * centroidSize
+                val rotationMotion = abs(event.calculateRotation() * centroidSize / PI.toFloat())
+                val panMotion = event.calculatePan().getDistance()
+
+                if (zoomMotion > touchSlop ||
+                    rotationMotion > touchSlop ||
+                    panMotion > touchSlop
+                ) {
+                    pastTouchSlop = true
+                    onGestureStart.invoke() // 触发手势开始
+                }
+            }
+
+            if (pastTouchSlop) {
+                val centroid = event.calculateCentroid(useCurrent = false)
+                val effectiveRotation = if (panZoomLock) 0f else event.calculateRotation()
+                if (effectiveRotation != 0f ||
+                    event.calculateZoom() != 1f ||
+                    event.calculatePan() != Offset.Zero
+                ) {
+                    rotation += effectiveRotation
+                    zoom *= event.calculateZoom()
+                    pan += event.calculatePan()
+
+                    // 消费事件，阻止向父级传递
+                    event.changes.forEach { it.consume() }
+
+                    // 4. 触发持续的手势变换回调
+                    onGesture(centroid, pan, zoom, rotation)
+                }
+            }
+        } while (true)
+
+        // 5. 所有手指抬起后，触发手势结束回调
+        onGestureEnd.invoke()
+    }
+}
+
 /**
  * ✅ 阅读器内容（分页完成后）
  */
@@ -316,26 +391,31 @@ private fun ReaderContent(
     var previewScale by remember { mutableFloatStateOf(1f) }
     val lineHeightFactor = 1.5f
 
-    LaunchedEffect(Unit) {
-        // 4. 监听预览缩放的变化
-        snapshotFlow { previewScale }
-            .debounce(3000) // 300ms 防抖，等待用户手指松开或停止缩放
-            .collectLatest { finalScale ->
-                // 5. 只有当用户停止操作后，才更新最终的 scale 状态
-                // 这会触发 viewModel 发送 OnFontSizeChanged 事件
-                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale).toInt()
-                val newLineHeightSp = (newFontSizeSp * lineHeightFactor).toInt()
-                viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
-                viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
-            }
-    }
+//    LaunchedEffect(Unit) {
+//        // 4. 监听预览缩放的变化
+//        snapshotFlow { previewScale }
+//            .debounce(3000) // 300ms 防抖，等待用户手指松开或停止缩放
+//            .collectLatest { finalScale ->
+//                // 5. 只有当用户停止操作后，才更新最终的 scale 状态
+//                // 这会触发 viewModel 发送 OnFontSizeChanged 事件
+//                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale).toInt()
+//                val newLineHeightSp = (newFontSizeSp * lineHeightFactor).toInt()
+//                viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
+//                viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+//            }
+//    }
 
     Box(modifier = Modifier.fillMaxSize()
         .pointerInput(Unit) {
-            detectTransformGestures(
+            detectTransformGesturesWithEnd(
                 onGesture = { centroid, pan, zoom, rotation ->
-                    previewScale *= zoom
-                    previewScale = previewScale.coerceIn(0.8f, 2.0f)
+                    previewScale = (previewScale * zoom).coerceIn(0.5f, 2.0f)
+                },
+                onGestureEnd = {
+                    val newFontSizeSp = (viewModel.currentFontSizeSp * previewScale).toInt()
+                    val newLineHeightSp = (newFontSizeSp * lineHeightFactor).toInt()
+                    viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
+                    viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
                 }
             )
         }
