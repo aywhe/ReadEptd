@@ -457,6 +457,12 @@ fun PdfPageContent(
     val screenHeightDp = configuration.screenHeightDp
     val screenWidthDp = configuration.screenWidthDp
 
+    LaunchedEffect(page) {
+        scope.launch {
+            viewModel.renderPage(page, 2)
+        }
+    }
+
     val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize(),
@@ -484,14 +490,6 @@ fun PdfPageContent(
                     )
             )
         } else {
-            LaunchedEffect(page, bitmap) {
-                if(bitmap == null) {
-                    scope.launch {
-                        Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
-                        viewModel.renderPage(page, 2)
-                    }
-                }
-            }
             Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
             Box(
                 modifier = if(isSwipeLayout) {
