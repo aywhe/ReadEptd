@@ -296,6 +296,7 @@ fun PdfLazyViewer(
                         PdfSwipeLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -303,6 +304,7 @@ fun PdfLazyViewer(
                         PdfScrollLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -433,6 +435,7 @@ fun PdfLazyViewer(
 fun PdfPageContent(
     page: Int,
     isSwipeLayout: Boolean = true,
+    isRtl: Boolean = false,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     scale: Float = 1f,
@@ -450,8 +453,6 @@ fun PdfPageContent(
     }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
     val screenWidthDp = configuration.screenWidthDp
@@ -518,17 +519,15 @@ fun PdfSwipeLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset,
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val initialPage = viewModel.getInitialPage()
     val scope = rememberCoroutineScope()
-    // ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
+    Log.d("PdfLazyViewer", "页数: $totalPages, 初始页: $initialPage")
 
-    Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
 
     val pagerState = rememberPagerState(
         initialPage = initialPage,
@@ -556,6 +555,7 @@ fun PdfSwipeLayout(
         PdfPageContent(
             page = page,
             isSwipeLayout = true,
+            isRtl = isRtl,
             contentViewModel = contentViewModel,
             viewModel = viewModel,
             scale = scale,
@@ -569,15 +569,13 @@ fun PdfScrollLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
     val initialPage = viewModel.getInitialPage()
     val scope = rememberCoroutineScope()
-// ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
@@ -640,6 +638,7 @@ fun PdfScrollLayout(
             PdfPageContent(
                 page = page,
                 isSwipeLayout = false,
+                isRtl = isRtl,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel
             )
