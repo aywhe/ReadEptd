@@ -24,6 +24,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -665,7 +666,10 @@ fun TxtLayoutWrapper(
     pageContent: @Composable (Int) -> Unit
 ) {
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    val totalPages = viewModel.getPagesCount()
+    val initialPage by remember(isSwipeLayout,totalPages){
+        mutableIntStateOf(viewModel.findPageByCharOffset(readingState?.charOffset ?: 0))
+    }
     Log.d("TxtScreen", "[TxtLayoutWrapper] 初始页: $initialPage")
     if (isSwipeLayout) {
         TxtSwipeLayout(
