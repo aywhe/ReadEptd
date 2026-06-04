@@ -524,13 +524,12 @@ fun PdfSwipeLayout(
     offset: Offset,
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    //val initialPage = viewModel.getInitialPage()
     val scope = rememberCoroutineScope()
-    Log.d("PdfLazyViewer", "页数: $totalPages, 初始页: $initialPage")
 
 
     val pagerState = rememberPagerState(
-        initialPage = initialPage,
+        initialPage = viewModel.getInitialPage(),
         pageCount = { totalPages }
     )
     LaunchedEffect(pagerState.currentPage) {
@@ -574,12 +573,12 @@ fun PdfScrollLayout(
     offset: Offset
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    //val initialPage = viewModel.getInitialPage()
     val scope = rememberCoroutineScope()
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
-        initialFirstVisibleItemIndex = initialPage,
+        initialFirstVisibleItemIndex = viewModel.getInitialPage(),
         initialFirstVisibleItemScrollOffset = 0
     )
 
