@@ -457,11 +457,17 @@ fun PdfPageContent(
     val screenHeightDp = configuration.screenHeightDp
     val screenWidthDp = configuration.screenWidthDp
 
-    LaunchedEffect(page) {
+    val preloadJob = remember(page) {
         scope.launch {
-            viewModel.renderPage(page, 2)
+            viewModel.renderPage(page, keepNeighbourNumber = 2)
         }
     }
+//
+//    LaunchedEffect(page) {
+//        scope.launch {
+//            viewModel.renderPage(page, 2)
+//        }
+//    }
 
     val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
 
