@@ -87,7 +87,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             fileDataStore.allReadingStatesFlow.collect { states ->
                 _readingStates.value = states
-                Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
+                //Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
             }
         }
     }

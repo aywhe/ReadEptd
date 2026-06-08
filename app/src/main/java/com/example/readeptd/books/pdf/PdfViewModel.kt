@@ -196,6 +196,20 @@ class PdfViewModel(
     }
 
     /**
+     * 异步渲染指定页面及其周围页面
+     */
+    suspend fun renderPageAsync(
+        currentPage: Int,
+        keepNeighbourNumber: Int = 2,
+        bitMapWhScale: Int = 3,
+        maxScaleSize: Int = 2400,
+        callback: (Bitmap?) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            renderPage(currentPage, keepNeighbourNumber, bitMapWhScale, maxScaleSize, callback)
+        }
+    }
+    /**
      * 渲染指定页面及其周围页面
      */
     suspend fun renderPage(

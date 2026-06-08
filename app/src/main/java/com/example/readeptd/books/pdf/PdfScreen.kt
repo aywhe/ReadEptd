@@ -459,10 +459,10 @@ fun PdfPageContent(
 
     val preloadJob = remember(page) {
         scope.launch {
-            viewModel.renderPage(page, keepNeighbourNumber = 2)
+            viewModel.renderPageAsync(page, keepNeighbourNumber = 2)
         }
     }
-//
+
 //    LaunchedEffect(page) {
 //        scope.launch {
 //            viewModel.renderPage(page, 2)
@@ -537,13 +537,14 @@ fun PdfSwipeLayout(
         pageCount = { totalPages }
     )
     LaunchedEffect(pagerState.currentPage) {
-        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
+        Log.d("PdfSwipeLayout", "当前页: ${pagerState.currentPage}")
         viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
         // 使用 LinkedHashMap 实现 LRU 缓存，不需要手动清理过期页面
         //val currentPage = pagerState.currentPage
         //viewModel.cleanupUnusedPages(currentPage)
     }
     LaunchedEffect(Unit) {
+        Log.d("PdfSwipeLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener {
             scope.launch {
                 pagerState.scrollToPage(it)
@@ -588,6 +589,7 @@ fun PdfScrollLayout(
 
     // 监听页面跳转请求
     LaunchedEffect(Unit) {
+        Log.d("PdfScrollLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener { targetPage ->
             scope.launch {
                 lazyListState.scrollToItem(targetPage)
