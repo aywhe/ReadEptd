@@ -269,6 +269,8 @@ const UIManager = {
             const href = chapter.href || '';
             const label = chapter.label || '未命名章节';
 
+            console.log('Generating TOC item: level[', level, '],label[', label.trim(), '],href[', href, ']');
+
             html += `
                 <li style="margin: 5px 0;">
                     <a href="#"
@@ -298,11 +300,13 @@ const UIManager = {
         const links = document.querySelectorAll('#toc-container a');
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
+            //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
             const isMatch = linkHref === currentHref ||
                            linkHref.startsWith(currentHref) ||
                            currentHref.startsWith(linkHref.split('#')[0]);
 
             if (isMatch) {
+                //console.log('Highlighting chapter link:', linkHref);
                 link.classList.add('active');
                 link.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
