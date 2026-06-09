@@ -870,7 +870,8 @@ fun SettingsDialog(
                             Log.d("MainActivity", "已打开 TTS 设置页面")
                         } catch (e: Exception) {
                             Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
-                        } 
+                        }
+                        onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
