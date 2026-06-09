@@ -2,6 +2,11 @@ package com.example.readeptd.books.pdf
 
 import android.content.res.Configuration
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -369,7 +374,11 @@ fun PdfLazyViewer(
                     fileUri = fileInfo.uri
                 )
 
-                if (showNoTextHint) {
+                AnimatedVisibility(
+                    visible = showNoTextHint,
+                    enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(), // 从左侧滑入并淡入
+                    exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()  // 向左侧滑出并淡出
+                ) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -378,7 +387,7 @@ fun PdfLazyViewer(
                                 MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
                                 shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
                             )
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "没有文本",
@@ -386,9 +395,11 @@ fun PdfLazyViewer(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
+                }
 
-                    LaunchedEffect(Unit) {
-                        delay(1500)
+                LaunchedEffect(showNoTextHint) {
+                    if(showNoTextHint) {
+                        delay(2000)
                         showNoTextHint = false
                     }
                 }
