@@ -904,6 +904,13 @@ const ReaderCore = {
                     mapping.mappingFunctionsReplaced = true;
                 }
             };
+            // resize delay
+            console.log('Hooking manager resize with delay resize...');
+            const originalResize = AppState.rendition.manager.resize.bind(AppState.rendition.manager);
+            AppState.rendition.manager.resize = UtilsTool.debounce((width, height, epubcfi) => {
+                originalResize(width, height, epubcfi);
+            },500);
+
             // ✅ 标记为已绑定
             this.isMappingHooked = true;
         }
