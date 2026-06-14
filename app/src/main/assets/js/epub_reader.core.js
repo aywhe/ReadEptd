@@ -909,7 +909,7 @@ const ReaderCore = {
             const originalResize = AppState.rendition.manager.resize.bind(AppState.rendition.manager);
             AppState.rendition.manager.resize = UtilsTool.debounce((width, height, epubcfi) => {
                 originalResize(width, height, epubcfi);
-            },500);
+            },200);
 
             // ✅ 标记为已绑定
             this.isMappingHooked = true;
