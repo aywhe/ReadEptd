@@ -663,6 +663,8 @@ const ReaderCore = {
                             console.log('Current location:', JSON.stringify(location));
                             AndroidBridge.onPageChanged(JSON.stringify(location));
                             UIManager.highlightCurrentChapter(location.end.href);
+                        } else {
+                            console.warn('No current location available yet');
                         }
                     } catch (err) {
                         console.error('Error in scroll event:', err.stack);
@@ -1078,13 +1080,21 @@ const PageOperations = {
                                     pageRange.setEnd(endRange.endContainer, endRange.endOffset);
                                     const text = pageRange.toString();
                                     result += text;
+                                } else {
+                                    console.warn('Could not create range for current location');
                                 }
                             } catch (e) {
                                 console.error('Error getting range:', e);
                             }
+                        } else {
+                            console.warn('View or contents not available for getting page text');
                         }
                     });
+                } else {
+                    console.warn('No visible views available for getting page text');
                 }
+            } else {
+                console.warn('No current location available for getting page text');
             }
         } catch (error) {
             console.error('Error in getCurrentPageText:', error);
