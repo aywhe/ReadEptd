@@ -221,6 +221,10 @@ const UIManager = {
         setTimeout(() => {
             navPanel.style.opacity = '1';
             navContent.style.transform = 'translateX(0)';
+            const links = navContent.querySelectorAll('#toc-container a.active');
+            if(links && links.length > 0){
+                links[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }, 10);
     },
 
