@@ -1359,50 +1359,74 @@ const HighlightManager = {
 // ============================================
 const GestureManager = {
 
-    scale: 1.0,
-    pinchStartScale: 1.0, // 新增：记录 pinch 开始时的 scale
-    sensitivity: 0.2,
-
     init(rendition) {
         console.log('Initializing gesture manager...');
 
         rendition.hooks.content.register((contents) => {
-            const doc = contents.document;
+            console.log('Content hook triggered for gesture manager');
+            const body = contents.document.body;
 
-            const mc = new Hammer(doc.body, {
-                recognizers: [[Hammer.Pinch]],
-                cssProps: {
-                    userSelect: 'auto',      // 文本选择
-                    touchAction: 'auto',     // 所有原生触摸行为
-                    touchCallout: 'auto',    // 长按弹出菜单
-                    contentZooming: 'none'   // 内容缩放
+            let startDistance = 0;
+            let startFontSize = 16;
+            let isPinching = false;
+            let sensitivity = 0.2;
+
+            // 1. touchstart：检测双指
+            body.addEventListener('touchstart', function(e) {
+                console.log('touchstart event:', e.touches.length, 'touches');
+                if (e.touches.length === 2) {
+                    // 双指触摸：记录初始数据
+                    const t1 = e.touches[0];
+                    const t2 = e.touches[1];
+                    startDistance = Math.hypot(
+                        t1.clientX - t2.clientX,
+                        t1.clientY - t2.clientY
+                    );
+                    startFontSize = parseFloat(rendition.themes.fontSize()) || 16;
+                    isPinching = true;
+
+                    // 阻止双指的默认行为（如页面缩放）
+                    e.preventDefault();
                 }
-            });
-            mc.get('pinch').set({ enable: true });
+                // 单指：完全不管，让 epub.js 处理
+            }, { passive: false });
 
-            // 新增：pinch 开始时记录基准
-            mc.on('pinchstart', (ev) => {
-                this.pinchStartScale = this.scale;
-            });
+            // 2. touchmove：双指缩放
+            body.addEventListener('touchmove', function(e) {
+                if (isPinching && e.touches.length === 2) {
+                    const t1 = e.touches[0];
+                    const t2 = e.touches[1];
+                    const currentDistance = Math.hypot(
+                        t1.clientX - t2.clientX,
+                        t1.clientY - t2.clientY
+                    );
 
-            mc.on('pinch', (ev) => {
-                // 阻尼处理
-                const dampenedScale = 1 + (ev.scale - 1) * this.sensitivity;
+                    // 计算缩放比例
+                    const scale = currentDistance / startDistance;
+                    const dampenedScale = 1 + (scale - 1) * sensitivity;
+                    let newSize = startFontSize * dampenedScale;
 
-                // 基于 pinch 开始时的 scale 计算，而不是每次都乘 this.scale
-                let scale = this.pinchStartScale * dampenedScale;
-                if (scale < 0.8) scale = 0.8;
-                if (scale > 2.0) scale = 2.0;
-                this.scale = scale;
+                    // 限制字号范围
+                    newSize = Math.min(32, Math.max(12, newSize));
 
-                const baseFontSize = 16;
-                rendition.themes.fontSize(`${baseFontSize * scale}px`);
-            });
+                    // 应用新字号
+                    rendition.themes.fontSize(newSize + 'px');
 
-            // pinch 结束时，this.scale 已经更新，无需额外操作
-            mc.on('pinchend', (ev) => {
-                // 可选：做一些收尾工作
-            });
+                    // 阻止滚动和页面缩放
+                    e.preventDefault();
+                }
+                // 单指：完全不管
+            }, { passive: false });
+
+            // 3. touchend：重置状态
+            body.addEventListener('touchend', function(e) {
+                console.log('touchend event:', e.touches.length, 'touches');
+                if (isPinching) {
+                    isPinching = false;
+                    // 可选：保存字号到 localStorage
+                    // localStorage.setItem('fontSize', rendition.theme.fontSize());
+                }
+            }, { passive: false });
         });
     }
 };
