@@ -335,9 +335,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      * @param scale 缩放比例（1.0 = 100%）
      */
     fun setFontSizeScale(scale: Float) {
-        val scalePercent = (scale * 100).roundToInt()
-        Log.d(TAG, "执行 JavaScript 设置字体缩放比例: $scalePercent%")
-        executeJs("window.EpubReader.setFontSizeScale('$scalePercent%')")
+        Log.d(TAG, "执行 JavaScript 设置字体缩放比例: $scale")
+        executeJs("window.EpubReader.setFontSizeScale($scale)")
     }
 
     /**

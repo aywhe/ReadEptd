@@ -82,7 +82,7 @@ fun EpubScreen(
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
-                var scale by remember { mutableStateOf(1f) }
+                //var scale by remember { mutableStateOf(1f) }
 
                 LaunchedEffect(isSwipeLayout) {
                     webView?.setFlowMode(
@@ -206,15 +206,6 @@ fun EpubScreen(
                             webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectTransformGestures(
-                                    onGesture = { centroid, pan, zoom, rotation ->
-                                        scale *= zoom
-                                        scale = scale.coerceIn(0.8f, 2.0f)
-                                        webView?.setFontSizeScale(scale)
-                                    }
-                                )
-                            }
                     )
                     
                     if (isShowJumpToProgressDialog) {

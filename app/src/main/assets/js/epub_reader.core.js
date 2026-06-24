@@ -159,6 +159,7 @@ const ResourceManager = {
 const UIManager = {
     init() {
         this.initDraggableButton();
+        this.setupNavClickBackgroundListener();
     },
 
     showLoading() {
@@ -252,6 +253,20 @@ const UIManager = {
             this.closeNavPanel();
         } else {
             this.openNavPanel();
+        }
+    },
+
+    // 点击背景关闭导航面板
+    setupNavClickBackgroundListener() {
+        console.log('Setting up nav panel background click listener...');
+        const navPanel = document.getElementById('nav-panel');
+        if (navPanel) {
+            console.log('Nav panel background click listener attached');
+            navPanel.addEventListener('click', function(e) {
+                if (e.target === navPanel) {
+                    this.closeNavPanel();
+                }
+            });
         }
     },
 
@@ -930,8 +945,9 @@ const ThemeBridge = {
 
     setFontSizeScale(scale){
         if(AppState.rendition && AppState.rendition.themes){
-            AppState.rendition.themes.fontSize(scale);
-            console.log('Font size scale set to:', scale);
+            scaleString =  (scale * 100) + '%';
+            AppState.rendition.themes.fontSize(scaleString);
+            console.log('Font size scale set to:', scaleString);
         } else {
             console.warn('Rendition or themes API not available for setting font size');
         }
@@ -1336,28 +1352,40 @@ const HighlightManager = {
 };
 
 // ============================================
+// 手势功能模块
+// ============================================
+const GestureManager = {
+
+    scale: 1.0,
+
+    init(){
+        console.log('Initializing gesture manager...');
+        const viewer = document.getElementById('viewer');
+        const hammer = new Hammer(viewer);
+        hammer.get('pinch').set({ enable: true });
+        hammer.on('pinch', function(ev) {
+            console.log('Pinch event detected, scale:', ev.scale);
+            let scale = this.scale * ev.scale;
+            if (scale < 0.8) scale = 0.8;
+            if (scale > 2.0) scale = 2.0;
+            ThemeBridge.setFontSizeScale(scale);
+            this.scale = scale;
+        });
+    }
+};
+
+// ============================================
 // 初始化
 // ============================================
 window.onload = function() {
     AndroidBridge.onHtmlReady();
     UIManager.init();
+    GestureManager.init();
 };
 
 window.onunload = function() {
     ResourceManager.cleanUp();
 };
-
-// 点击背景关闭导航面板
-document.addEventListener('DOMContentLoaded', function() {
-    const navPanel = document.getElementById('nav-panel');
-    if (navPanel) {
-        navPanel.addEventListener('click', function(e) {
-            if (e.target === navPanel) {
-                UIManager.closeNavPanel();
-            }
-        });
-    }
-});
 
 // ============================================
 // 暴露给 Android 的接口
