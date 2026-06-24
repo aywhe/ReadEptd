@@ -324,8 +324,9 @@ private fun ReaderContent(
             .collectLatest { finalScale ->
                 // 5. 只有当用户停止操作后，才更新最终的 scale 状态
                 // 这会触发 viewModel 发送 OnFontSizeChanged 事件
-                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale).toInt()
-                val newLineHeightSp = (newFontSizeSp * lineHeightFactor).toInt()
+                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale)
+                //val newLineHeightSp = (newFontSizeSp * lineHeightFactor)
+                val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale)
                 viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
                 viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
             }
@@ -375,8 +376,9 @@ private fun ReaderContent(
             } else {
                 AnnotatedString(pageContent)
             }
-            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale).toInt()
-            val currentDisplayLineHeightSp = (currentDisplayFontSizeSp * lineHeightFactor).toInt()
+            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale)
+            //val currentDisplayLineHeightSp = (currentDisplayFontSizeSp * lineHeightFactor)
+            val currentDisplayLineHeightSp = (viewModel.currentLineHeightSp * previewScale)
             PageContent(
                 pageAnnotatedContent = pageAnnotatedContent,
                 fontSize = currentDisplayFontSizeSp,
@@ -625,8 +627,8 @@ private fun SearchPanel(
 @Composable
 fun PageContent(
     pageAnnotatedContent: AnnotatedString,
-    fontSize: Int,
-    lineHeight: Int,
+    fontSize: Float,
+    lineHeight: Float,
     contentPadding: PaddingValues = PaddingValues()
 ) {
     SelectionContainer {

@@ -41,8 +41,8 @@ object Utils {
     fun calculatePageCharsParams(
         pageWidth: Int,
         pageHeight: Int,
-        fontSize: Int,
-        lineHeight: Int,
+        fontSize: Float,
+        lineHeight: Float,
         leftPadding: Int = 0,
         rightPadding: Int = 0,
         topPadding: Int = 0,
