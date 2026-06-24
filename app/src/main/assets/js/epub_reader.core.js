@@ -262,9 +262,11 @@ const UIManager = {
         const navPanel = document.getElementById('nav-panel');
         if (navPanel) {
             console.log('Nav panel background click listener attached');
-            navPanel.addEventListener('click', function(e) {
+            navPanel.addEventListener('click', (e) => {
                 if (e.target === navPanel) {
+                    // 使用箭头函数可以保持 this 指向 UIManager
                     this.closeNavPanel();
+                    //UIManager.closeNavPanel(); // 如果使用普通函数，不能使用this
                 }
             });
         }
@@ -1361,9 +1363,14 @@ const GestureManager = {
     init(){
         console.log('Initializing gesture manager...');
         const viewer = document.getElementById('viewer');
-        const hammer = new Hammer(viewer);
-        hammer.get('pinch').set({ enable: true });
-        hammer.on('pinch', function(ev) {
+        const mc = new Hammer(viewer, {
+            recognizers: [
+                [Hammer.Pinch]  // 只注册 pinch 识别器
+            ]
+        });
+        // 启用捏合手势
+        mc.get('pinch').set({ enable: true });
+        mc.on('pinch', (ev) => {
             console.log('Pinch event detected, scale:', ev.scale);
             let scale = this.scale * ev.scale;
             if (scale < 0.8) scale = 0.8;
