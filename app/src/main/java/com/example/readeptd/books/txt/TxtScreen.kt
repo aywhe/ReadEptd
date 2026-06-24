@@ -322,6 +322,7 @@ private fun ReaderContent(
         snapshotFlow { previewScale }
             .debounce(1500) // 300ms 防抖，等待用户手指松开或停止缩放
             .collectLatest { finalScale ->
+                if(finalScale == 1f) return@collectLatest  // 如果没有缩放，直接返回
                 // 5. 只有当用户停止操作后，才更新最终的 scale 状态
                 // 这会触发 viewModel 发送 OnFontSizeChanged 事件
                 val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale)
@@ -329,6 +330,7 @@ private fun ReaderContent(
                 val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale)
                 viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
                 viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+                previewScale = 1f  // 重置预览缩放
             }
     }
 
