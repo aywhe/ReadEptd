@@ -315,7 +315,7 @@ private fun ReaderContent(
     var isShowSearchDialog by remember { mutableStateOf(false) }
 
     var previewScale by remember { mutableFloatStateOf(1f) }
-    val lineHeightFactor = 1.5f
+    val zoomSensitivity = 0.2f
 
     LaunchedEffect(Unit) {
         // 4. 监听预览缩放的变化
@@ -338,7 +338,9 @@ private fun ReaderContent(
         .pointerInput(Unit) {
             detectTransformGestures(
                 onGesture = { centroid, pan, zoom, rotation ->
-                    previewScale *= zoom
+                    // 阻尼处理
+                    val dampenedScale = 1 + (zoom - 1) * zoomSensitivity;
+                    previewScale *= dampenedScale
                     previewScale = previewScale.coerceIn(0.8f, 2.0f)
                 }
             )
