@@ -276,15 +276,14 @@ fun ContentScreen(
             )
         }
 
-        if(isFullScreen && isShowToolTipInFullScreen) {
-            DraggableFloatingToolTip(
-                modifier = modifier.padding(innerPadding),
-                onDismiss = { isShowToolTipInFullScreen = false },
-                onLongPressSpeak =  { isShowTimerDialog = true },
-                viewModel = viewModel,
-                ttsModel = ttsModel
-            )
-        }
+        DraggableFloatingToolTip(
+            modifier = modifier.padding(innerPadding),
+            visible = isFullScreen && isShowToolTipInFullScreen,
+            onDismiss = { isShowToolTipInFullScreen = false },
+            onLongPressSpeak =  { isShowTimerDialog = true },
+            viewModel = viewModel,
+            ttsModel = ttsModel
+        )
     }
 }
 
@@ -419,6 +418,7 @@ fun ToolTip(
 @Composable
 fun DraggableFloatingToolTip(
     modifier: Modifier = Modifier,
+    visible: Boolean = true,
     onDismiss: () -> Unit = {},
     onLongPressSpeak: () -> Unit = {},
     viewModel: ContentViewModel,
@@ -486,6 +486,8 @@ fun DraggableFloatingToolTip(
         animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
         label = "button_width_animation"
     )
+
+    if(!visible) return
 
     Box(modifier = modifier.fillMaxSize()) {
         Box(
