@@ -928,6 +928,15 @@ const ReaderCore = {
 // ============================================
 const ThemeBridge = {
 
+    setFontSizeScale(scale){
+        if(AppState.rendition && AppState.rendition.themes){
+            AppState.rendition.themes.fontSize(scale);
+            console.log('Font size scale set to:', scale);
+        } else {
+            console.warn('Rendition or themes API not available for setting font size');
+        }
+    },
+
     applyThemeToEpub() {
         try {
             if (!AppState.rendition || !AppState.rendition.themes) {
@@ -1369,5 +1378,6 @@ window.EpubReader = {
     cancelSearch: SearchManager.cancelSearch.bind(SearchManager),
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
-    setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState)
+    setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState),
+    setFontSizeScale: ThemeBridge.setFontSizeScale.bind(ThemeBridge)
 };
