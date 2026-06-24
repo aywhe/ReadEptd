@@ -749,6 +749,7 @@ const ReaderCore = {
             setTimeout(()=>{
                 // 等待resize结束，不然会display与resize会竞争，导致死循环
                 this.displayBookFirstTime();
+                GestureManager.init(AppState.rendition);
             },500);
         });
     },
@@ -1359,24 +1360,49 @@ const HighlightManager = {
 const GestureManager = {
 
     scale: 1.0,
+    pinchStartScale: 1.0, // 新增：记录 pinch 开始时的 scale
+    sensitivity: 0.2,
 
-    init(){
+    init(rendition) {
         console.log('Initializing gesture manager...');
-        const viewer = document.getElementById('viewer');
-        const mc = new Hammer(viewer, {
-            recognizers: [
-                [Hammer.Pinch]  // 只注册 pinch 识别器
-            ]
-        });
-        // 启用捏合手势
-        mc.get('pinch').set({ enable: true });
-        mc.on('pinch', (ev) => {
-            console.log('Pinch event detected, scale:', ev.scale);
-            let scale = this.scale * ev.scale;
-            if (scale < 0.8) scale = 0.8;
-            if (scale > 2.0) scale = 2.0;
-            ThemeBridge.setFontSizeScale(scale);
-            this.scale = scale;
+
+        rendition.hooks.content.register((contents) => {
+            const doc = contents.document;
+
+            const mc = new Hammer(doc.body, {
+                recognizers: [[Hammer.Pinch]],
+                cssProps: {
+                    userSelect: 'auto',      // 文本选择
+                    touchAction: 'auto',     // 所有原生触摸行为
+                    touchCallout: 'auto',    // 长按弹出菜单
+                    contentZooming: 'none'   // 内容缩放
+                }
+            });
+            mc.get('pinch').set({ enable: true });
+
+            // 新增：pinch 开始时记录基准
+            mc.on('pinchstart', (ev) => {
+                this.pinchStartScale = this.scale;
+            });
+
+            mc.on('pinch', (ev) => {
+                // 阻尼处理
+                const dampenedScale = 1 + (ev.scale - 1) * this.sensitivity;
+
+                // 基于 pinch 开始时的 scale 计算，而不是每次都乘 this.scale
+                let scale = this.pinchStartScale * dampenedScale;
+                if (scale < 0.8) scale = 0.8;
+                if (scale > 2.0) scale = 2.0;
+                this.scale = scale;
+
+                const baseFontSize = 16;
+                rendition.themes.fontSize(`${baseFontSize * scale}px`);
+            });
+
+            // pinch 结束时，this.scale 已经更新，无需额外操作
+            mc.on('pinchend', (ev) => {
+                // 可选：做一些收尾工作
+            });
         });
     }
 };
@@ -1387,7 +1413,6 @@ const GestureManager = {
 window.onload = function() {
     AndroidBridge.onHtmlReady();
     UIManager.init();
-    GestureManager.init();
 };
 
 window.onunload = function() {
