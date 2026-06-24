@@ -235,3 +235,8 @@ body, html {
     cursor: pointer;
     color: var(--color-text-secondary);
 }
+
+.epub-container{
+    /* ✅ 关键修复：禁用 EPUB 内容的滚动锚点，避免跳转时页面位置异常 */
+    overflow-anchor: none !important;
+}

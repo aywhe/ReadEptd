@@ -207,7 +207,7 @@ private fun ReadyState(
         top = topPaddingDp.dp,
         bottom = bottomPaddingDp.dp
     )
-
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -699,7 +699,10 @@ fun TxtLayoutWrapper(
     pageContent: @Composable (Int) -> Unit
 ) {
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    val totalPages = viewModel.getPagesCount()
+    val initialPage by remember(isSwipeLayout,totalPages){
+        mutableIntStateOf(viewModel.findPageByCharOffset(readingState?.charOffset ?: 0))
+    }
     Log.d("TxtScreen", "[TxtLayoutWrapper] 初始页: $initialPage")
     if (isSwipeLayout) {
         TxtSwipeLayout(

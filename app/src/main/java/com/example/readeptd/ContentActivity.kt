@@ -8,6 +8,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -473,6 +476,17 @@ fun DraggableFloatingToolTip(
         offset = IntOffset(targetX, offset.y)
     }
 
+    val animatedIconSize by animateDpAsState(
+        targetValue = if (isCollapsed) collapsedIconSizeDp else (iconSizeDp * 2 / 3),
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "icon_size_animation"
+    )
+    val animatedButtonWidth by animateDpAsState(
+        targetValue = if (isCollapsed) collapsedIconSizeDp else iconSizeDp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "button_width_animation"
+    )
+
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -512,7 +526,7 @@ fun DraggableFloatingToolTip(
                     )
                 }
         ) {
-            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
+            // val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
             // 工具提示内容
             if (showTip && !isCollapsed) {
                 var cachedIsButtonOnRightSide by remember { mutableStateOf(isButtonOnRightSide) }
@@ -598,7 +612,7 @@ fun DraggableFloatingToolTip(
             Surface(
                 shape = buttonShape,
                 color = surfaceColor,
-                modifier = Modifier.size(buttonWidth, iconSizeDp)
+                modifier = Modifier.size(animatedButtonWidth, iconSizeDp)
             ) {
                 Box(
                     modifier = Modifier
@@ -617,7 +631,7 @@ fun DraggableFloatingToolTip(
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
                         modifier = Modifier.size(
-                            if (isCollapsed) collapsedIconSizeDp else iconSizeDp * 2 / 3,
+                            animatedIconSize,
                             iconSizeDp * 2 / 3
                         )
                     )

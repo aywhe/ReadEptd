@@ -2,6 +2,11 @@ package com.example.readeptd.books.pdf
 
 import android.content.res.Configuration
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -296,6 +301,7 @@ fun PdfLazyViewer(
                         PdfSwipeLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -303,6 +309,7 @@ fun PdfLazyViewer(
                         PdfScrollLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -367,7 +374,11 @@ fun PdfLazyViewer(
                     fileUri = fileInfo.uri
                 )
 
-                if (showNoTextHint) {
+                AnimatedVisibility(
+                    visible = showNoTextHint,
+                    enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(), // 从左侧滑入并淡入
+                    exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()  // 向左侧滑出并淡出
+                ) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -376,7 +387,7 @@ fun PdfLazyViewer(
                                 MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
                                 shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
                             )
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "没有文本",
@@ -384,9 +395,11 @@ fun PdfLazyViewer(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
+                }
 
-                    LaunchedEffect(Unit) {
-                        delay(1500)
+                LaunchedEffect(showNoTextHint) {
+                    if(showNoTextHint) {
+                        delay(2000)
                         showNoTextHint = false
                     }
                 }
@@ -433,6 +446,7 @@ fun PdfLazyViewer(
 fun PdfPageContent(
     page: Int,
     isSwipeLayout: Boolean = true,
+    isRtl: Boolean = false,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     scale: Float = 1f,
@@ -450,11 +464,21 @@ fun PdfPageContent(
     }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
     val screenWidthDp = configuration.screenWidthDp
+
+    val preloadJob = remember(page) {
+        scope.launch {
+            viewModel.renderPageAsync(page, keepNeighbourNumber = 2)
+        }
+    }
+
+//    LaunchedEffect(page) {
+//        scope.launch {
+//            viewModel.renderPage(page, 2)
+//        }
+//    }
 
     val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
 
@@ -483,14 +507,6 @@ fun PdfPageContent(
                     )
             )
         } else {
-            LaunchedEffect(page, bitmap) {
-                if(bitmap == null) {
-                    scope.launch {
-                        Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
-                        viewModel.renderPage(page, 2)
-                    }
-                }
-            }
             Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
             Box(
                 modifier = if(isSwipeLayout) {
@@ -518,30 +534,28 @@ fun PdfSwipeLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset,
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    val initialPage = remember{ viewModel.getInitialPage() }
     val scope = rememberCoroutineScope()
-    // ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
 
-    Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
 
     val pagerState = rememberPagerState(
         initialPage = initialPage,
         pageCount = { totalPages }
     )
     LaunchedEffect(pagerState.currentPage) {
-        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
+        Log.d("PdfSwipeLayout", "当前页: ${pagerState.currentPage}")
         viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
         // 使用 LinkedHashMap 实现 LRU 缓存，不需要手动清理过期页面
         //val currentPage = pagerState.currentPage
         //viewModel.cleanupUnusedPages(currentPage)
     }
     LaunchedEffect(Unit) {
+        Log.d("PdfSwipeLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener {
             scope.launch {
                 pagerState.scrollToPage(it)
@@ -556,6 +570,7 @@ fun PdfSwipeLayout(
         PdfPageContent(
             page = page,
             isSwipeLayout = true,
+            isRtl = isRtl,
             contentViewModel = contentViewModel,
             viewModel = viewModel,
             scale = scale,
@@ -569,15 +584,13 @@ fun PdfScrollLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    val initialPage = remember{ viewModel.getInitialPage() }
     val scope = rememberCoroutineScope()
-// ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
@@ -587,6 +600,7 @@ fun PdfScrollLayout(
 
     // 监听页面跳转请求
     LaunchedEffect(Unit) {
+        Log.d("PdfScrollLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener { targetPage ->
             scope.launch {
                 lazyListState.scrollToItem(targetPage)
@@ -640,6 +654,7 @@ fun PdfScrollLayout(
             PdfPageContent(
                 page = page,
                 isSwipeLayout = false,
+                isRtl = isRtl,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel
             )

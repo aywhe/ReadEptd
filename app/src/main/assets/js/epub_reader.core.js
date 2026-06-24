@@ -221,6 +221,10 @@ const UIManager = {
         setTimeout(() => {
             navPanel.style.opacity = '1';
             navContent.style.transform = 'translateX(0)';
+            const links = navContent.querySelectorAll('#toc-container a.active');
+            if(links && links.length > 0){
+                links[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }, 10);
     },
 
@@ -269,6 +273,8 @@ const UIManager = {
             const href = chapter.href || '';
             const label = chapter.label || '未命名章节';
 
+            console.log('Generating TOC item: level[', level, '],label[', label.trim(), '],href[', href, ']');
+
             html += `
                 <li style="margin: 5px 0;">
                     <a href="#"
@@ -298,11 +304,13 @@ const UIManager = {
         const links = document.querySelectorAll('#toc-container a');
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
+            //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
             const isMatch = linkHref === currentHref ||
                            linkHref.startsWith(currentHref) ||
                            currentHref.startsWith(linkHref.split('#')[0]);
 
             if (isMatch) {
+                //console.log('Highlighting chapter link:', linkHref);
                 link.classList.add('active');
                 link.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
@@ -659,6 +667,8 @@ const ReaderCore = {
                             console.log('Current location:', JSON.stringify(location));
                             AndroidBridge.onPageChanged(JSON.stringify(location));
                             UIManager.highlightCurrentChapter(location.end.href);
+                        } else {
+                            console.warn('No current location available yet');
                         }
                     } catch (err) {
                         console.error('Error in scroll event:', err.stack);
@@ -900,6 +910,13 @@ const ReaderCore = {
                     mapping.mappingFunctionsReplaced = true;
                 }
             };
+            // resize delay
+            console.log('Hooking manager resize with delay resize...');
+            const originalResize = AppState.rendition.manager.resize.bind(AppState.rendition.manager);
+            AppState.rendition.manager.resize = UtilsTool.debounce((width, height, epubcfi) => {
+                originalResize(width, height, epubcfi);
+            },200);
+
             // ✅ 标记为已绑定
             this.isMappingHooked = true;
         }
@@ -1067,13 +1084,21 @@ const PageOperations = {
                                     pageRange.setEnd(endRange.endContainer, endRange.endOffset);
                                     const text = pageRange.toString();
                                     result += text;
+                                } else {
+                                    console.warn('Could not create range for current location');
                                 }
                             } catch (e) {
                                 console.error('Error getting range:', e);
                             }
+                        } else {
+                            console.warn('View or contents not available for getting page text');
                         }
                     });
+                } else {
+                    console.warn('No visible views available for getting page text');
                 }
+            } else {
+                console.warn('No current location available for getting page text');
             }
         } catch (error) {
             console.error('Error in getCurrentPageText:', error);
