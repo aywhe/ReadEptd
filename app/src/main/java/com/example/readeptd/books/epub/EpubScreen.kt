@@ -2,6 +2,7 @@ package com.example.readeptd.books.epub
 
 import android.util.Log
 import android.widget.FrameLayout
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -80,6 +82,7 @@ fun EpubScreen(
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
+                //var scale by remember { mutableStateOf(1f) }
 
                 LaunchedEffect(isSwipeLayout) {
                     webView?.setFlowMode(
@@ -92,7 +95,8 @@ fun EpubScreen(
                     webView?.startEpubWebsite()
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize()
+                ) {
                     // 准备完成，显示 WebView
                     AndroidView(
                         factory = { context ->

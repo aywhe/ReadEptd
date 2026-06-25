@@ -16,6 +16,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -296,11 +297,20 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.getCurrentLocation()")
     }
 
+    /**
+     * 切换导航面板（异步）
+     */
     fun toggleNavPanel(){
         Log.d(TAG, "执行 JavaScript 切换导航面板...")
         executeJs("window.EpubReader.toggleNavPanel()")
     }
 
+    /**
+     * 搜索文本（异步回调方式）
+     * @param keyword 搜索关键词
+     * @param resultCallback 回调函数，接收搜索结果
+     * @param completedCallback 回调函数，搜索完成时调用
+     */
     fun search(keyword: String,
                resultCallback: (EpubSearchResult?) -> Unit,
                completedCallback: () -> Unit) {
@@ -311,8 +321,22 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.search('$keyword')")
     }
 
+    /**
+     * 高亮文本（异步）
+     * @param cfi 高亮位置的 CFI
+     * @param isRemove 是否移除高亮
+     */
     fun highlight(cfi: String, isRemove: Boolean){
         executeJs("window.EpubReader.highlight('$cfi', $isRemove)")
+    }
+
+    /**
+     * 设置字体缩放比例（异步）
+     * @param scale 缩放比例（1.0 = 100%）
+     */
+    fun setFontSizeScale(scale: Float) {
+        Log.d(TAG, "执行 JavaScript 设置字体缩放比例: $scale")
+        executeJs("window.EpubReader.setFontSizeScale($scale)")
     }
 
     /**
