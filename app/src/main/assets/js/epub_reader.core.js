@@ -1367,7 +1367,8 @@ const GestureManager = {
             const body = contents.document.body;
 
             let startDistance = 0;
-            let startFontSize = 16;
+            let startFontSize = parseFloat(rendition.themes.fontSize()) || 16;
+            let newSize = startFontSize;
             let isPinching = false;
             let sensitivity = 0.2;
 
@@ -1382,7 +1383,6 @@ const GestureManager = {
                         t1.clientX - t2.clientX,
                         t1.clientY - t2.clientY
                     );
-                    startFontSize = parseFloat(rendition.themes.fontSize()) || 16;
                     isPinching = true;
 
                     // 阻止双指的默认行为（如页面缩放）
@@ -1404,7 +1404,7 @@ const GestureManager = {
                     // 计算缩放比例
                     const scale = currentDistance / startDistance;
                     const dampenedScale = 1 + (scale - 1) * sensitivity;
-                    let newSize = startFontSize * dampenedScale;
+                    newSize = startFontSize * dampenedScale;
 
                     // 限制字号范围
                     newSize = Math.min(32, Math.max(12, newSize));
@@ -1423,6 +1423,7 @@ const GestureManager = {
                 console.log('touchend event:', e.touches.length, 'touches');
                 if (isPinching) {
                     isPinching = false;
+                    startFontSize = newSize;
                     // 可选：保存字号到 localStorage
                     // localStorage.setItem('fontSize', rendition.theme.fontSize());
                 }
