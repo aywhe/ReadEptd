@@ -38,8 +38,8 @@ class TxtViewModel(
 
     private val textExtractor = TxtExtractor(application)
     private var viewSize: IntSize = IntSize(0, 0)
-    private var lineHeightSp: Int = 24
-    private var fontSizeSp: Int = 16
+    private var lineHeightSp: Float = 24.0f
+    private var fontSizeSp: Float = 16.0f
 
     // Padding 设置（由 UI 层传入，单位：像素）
     private var leftPaddingDp: Int = 0
@@ -81,8 +81,8 @@ class TxtViewModel(
     val isPagesReady: StateFlow<Boolean> = _isPagesReady.asStateFlow()
 
     // 暴露字体大小和行距给 UI
-    val currentFontSizeSp: Int get() = fontSizeSp
-    val currentLineHeightSp: Int get() = lineHeightSp
+    val currentFontSizeSp: Float get() = fontSizeSp
+    val currentLineHeightSp: Float get() = lineHeightSp
 
     private var _onGoToPageListener: ((Int) -> Unit)? = null
     private var _splitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
@@ -248,7 +248,7 @@ class TxtViewModel(
     /**
      * 处理字体大小变化
      */
-    private fun handleFontSizeChanged(newFontSize: Int) {
+    private fun handleFontSizeChanged(newFontSize: Float) {
         if (fontSizeSp == newFontSize) {
             Log.d(TAG, "[handleFontSizeChanged] 字体大小未变化: $newFontSize")
             return
@@ -269,7 +269,7 @@ class TxtViewModel(
     /**
      * 处理行距变化
      */
-    private fun handleLineHeightChanged(newLineHeight: Int) {
+    private fun handleLineHeightChanged(newLineHeight: Float) {
         if (lineHeightSp == newLineHeight) {
             Log.d(TAG, "[handleLineHeightChanged] 行距未变化: $newLineHeight")
             return
@@ -298,8 +298,8 @@ class TxtViewModel(
         // 统一转换为像素单位
         val pageWidthPx = viewSize.width
         val pageHeightPx = viewSize.height
-        val fontSizePx = (fontSizeSp * scaledDensity).toInt()
-        val lineHeightPx = (lineHeightSp * scaledDensity).toInt()
+        val fontSizePx = (fontSizeSp * scaledDensity)
+        val lineHeightPx = (lineHeightSp * scaledDensity)
         val leftPaddingPx = (leftPaddingDp * density).toInt()
         val rightPaddingPx = (rightPaddingDp * density).toInt()
         val topPaddingPx = (topPaddingDp * density).toInt()

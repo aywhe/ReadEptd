@@ -4,6 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,12 +58,15 @@ import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.utils.LayoutSettingDialog
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.text.toInt
 
 /**
  * ✅ TXT 阅读器主屏幕
@@ -290,6 +295,7 @@ private fun PagingState() {
 /**
  * ✅ 阅读器内容（分页完成后）
  */
+@OptIn(FlowPreview::class)
 @Composable
 private fun ReaderContent(
     fileInfo: FileInfo,
@@ -308,7 +314,38 @@ private fun ReaderContent(
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    var previewScale by remember { mutableFloatStateOf(1f) }
+    val zoomSensitivity = 0.2f
+
+    LaunchedEffect(Unit) {
+        // 4. 监听预览缩放的变化
+        snapshotFlow { previewScale }
+            .debounce(1500) // 300ms 防抖，等待用户手指松开或停止缩放
+            .collectLatest { finalScale ->
+                if(finalScale == 1f) return@collectLatest  // 如果没有缩放，直接返回
+                // 5. 只有当用户停止操作后，才更新最终的 scale 状态
+                // 这会触发 viewModel 发送 OnFontSizeChanged 事件
+                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale)
+                //val newLineHeightSp = (newFontSizeSp * lineHeightFactor)
+                val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale)
+                viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
+                viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+                previewScale = 1f  // 重置预览缩放
+            }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()
+        .pointerInput(Unit) {
+            detectTransformGestures(
+                onGesture = { centroid, pan, zoom, rotation ->
+                    // 阻尼处理
+                    val dampenedScale = 1 + (zoom - 1) * zoomSensitivity;
+                    previewScale *= dampenedScale
+                    previewScale = previewScale.coerceIn(0.8f, 2.0f)
+                }
+            )
+        }
+    ) {
         // ✅ 设置回调
         SetupCallbacks(
             contentViewModel = contentViewModel,
@@ -343,10 +380,13 @@ private fun ReaderContent(
             } else {
                 AnnotatedString(pageContent)
             }
+            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale)
+            //val currentDisplayLineHeightSp = (currentDisplayFontSizeSp * lineHeightFactor)
+            val currentDisplayLineHeightSp = (viewModel.currentLineHeightSp * previewScale)
             PageContent(
                 pageAnnotatedContent = pageAnnotatedContent,
-                fontSize = viewModel.currentFontSizeSp,
-                lineHeight = viewModel.currentLineHeightSp,
+                fontSize = currentDisplayFontSizeSp,
+                lineHeight = currentDisplayLineHeightSp,
                 contentPadding = contentPadding
             )
         }
@@ -591,8 +631,8 @@ private fun SearchPanel(
 @Composable
 fun PageContent(
     pageAnnotatedContent: AnnotatedString,
-    fontSize: Int,
-    lineHeight: Int,
+    fontSize: Float,
+    lineHeight: Float,
     contentPadding: PaddingValues = PaddingValues()
 ) {
     SelectionContainer {
