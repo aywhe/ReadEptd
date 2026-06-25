@@ -1359,76 +1359,89 @@ const HighlightManager = {
 // ============================================
 const GestureManager = {
 
+    lastFontSize: null,
+
     init(rendition) {
         console.log('Initializing gesture manager...');
+        if(this.lastFontSize){
+            console.log('Restoring last font size:', this.lastFontSize);
+            rendition.themes.fontSize(this.lastFontSize + 'px');
+        }
+        if(rendition.hooks.content._registeredGestureHooks){
+            console.log('Gesture hooks already registered, skip');
+        } else {
+            rendition.hooks.content.register((contents) => {
+                console.log('Content hook triggered for gesture manager');
+                const body = contents.document.body;
 
-        rendition.hooks.content.register((contents) => {
-            console.log('Content hook triggered for gesture manager');
-            const body = contents.document.body;
+                let startDistance = 0;
+                let startFontSize = this.lastFontSize || parseFloat(rendition.themes.fontSize()) || 16;
+                let newSize = startFontSize;
+                let isPinching = false;
+                let sensitivity = 0.2;
 
-            let startDistance = 0;
-            let startFontSize = parseFloat(rendition.themes.fontSize()) || 16;
-            let newSize = startFontSize;
-            let isPinching = false;
-            let sensitivity = 0.2;
+                // 1. touchstart：检测双指
+                body.addEventListener('touchstart', function(e) {
+                    console.log('touchstart event:', e.touches.length, 'touches');
+                    if (e.touches.length === 2) {
+                        // 双指触摸：记录初始数据
+                        const t1 = e.touches[0];
+                        const t2 = e.touches[1];
+                        startDistance = Math.hypot(
+                            t1.clientX - t2.clientX,
+                            t1.clientY - t2.clientY
+                        );
+                        console.log(e.touches.length, ' touches event start, startDistance:', startDistance, ', startFontSize:', startFontSize);
+                        isPinching = true;
 
-            // 1. touchstart：检测双指
-            body.addEventListener('touchstart', function(e) {
-                console.log('touchstart event:', e.touches.length, 'touches');
-                if (e.touches.length === 2) {
-                    // 双指触摸：记录初始数据
-                    const t1 = e.touches[0];
-                    const t2 = e.touches[1];
-                    startDistance = Math.hypot(
-                        t1.clientX - t2.clientX,
-                        t1.clientY - t2.clientY
-                    );
-                    isPinching = true;
+                        // 阻止双指的默认行为（如页面缩放）
+                        e.preventDefault();
+                    }
+                    // 单指：完全不管，让 epub.js 处理
+                }, { passive: false });
 
-                    // 阻止双指的默认行为（如页面缩放）
-                    e.preventDefault();
-                }
-                // 单指：完全不管，让 epub.js 处理
-            }, { passive: false });
+                // 2. touchmove：双指缩放
+                body.addEventListener('touchmove', function(e) {
+                    if (isPinching && e.touches.length === 2) {
+                        const t1 = e.touches[0];
+                        const t2 = e.touches[1];
+                        const currentDistance = Math.hypot(
+                            t1.clientX - t2.clientX,
+                            t1.clientY - t2.clientY
+                        );
 
-            // 2. touchmove：双指缩放
-            body.addEventListener('touchmove', function(e) {
-                if (isPinching && e.touches.length === 2) {
-                    const t1 = e.touches[0];
-                    const t2 = e.touches[1];
-                    const currentDistance = Math.hypot(
-                        t1.clientX - t2.clientX,
-                        t1.clientY - t2.clientY
-                    );
+                        // 计算缩放比例
+                        const scale = currentDistance / startDistance;
+                        const dampenedScale = 1 + (scale - 1) * sensitivity;
+                        newSize = startFontSize * dampenedScale;
 
-                    // 计算缩放比例
-                    const scale = currentDistance / startDistance;
-                    const dampenedScale = 1 + (scale - 1) * sensitivity;
-                    newSize = startFontSize * dampenedScale;
+                        // 限制字号范围
+                        newSize = Math.min(32, Math.max(12, newSize));
 
-                    // 限制字号范围
-                    newSize = Math.min(32, Math.max(12, newSize));
+                        // 应用新字号
+                        rendition.themes.fontSize(newSize + 'px');
 
-                    // 应用新字号
-                    rendition.themes.fontSize(newSize + 'px');
+                        // 阻止滚动和页面缩放
+                        e.preventDefault();
+                    }
+                    // 单指：完全不管
+                }, { passive: false });
 
-                    // 阻止滚动和页面缩放
-                    e.preventDefault();
-                }
-                // 单指：完全不管
-            }, { passive: false });
-
-            // 3. touchend：重置状态
-            body.addEventListener('touchend', function(e) {
-                console.log('touchend event:', e.touches.length, 'touches');
-                if (isPinching) {
-                    isPinching = false;
-                    startFontSize = newSize;
-                    // 可选：保存字号到 localStorage
-                    // localStorage.setItem('fontSize', rendition.theme.fontSize());
-                }
-            }, { passive: false });
-        });
+                // 3. touchend：重置状态
+                body.addEventListener('touchend', function(e) {
+                    console.log('touchend event:', e.touches.length, 'touches');
+                    if (isPinching) {
+                        isPinching = false;
+                        startFontSize = newSize;
+                        GestureManager.lastFontSize = newSize; // listener函数中this指向body，无法访问GestureManager，所以使用GestureManager.lastFontSize
+                        console.log(e.touches.length, ' touches event end, final font size:', newSize);
+                        // 可选：保存字号到 localStorage
+                        // localStorage.setItem('fontSize', rendition.theme.fontSize());
+                    }
+                }, { passive: false });
+            });
+            rendition.hooks.content._registeredGestureHooks = true;
+        }
     }
 };
 
