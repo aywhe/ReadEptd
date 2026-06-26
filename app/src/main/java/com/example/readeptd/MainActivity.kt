@@ -314,15 +314,17 @@ fun MainScreen(
 
                 Text(
                     text = """
-                        ReadEptd - 智能听书助手 v$versionName
+                        ReadEptd - 阅读听书助手 v$versionName
                         
                         主要功能：
                         • 支持 TXT、PDF、EPUB 格式
                         • 文字转语音朗读
-                        • 定时关闭功能
+                        • 定时关闭朗读
                         • 自动保存阅读进度
-                        • 关键词搜索功能
-                        • 支持分页及滚动
+                        • 关键词搜索
+                        • 分页及滚动阅读
+                        • 调整字体大小
+                        • 夜间模式
                         
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyMedium
