@@ -316,6 +316,10 @@ private fun ReaderContent(
 
     var previewScale by remember { mutableFloatStateOf(1f) }
     val zoomSensitivity = 0.2f
+    val maxFontSize = 32f
+    val minFontSize = 12f
+    val maxLineHeight = 48f
+    val minLineHeight = 18f
 
     LaunchedEffect(Unit) {
         // 4. 监听预览缩放的变化
@@ -325,11 +329,14 @@ private fun ReaderContent(
                 if(finalScale == 1f) return@collectLatest  // 如果没有缩放，直接返回
                 // 5. 只有当用户停止操作后，才更新最终的 scale 状态
                 // 这会触发 viewModel 发送 OnFontSizeChanged 事件
-                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale)
-                //val newLineHeightSp = (newFontSizeSp * lineHeightFactor)
-                val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale)
-                viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
-                viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale).coerceIn(minFontSize, maxFontSize)
+                val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale).coerceIn(minLineHeight, maxLineHeight)
+                if(newFontSizeSp != viewModel.currentFontSizeSp) {
+                    viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
+                }
+                if(newLineHeightSp != viewModel.currentLineHeightSp) {
+                    viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+                }
                 previewScale = 1f  // 重置预览缩放
             }
     }
@@ -341,7 +348,7 @@ private fun ReaderContent(
                     // 阻尼处理
                     val dampenedScale = 1 + (zoom - 1) * zoomSensitivity;
                     previewScale *= dampenedScale
-                    previewScale = previewScale.coerceIn(0.8f, 2.0f)
+                    previewScale = previewScale.coerceIn(0.2f, 5.0f)
                 }
             )
         }
@@ -380,9 +387,8 @@ private fun ReaderContent(
             } else {
                 AnnotatedString(pageContent)
             }
-            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale)
-            //val currentDisplayLineHeightSp = (currentDisplayFontSizeSp * lineHeightFactor)
-            val currentDisplayLineHeightSp = (viewModel.currentLineHeightSp * previewScale)
+            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale).coerceIn(minFontSize,maxFontSize)
+            val currentDisplayLineHeightSp = (viewModel.currentLineHeightSp * previewScale).coerceIn(minLineHeight,maxLineHeight)
             PageContent(
                 pageAnnotatedContent = pageAnnotatedContent,
                 fontSize = currentDisplayFontSizeSp,
