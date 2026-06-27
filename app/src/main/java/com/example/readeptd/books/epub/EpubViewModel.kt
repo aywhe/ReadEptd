@@ -110,7 +110,8 @@ class EpubViewModel(
                         href = result.href,
                         cfi = result.cfi,
                         locInd = result.locInd,
-                        sortKey = (result.sectionIndex * 1000 + result.matchIndex).toLong()
+                        //sortKey = result.locInd.toLong() // 稳定排序，不怕重复
+                        sortKey = (result.sectionIndex * 10000000 + result.position).toLong() // 一个章节不超过一千万字
                     )
                     // ✅ 发送结果到 Flow
                     trySend(searchResult)
