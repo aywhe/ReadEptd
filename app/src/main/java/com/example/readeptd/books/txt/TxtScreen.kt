@@ -309,6 +309,7 @@ private fun ReaderContent(
 ) {
     val currentPage by viewModel.currentPage.collectAsState()
     var currentKeyword by remember { mutableStateOf("") }
+    var currentKeywordCharOffset by remember { mutableStateOf(-1L) }
 
     // ✅ 对话框状态管理 - 就近定义
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
@@ -383,7 +384,13 @@ private fun ReaderContent(
         ) { page ->
             val pageContent = viewModel.getPageContent(page).trimEnd()
             val pageAnnotatedContent = if(isShowSearchDialog) {
-                highLightText(pageContent, currentKeyword)
+                // 因为不同的分页，搜索结果在页面中得到位置不准确，需要重新计算
+                val pageChunk = viewModel.getPage(page)
+                var offsetInChunk = -1L
+                if(pageChunk != null && currentKeywordCharOffset >= pageChunk.startPos && currentKeywordCharOffset <= pageChunk.endPos) {
+                    offsetInChunk = currentKeywordCharOffset - pageChunk.startPos
+                }
+                highLightText(pageContent, currentKeyword, offsetInChunk.toInt())
             } else {
                 AnnotatedString(pageContent)
             }
@@ -406,16 +413,36 @@ private fun ReaderContent(
             onDismiss = { isShowJumpToPageDialog = false },
             scope = scope
         )
-        
-        SearchPanel(
-            fileInfo = fileInfo,
-            isShowSearchDialog = isShowSearchDialog,
-            currentPage = currentPage,
-            currentKeyword = currentKeyword,
-            viewModel = viewModel,
+
+        LaunchedEffect(isShowSearchDialog) {
+            if(!isShowSearchDialog){
+                currentKeywordCharOffset = -1L
+            }
+        }
+
+        SlideInSearchPanel(
+            visible = isShowSearchDialog,
             onVisibleChange = { isShowSearchDialog = it },
-            onKeywordChange = { currentKeyword = it },
-            scope = scope
+            onClose = { isShowSearchDialog = false },
+            getCurrentPosition = { currentPage },
+            onResultClick = {
+                scope.launch {
+                    try {
+                        val result = it as SearchData.TxtSearchResult
+                        currentKeywordCharOffset = result.charOffset
+                        val pageIndex = viewModel.findPageByCharOffset(result.charOffset)
+                        viewModel.goToPage(pageIndex)
+                    } catch (e: Exception) {
+                        Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                    }
+                }
+            },
+            onKeywordChange = {
+                currentKeyword = it
+                currentKeywordCharOffset = -1L
+            },
+            searchExecutor = { keyword -> viewModel.search(keyword) },
+            fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
         )
     }
 }
@@ -590,41 +617,6 @@ private fun LayoutSettingDialogs(
 }
 
 /**
- * ✅ 搜索面板
- */
-@Composable
-private fun SearchPanel(
-    fileInfo: FileInfo,
-    isShowSearchDialog: Boolean,
-    currentPage: Int,
-    currentKeyword: String,
-    viewModel: TxtViewModel,
-    onVisibleChange: (Boolean) -> Unit,
-    onKeywordChange: (String) -> Unit,
-    scope: CoroutineScope
-) {
-    SlideInSearchPanel(
-        visible = isShowSearchDialog,
-        onVisibleChange = { onVisibleChange(it) },
-        onClose = { onVisibleChange(false) },
-        getCurrentPosition = { currentPage },
-        onResultClick = {
-            scope.launch {
-                try {
-                    val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
-                    viewModel.goToPage(pageIndex)
-                } catch (e: Exception) {
-                    Log.e("TxtScreen", "跳转页失败: ${e.message}")
-                }
-            }
-        },
-        onKeywordChange = onKeywordChange,
-        searchExecutor = { keyword -> viewModel.search(keyword) },
-        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
-    )
-}
-
-/**
  * ✅ 页面内容显示组件
  * 
  * 使用 SelectionContainer 包裹以支持文本选择
@@ -660,10 +652,11 @@ fun PageContent(
  *
  * @param content 原始文本
  * @param keyword 要高亮的关键词
+ * @param offset 关键词在文本中的偏移位置（可选，用于定位特定实例）
  * @return 带高亮样式的 AnnotatedString
  */
 @Composable
-fun highLightText(content: String, keyword: String): AnnotatedString {
+fun highLightText(content: String, keyword: String, offset: Int = -1): AnnotatedString {
     return if (keyword.isNotBlank()) {
         buildAnnotatedString {
             append(content)
@@ -672,7 +665,11 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
             var startIndex = 0
             while (startIndex <= content.length - keyword.length) {
                 val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
-                if (matchIndex == -1) break
+                if (matchIndex == -1) break // 没有更多匹配项，退出循环
+                if(offset >=0 && matchIndex != offset) {
+                    startIndex = matchIndex + keyword.length
+                    continue // 如果指定了偏移位置且不匹配，跳过当前匹配
+                }
 
                 // 为匹配的关键词添加黄色背景高亮
                 addStyle(

@@ -606,6 +606,25 @@ class TxtViewModel(
     }
 
     /**
+     * ✅ 获取指定页的 TextChunk 对象
+     *
+     * @param pageIndex 页码索引
+     * @return 对应的 TextChunk 对象,如果页码超出范围则返回 null
+     */
+    fun getPage(pageIndex: Int): TextChunk? {
+        val pages = getCurrentPages()
+        if (pageIndex !in pages.indices) {
+            Log.w(
+                TxtViewModel.Companion.TAG,
+                "[getPageContent] 页码超出范围: pageIndex=$pageIndex, 总页数: ${pages.size}"
+            )
+            return null
+        } else {
+            return pages[pageIndex]
+        }
+    }
+
+    /**
      * ✅ 获取指定页的内容（从全文中截取）
      */
     fun getPageContent(pageIndex: Int): String {
