@@ -17,6 +17,7 @@ const AppState = {
     isThemeRegistered: false,
     isMappingHooked: false,
     lastReadingCfi: '',
+    lastFontSize: null,
     config: {},
 
     // 按钮拖动状态
@@ -35,6 +36,10 @@ const AppState = {
 
     setLastReadingCfi(lastReadingCfi){
         this.lastReadingCfi = lastReadingCfi;
+    },
+
+    setLastFontSize(lastFontSize){
+        this.lastFontSize = lastFontSize;
     },
 
     updateConfig(configJson){
@@ -122,6 +127,12 @@ const AndroidBridge = {
     onSearchCompleted() {
         if (window.Android && window.Android.onSearchCompleted) {
             window.Android.onSearchCompleted();
+        }
+    },
+
+    onFontSizeChanged(newFontSize) {
+        if (window.Android && window.Android.onFontSizeChanged) {
+            window.Android.onFontSizeChanged(newFontSize);
         }
     }
 };
@@ -749,7 +760,7 @@ const ReaderCore = {
             setTimeout(()=>{
                 // 等待resize结束，不然会display与resize会竞争，导致死循环
                 this.displayBookFirstTime();
-                GestureManager.init(AppState.rendition);
+                GestureManager.initFontSizeGesture();
             },500);
         });
     },
@@ -945,16 +956,6 @@ const ReaderCore = {
 // 主题相关接口
 // ============================================
 const ThemeBridge = {
-
-    setFontSizeScale(scale){
-        if(AppState.rendition && AppState.rendition.themes){
-            scaleString =  (scale * 100) + '%';
-            AppState.rendition.themes.fontSize(scaleString);
-            console.log('Font size scale set to:', scaleString);
-        } else {
-            console.warn('Rendition or themes API not available for setting font size');
-        }
-    },
 
     applyThemeToEpub() {
         try {
@@ -1359,23 +1360,26 @@ const HighlightManager = {
 // ============================================
 const GestureManager = {
 
-    lastFontSize: null,
-
-    init(rendition) {
-        console.log('Initializing gesture manager...');
-        if(this.lastFontSize){
-            console.log('Restoring last font size:', this.lastFontSize);
-            rendition.themes.fontSize(this.lastFontSize + 'px');
+    initFontSizeGesture() {
+        const rendition = AppState.rendition;
+        if (!rendition) {
+            console.error('Rendition not ready for gesture manager');
+            return;
+        }
+        console.log('Initializing font size gesture manager...');
+        if(AppState.lastFontSize){
+            console.log('Restoring last font size:', AppState.lastFontSize);
+            rendition.themes.fontSize(AppState.lastFontSize + 'px');
         }
         if(rendition.hooks.content._registeredGestureHooks){
-            console.log('Gesture hooks already registered, skip');
+            console.log('Font size gesture hooks already registered, skip');
         } else {
             rendition.hooks.content.register((contents) => {
-                console.log('Content hook triggered for gesture manager');
+                console.log('Content hook triggered for font size gesture manager');
                 const body = contents.document.body;
 
                 let startDistance = 0;
-                let startFontSize = this.lastFontSize || parseFloat(rendition.themes.fontSize()) || 16;
+                let startFontSize = AppState.lastFontSize || parseFloat(rendition.themes.fontSize()) || 16;
                 let newSize = startFontSize;
                 let isPinching = false;
                 let sensitivity = 0.2;
@@ -1433,8 +1437,9 @@ const GestureManager = {
                     if (isPinching) {
                         isPinching = false;
                         startFontSize = newSize;
-                        GestureManager.lastFontSize = newSize; // listener函数中this指向body，无法访问GestureManager，所以使用GestureManager.lastFontSize
+                        AppState.lastFontSize = newSize;
                         console.log(e.touches.length, ' touches event end, final font size:', newSize);
+                        AndroidBridge.onFontSizeChanged(newSize);
                         // 可选：保存字号到 localStorage
                         // localStorage.setItem('fontSize', rendition.theme.fontSize());
                     }
@@ -1477,5 +1482,5 @@ window.EpubReader = {
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
     setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState),
-    setFontSizeScale: ThemeBridge.setFontSizeScale.bind(ThemeBridge)
+    setLastFontSize: AppState.setLastFontSize.bind(AppState)
 };
