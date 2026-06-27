@@ -360,8 +360,9 @@ fun PdfLazyViewer(
                     searchExecutor = { query ->
                         viewModel.search(query)
                     },
-                    getCurrentPosition = {
-                        currentPage
+                    getDistanceToResult = {
+                        val result = it as SearchData.PdfSearchResult
+                        kotlin.math.abs(result.pageIndex - currentPage).toLong()
                     },
                     onResultClick = { result ->
                         scope.launch {

@@ -424,7 +424,10 @@ private fun ReaderContent(
             visible = isShowSearchDialog,
             onVisibleChange = { isShowSearchDialog = it },
             onClose = { isShowSearchDialog = false },
-            getCurrentPosition = { currentPage },
+            getDistanceToResult = {
+                val result = it as SearchData.TxtSearchResult
+                kotlin.math.abs(result.pageIndex - currentPage).toLong()
+            },
             onResultClick = {
                 scope.launch {
                     try {

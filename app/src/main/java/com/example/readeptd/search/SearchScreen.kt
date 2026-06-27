@@ -84,7 +84,7 @@ fun SlideInSearchPanel(
     onResultClick: (SearchData.SearchResult) -> Unit = {},
     onKeywordChange: (String) -> Unit = {},
     onVisibleChange: (Boolean) -> Unit = {},
-    getCurrentPosition: () -> Int = { 0 },  // ✅ 获取当前位置（页码/偏移等）
+    getDistanceToResult: (SearchData.SearchResult) -> Long = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
     visible: Boolean = true,
     initKeyword: String = "",
@@ -142,11 +142,8 @@ fun SlideInSearchPanel(
     LaunchedEffect(isSearching, results.size) {
         // ✅ 只在搜索刚完成且结果不为空时触发
         if (!isSearching && results.isNotEmpty()) {
-            // ✅ 主动获取当前位置
-            val currentPosition = getCurrentPosition()
-            
             // ✅ 使用 ViewModel 的方法找到最近的索引
-            val closestIndex = viewModel.findClosestResultIndex(currentPosition)
+            val closestIndex = viewModel.findClosestResultIndex(getDistanceToResult)
             
             if (closestIndex >= 0) {
                 // 更新选中状态并滚动
