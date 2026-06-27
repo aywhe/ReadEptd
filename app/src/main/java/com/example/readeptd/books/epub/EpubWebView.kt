@@ -16,6 +16,8 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.ArrayDeque
+import java.util.Queue
 import kotlin.math.roundToInt
 
 /**
@@ -41,6 +43,8 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onDoubleClickListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
+
+    private val highlightedCFIs: Queue<String> = ArrayDeque()
     
     init {
         setupWebView()
@@ -319,6 +323,30 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         onSearchCompletedCallback = completedCallback
         // ✅ 给关键词加上引号，避免 JS 将其当作变量名
         executeJs("window.EpubReader.search('$keyword')")
+    }
+
+    fun removeAllHighlights() {
+        // 移除所有已存在的高亮
+        while (highlightedCFIs.isNotEmpty()) {
+            val oldCfi = highlightedCFIs.poll()
+            if (oldCfi != null) {
+                highlight(oldCfi, true)
+            }
+        }
+    }
+
+    /**
+     * 清除所有高亮并添加新的高亮
+     * @param cfi 要高亮的 CFI 位置
+     */
+    fun highlightSingle(cfi: String) {
+
+        removeAllHighlights()
+
+        // 添加新的高亮
+        highlight(cfi, false)
+        highlightedCFIs.add(cfi)
+        Log.d(TAG, "添加高亮: $cfi")
     }
 
     /**
