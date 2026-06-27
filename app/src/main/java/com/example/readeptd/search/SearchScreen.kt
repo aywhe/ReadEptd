@@ -113,6 +113,13 @@ fun SlideInSearchPanel(
         }
     }
 
+    // ✅ 当面板切换到全屏时，自动展开搜索结果
+    LaunchedEffect(isFullScreen) {
+        if(isFullScreen){
+            isCollapsed = false
+        }
+    }
+
     DisposableEffect(Unit) {
         Log.d("SlideInSearchPanel", "DisposableEffect: 设置 onClickHistoryKeyword 回调")
         viewModel.setOnClickHistoryKeyword {
