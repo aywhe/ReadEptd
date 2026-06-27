@@ -729,6 +729,7 @@ const ReaderCore = {
             console.log('Section rendered:', section.href);
             this.setupDoubleClickHandler(view);
         });
+        GestureManager.initFontSizeGesture();
     },
 
     setupDoubleClickHandler(view) {
@@ -760,7 +761,6 @@ const ReaderCore = {
             setTimeout(()=>{
                 // 等待resize结束，不然会display与resize会竞争，导致死循环
                 this.displayBookFirstTime();
-                GestureManager.initFontSizeGesture();
             },500);
         });
     },
