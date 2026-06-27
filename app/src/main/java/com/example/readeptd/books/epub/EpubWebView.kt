@@ -339,6 +339,9 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.search('$keyword')")
     }
 
+    /**
+     * 移除所有高亮
+     */
     fun removeAllHighlights() {
         // 移除所有已存在的高亮
         while (highlightedCFIs.isNotEmpty()) {
