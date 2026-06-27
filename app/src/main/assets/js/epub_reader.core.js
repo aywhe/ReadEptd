@@ -1233,11 +1233,13 @@ const SearchManager = {
                             break;
                         }
                         const match = matches[matchIndex];
+                        const locInd = book.locations.locationFromCfi(match.cfi)
                         
                         const result = {
                             href: section.href,
                             sectionIndex: section.index,
                             cfi: match.cfi,
+                            locInd: locInd,
                             excerpt: match.excerpt,
                             chapterTitle: chapterTitle,
                             idref: section.idref,

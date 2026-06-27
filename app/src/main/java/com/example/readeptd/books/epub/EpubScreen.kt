@@ -260,6 +260,10 @@ fun EpubScreen(
                             webView?.highlightSingle(epubResult.cfi)
                             webView?.goToLocation(epubResult.cfi)
                         },
+                        getDistanceToResult = {
+                            val result = (it as SearchData.EpubSearchResult)
+                            kotlin.math.abs(currentLocation.end.location - result.locInd).toLong()
+                        },
                         onKeywordChange = { keyword -> currentKeyword = keyword},
                         fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
                     )
