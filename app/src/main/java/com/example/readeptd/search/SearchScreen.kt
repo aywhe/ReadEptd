@@ -285,7 +285,7 @@ fun SlideInSearchPanel(
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
-            
+            var selectIndex by remember { mutableStateOf(-1) }  // 当前选中结果索引
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = currentKeyword,
@@ -313,6 +313,7 @@ fun SlideInSearchPanel(
                     } else {
                         IconButton(
                             onClick = {
+                                selectIndex = -1
                                 viewModel.onSearch(currentKeyword, searchExecutor)
                                 isCollapsed = false
                             },
@@ -378,6 +379,7 @@ fun SlideInSearchPanel(
                             viewModel.navigateToPrevious(bySortKey =  true)
                             viewModel.getCurrentResult()?.let { onResultClick(it) }
                             scope.launch {
+                                selectIndex = currentIndex
                                 lazyListState.scrollToItem(index = currentIndex)
                             }
                         },
@@ -395,6 +397,7 @@ fun SlideInSearchPanel(
                             viewModel.navigateToNext(bySortKey = true)
                             viewModel.getCurrentResult()?.let { onResultClick(it)}
                             scope.launch {
+                                selectIndex = currentIndex
                                 lazyListState.scrollToItem(index = currentIndex)
                             }
                         },
@@ -433,8 +436,10 @@ fun SlideInSearchPanel(
                     items(results.size) { index ->
                         SearchResultCard(
                             result = results[index],
+                            isSelected = index == selectIndex,
                             onClick = { 
                                 viewModel.setCurrentIndex(index)
+                                selectIndex = index
                                 onResultClick(results[index]) 
                             }
                         )
@@ -451,24 +456,35 @@ fun SlideInSearchPanel(
 @Composable
 fun SearchResultCard(
     result: SearchData.SearchResult,
+    isSelected: Boolean = false,
     onClick: (SearchData.SearchResult) -> Unit
 ) {
     Card(
         onClick = { onClick(result) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp)
+            .padding(vertical = 0.dp),
+        colors = if (isSelected) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        } else {
+            CardDefaults.cardColors() // 不传 containerColor，保持 Card 默认颜色
+        }
     ) {
         Column(
             modifier = Modifier.padding(4.dp)
         ) {
-            // ✅ 合并为一个 Text，使用 AnnotatedString 实现不同样式
             Text(
                 text = buildAnnotatedString {
                     // 页码部分（加粗、主题色）
                     pushStyle(
                         SpanStyle(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
                             fontWeight = MaterialTheme.typography.labelSmall.fontWeight,
                             fontSize = MaterialTheme.typography.labelSmall.fontSize
                         )
@@ -479,7 +495,11 @@ fun SearchResultCard(
                     // 预览内容（普通样式）
                     pushStyle(
                         SpanStyle(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             fontSize = MaterialTheme.typography.bodySmall.fontSize
                         )
                     )
