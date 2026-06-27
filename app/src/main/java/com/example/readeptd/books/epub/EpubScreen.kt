@@ -246,14 +246,14 @@ fun EpubScreen(
                         onVisibleChange =  {isShowSearchDialog = it},
                         onClose = {
                             isShowSearchDialog = false
-                            viewModel.removeAllHighlights(epubWebView = webView)
+                            webView?.removeAllHighlights()
                         },
                         searchExecutor = { query ->
                             viewModel.search(query, epubWebView = webView)  // ✅ 调用 ViewModel 的搜索函数
                         },
                         onResultClick = { result ->
                             val epubResult = (result as SearchData.EpubSearchResult)
-                            viewModel.highlightSingle(epubResult.cfi, webView)
+                            webView?.highlightSingle(epubResult.cfi)
                             webView?.goToLocation(epubResult.cfi)
                         },
                         onKeywordChange = { keyword -> currentKeyword = keyword},
