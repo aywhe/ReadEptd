@@ -27,6 +27,13 @@ class EpubViewModel(
     private val _currentLocation = MutableStateFlow(EpubLocation.default())
     val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
 
+    var fontSizePx: Float? = null
+    val currentFontSizePx: Float? get() = fontSizePx
+
+    fun updateFontSize(newFontSizePx: Float) {
+        fontSizePx = newFontSizePx
+    }
+
     fun updateLocation(location: EpubLocation) {
         _currentLocation.value = location
     }

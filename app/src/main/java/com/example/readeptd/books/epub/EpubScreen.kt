@@ -2,7 +2,6 @@ package com.example.readeptd.books.epub
 
 import android.util.Log
 import android.widget.FrameLayout
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -124,6 +122,12 @@ fun EpubScreen(
                                         false -> EpubFlowMode.Scrolled
                                     }
                                 )
+                                setFontSize(viewModel.currentFontSizePx)
+
+                                setOnFontSizeChangedListener { newFontSizePx->
+                                    Log.d("EpubScreen", "字体大小变化: $newFontSizePx px")
+                                    viewModel.updateFontSize(newFontSizePx)
+                                }
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->
