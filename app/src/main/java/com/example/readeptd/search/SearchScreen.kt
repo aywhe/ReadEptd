@@ -159,7 +159,7 @@ fun SlideInSearchPanel(
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
     Log.d("SlideInSearchPanel", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
-    val panelWidthDp = (screenWidthDp * 2 / 5).coerceIn(128,212)
+    val panelWidthDp = (screenWidthDp * 3 / 5).coerceIn(128,212)
     val panelHeightDp = if (isFullScreen) screenHeightDp else screenHeightDp
     Log.d("SlideInSearchPanel", "panelWidthDp: $panelWidthDp, panelHeightDp: $panelHeightDp")
     // ✅ 统一使用 px 进行计算
