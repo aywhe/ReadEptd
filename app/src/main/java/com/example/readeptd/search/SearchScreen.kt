@@ -59,6 +59,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -226,7 +227,7 @@ fun SlideInSearchPanel(
             // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
             val currentSearchKeyword = results.firstOrNull()?.keyword
             val shouldShowResults = currentKeyword.isNotBlank() && results.isNotEmpty() && currentKeyword == currentSearchKeyword
-
+            var selectIndex by remember { mutableStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -247,7 +248,7 @@ fun SlideInSearchPanel(
                 )
                 if(isFullScreen && shouldShowResults) {
                     Text(
-                        text = "${results.size}条结果",
+                        text = "${if (selectIndex >= 0) "${selectIndex + 1}/" else ""}${results.size}条结果",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -289,7 +290,6 @@ fun SlideInSearchPanel(
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
-            var selectIndex by remember { mutableStateOf(-1) }  // 当前选中结果索引
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = currentKeyword,
@@ -373,7 +373,7 @@ fun SlideInSearchPanel(
                             contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
                         Text(
-                            text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
+                            text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
