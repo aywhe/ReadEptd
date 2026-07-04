@@ -214,6 +214,9 @@ fun PdfLazyViewer(
                 contentViewModel.setOnClickSearchButtonCallback {
                     isShowSearchDialog = !isShowSearchDialog
                 }
+                contentViewModel.setOnClickBookmarkCallback {
+                    contentViewModel.updateBookmarkState(!it)
+                }
 
                 ttsModel.setOnRequestSpeechStartListener {
                     val text = viewModel.getPageText(currentPage)

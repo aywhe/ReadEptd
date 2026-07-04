@@ -158,6 +158,16 @@ class ContentViewModel(
     }
 
     /**
+     * 更新书签状态
+     *
+     * @param isBookmarked 是否已书签
+     */
+    fun updateBookmarkState(isBookmarked: Boolean) {
+        Log.d("ContentViewModel", "更新书签状态: $isBookmarked")
+        _isBookmarked.value = isBookmarked
+    }
+
+    /**
      * ✅ 获取当前文件的全屏状态（从 AppMemoryStore 读取）
      *
      * @return 是否全屏

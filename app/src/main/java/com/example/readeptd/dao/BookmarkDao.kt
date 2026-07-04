@@ -5,6 +5,9 @@ import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 书签数据访问对象
+ */
 @Dao
 interface BookmarkDao {
     @Insert

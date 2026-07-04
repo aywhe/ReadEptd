@@ -62,7 +62,7 @@ sealed interface BookmarkData {
     ) : BookmarkData
 
     /**
-     * 未知或不支持格式的阅读状态
+     * 未知或不支持格式
      * 仅记录基本信息
      */
     data class Unknown(
