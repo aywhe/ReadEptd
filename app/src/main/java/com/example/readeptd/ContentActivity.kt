@@ -31,11 +31,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -311,6 +313,8 @@ fun ToolTip(
     var isShowSearchHistoryDialog by remember {
         mutableStateOf(false)
     }
+    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
+
     if (progressText.isNotBlank()) {
         Box(
             contentAlignment = Alignment.Center,
@@ -341,6 +345,27 @@ fun ToolTip(
                 style = MaterialTheme.typography.titleMedium
             )
         }
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .padding(start = 4.dp, end = 8.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        viewModel.onEvent(ContentUiEvent.OnClickBookmark)
+                    },
+                    onLongPress = {
+                        viewModel.onEvent(ContentUiEvent.OnLongPressBookmark)
+                    }
+                )
+            }
+    ) {
+        Icon(
+            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
+            contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
+            tint = MaterialTheme.colorScheme.onSurface
+        )
     }
     Box(
         contentAlignment = Alignment.Center,
@@ -387,7 +412,7 @@ fun ToolTip(
                 }
         ) {
             Icon(
-                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                imageVector = if (isSpeaking) Icons.Filled.HeadsetOff else Icons.Filled.Headset,
                 contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
                 tint = MaterialTheme.colorScheme.onSurface
             )

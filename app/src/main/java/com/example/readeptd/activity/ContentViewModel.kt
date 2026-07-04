@@ -29,6 +29,10 @@ class ContentViewModel(
     val progressText: StateFlow<String> = _progressText.asStateFlow()
     private var _onClickProgressInfoCallback: ((String) -> Unit)? = null
     private var _onLongPressProgressInfoCallback: ((String) -> Unit)? = null
+    private val _isBookmarked = MutableStateFlow(false)
+    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
+    private var _onClickBookmarkCallback: ((Boolean) -> Unit)? = null
+    private var _onLongPressBookmarkCallback: ((Boolean) -> Unit)? = null
     private var _onClickSearchButtonCallback: (() -> Unit)? = null
 
     // ✅ 当前文件 URI（用于关联 AppMemoryStore 中的全屏状态）
@@ -58,6 +62,8 @@ class ContentViewModel(
         super.onCleared()
         _onClickProgressInfoCallback = null
         _onLongPressProgressInfoCallback = null
+        _onClickBookmarkCallback = null
+        _onLongPressBookmarkCallback = null
         _onClickSearchButtonCallback = null
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
@@ -70,6 +76,12 @@ class ContentViewModel(
             }
             is ContentUiEvent.OnLongPressProgressInfo -> {
                 _onLongPressProgressInfoCallback?.invoke(event.progressText)
+            }
+            is ContentUiEvent.OnClickBookmark -> {
+                _onClickBookmarkCallback?.invoke(_isBookmarked.value)
+            }
+            is ContentUiEvent.OnLongPressBookmark -> {
+                _onLongPressBookmarkCallback?.invoke(_isBookmarked.value)
             }
             is ContentUiEvent.OnClickSearchButton -> {
                 _onClickSearchButtonCallback?.invoke()
@@ -106,6 +118,24 @@ class ContentViewModel(
      */
     fun setOnLongPressProgressInfoCallback(callback: ((String) -> Unit)?) {
         _onLongPressProgressInfoCallback = callback
+    }
+
+    /**
+     * 设置书签点击回调
+     *
+     * @param callback 点击回调函数
+     */
+    fun setOnClickBookmarkCallback(callback: ((Boolean) -> Unit)?) {
+        _onClickBookmarkCallback = callback
+    }
+
+    /**
+     * 设置书签长按回调
+     *
+     * @param callback 长按回调函数
+     */
+    fun setOnLongPressBookmarkCallback(callback: ((Boolean) -> Unit)?) {
+        _onLongPressBookmarkCallback = callback
     }
 
     /**
