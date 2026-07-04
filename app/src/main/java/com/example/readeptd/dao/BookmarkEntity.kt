@@ -1,6 +1,5 @@
 package com.example.readeptd.dao
 
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
