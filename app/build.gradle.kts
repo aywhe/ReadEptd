@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -64,4 +65,7 @@ dependencies {
 
     implementation("com.github.albfernandez:juniversalchardet:2.5.0")
 
+    implementation("androidx.room:room-runtime:2.7.0-rc01")
+    implementation("androidx.room:room-ktx:2.7.0-rc01")
+    ksp("androidx.room:room-compiler:2.7.0-rc01")
 }
