@@ -862,6 +862,23 @@ fun SettingsDialog(
 
                 HorizontalDivider()
 
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                Text("显示书签提示")
+                Switch(
+                    checked = config.isShowBookmarkHint,
+                    onCheckedChange = {
+                        viewModel.updateConfig { copy(isShowBookmarkHint = it) }
+                    }
+                )
+            }
+
+                HorizontalDivider()
+
                 // TTS 设置按钮
                 Button(
                     onClick = {

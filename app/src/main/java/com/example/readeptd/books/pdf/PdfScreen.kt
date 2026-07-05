@@ -71,6 +71,7 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.bookmark.BookmarkData
 import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkHint
 import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
@@ -419,6 +420,8 @@ fun PdfLazyViewer(
                         )
                     }
                 }
+
+                BookmarkHint(contentViewModel = contentViewModel)
 
                 LaunchedEffect(showNoTextHint) {
                     if(showNoTextHint) {
