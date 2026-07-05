@@ -351,7 +351,7 @@ fun ToolTip(
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .padding(start = 4.dp, end = 8.dp)
+            .padding(start = 4.dp, end = 4.dp)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
@@ -365,7 +365,7 @@ fun ToolTip(
     ) {
         Icon(
             imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-            contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
+            contentDescription = "书签",
             tint = MaterialTheme.colorScheme.onSurface
         )
     }

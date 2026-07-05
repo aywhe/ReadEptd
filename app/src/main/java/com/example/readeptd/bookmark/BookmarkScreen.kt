@@ -68,9 +68,7 @@ fun BookmarkDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { newValue ->
-                        if(newValue.length <= maxLength) {
-                            text = newValue
-                        }
+                        text = newValue.substring(0, newValue.length.coerceAtMost(maxLength))
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = false,
