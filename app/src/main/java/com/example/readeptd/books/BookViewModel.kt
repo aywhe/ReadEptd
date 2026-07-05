@@ -43,13 +43,6 @@ abstract class BookViewModel<T : ReadingState>(
 
     private val fileDataStore = FileDataStore(application)
 
-    private val appDatabase by lazy {
-        Room.databaseBuilder(
-            application,
-            AppDatabase::class.java, "readeptd-database"
-        ).build()
-    }
-    val bookmarkRepository by lazy{BookmarkRepository(appDatabase.bookmarkDao())}
     private val _uiState = MutableStateFlow<BookUiState>(BookUiState.Loading)
     val uiState: StateFlow<BookUiState> = _uiState.asStateFlow()
 

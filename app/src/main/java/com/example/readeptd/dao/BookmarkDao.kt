@@ -24,6 +24,9 @@ interface BookmarkDao {
     @Query("DELETE FROM bookmarks WHERE bookId = :bookId")
     suspend fun deleteBookmarksForBook(bookId: String)
 
-    @Query("DELETE FROM bookmarks WHERE id = :bookmarkId")
-    suspend fun deleteBookmark(bookmarkId: Long)
+    @Query("DELETE FROM bookmarks WHERE id = :id")
+    suspend fun deleteBookmark(id: Long)
+
+    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND position = :position")
+    fun findPosition(bookId: String, position: String): Flow<List<BookmarkEntity>>
 }

@@ -71,6 +71,7 @@ import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.bookmark.BookmarkData
 import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
@@ -142,6 +143,7 @@ fun PdfLazyViewer(
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
+    bookmarkModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -200,6 +202,18 @@ fun PdfLazyViewer(
             var isShowSearchDialog by remember { mutableStateOf(false) }
             var showNoTextHint by remember { mutableStateOf(false) }
             var isShowBookmarkDialog by remember { mutableStateOf(false) }
+            val isBookmarked by bookmarkModel.bookmarkRepository.existInPosition(
+                BookmarkData.Pdf(
+                    fileUri = fileInfo.uri,
+                    name = fileInfo.uri,
+                    page = currentPage,
+                    note = ""
+                )
+            ).collectAsStateWithLifecycle(initialValue = false)
+
+            LaunchedEffect(isBookmarked) {
+                contentViewModel.updateBookmarkState(isBookmarked)
+            }
 
             LaunchedEffect(currentPage) {
                 Log.d("PdfLazyViewer", "当前页: $currentPage")
@@ -426,7 +440,6 @@ fun PdfLazyViewer(
                         },
                         onConfirm = {
                             isShowBookmarkDialog = false
-                            contentViewModel.updateBookmarkState(true)
                         }
                     )
                 }

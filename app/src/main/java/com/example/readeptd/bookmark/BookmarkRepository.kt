@@ -1,5 +1,6 @@
 package com.example.readeptd.bookmark
 
+import android.util.Log
 import com.example.readeptd.dao.BookmarkDao
 import com.example.readeptd.dao.BookmarkEntity
 import kotlinx.coroutines.flow.Flow
@@ -70,7 +71,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      */
     private fun bookmarkDataToEntity(data: BookmarkData): BookmarkEntity {
         return BookmarkEntity(
-            //id = data.id, // ID 由数据库自动生成
+            id = data.id,
             bookId = data.name,
             fileUri = data.fileUri,
             mimeType = data.mimeType,
@@ -91,6 +92,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      * @param bookmark 要添加的书签数据
      */
     suspend fun addBookmark(bookmark: BookmarkData) {
+        Log.d("BookmarkRepository", "Adding bookmark: $bookmark")
         bookmarkDao.insertBookmark(bookmarkDataToEntity(bookmark))
     }
 
@@ -99,7 +101,18 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      * @param id 要删除的书签 ID
      */
     suspend fun removeBookmark(id: Long) {
+        Log.d("BookmarkRepository", "Removing bookmark with ID: $id")
         bookmarkDao.deleteBookmark(id)
+    }
+
+    /**
+     * 更新书签
+     * @param bookmark 要更新的书签数据
+     */
+    suspend fun updateBookmark(bookmark: BookmarkData) {
+        Log.d("BookmarkRepository", "Updating bookmark: $bookmark")
+        val entity = bookmarkDataToEntity(bookmark)
+        bookmarkDao.updateBookmark(entity)
     }
 
     /**
@@ -108,9 +121,36 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      * @return 返回一个 Flow，发射该书籍的所有书签数据列表
      */
     fun getBookmarksForBook(bookId: String): Flow<List<BookmarkData>> {
+        Log.d("BookmarkRepository", "Fetching bookmarks for book ID: $bookId")
         return bookmarkDao.getBookmarksForBook(bookId)
             .map { entities -> entities.map { bookmarkEntityToData(it) } }
     }
 
+    /**
+     * 查找指定位置的书签
+     * @param bookmark 要查找的书签数据（包含书籍 ID 和位置）
+     * @return 返回一个 Flow，发射匹配的书签数据列表
+     */
+    fun findInPosition(bookmark: BookmarkData): Flow<List<BookmarkData>> {
+        val bookmarkEntity = bookmarkDataToEntity(bookmark)
+        Log.d("BookmarkRepository", "Finding bookmarks in position: ${bookmarkEntity.position} for book ID: ${bookmarkEntity.bookId}")
+        return bookmarkDao.findPosition(bookmarkEntity.bookId, bookmarkEntity.position)
+            .map { entities ->
+                entities.map { bookmarkEntityToData(it) }
+            }
+    }
 
+    /**
+     * 检查指定位置是否存在书签
+     * @param bookmark 要检查的书签数据（包含书籍 ID 和位置）
+     * @return 返回一个 Flow，发射布尔值，表示是否存在书签
+     */
+    fun existInPosition(bookmark: BookmarkData): Flow<Boolean> {
+        val bookmarkEntity = bookmarkDataToEntity(bookmark)
+        Log.d("BookmarkRepository", "Checking existence of bookmark in position: ${bookmarkEntity.position} for book ID: ${bookmarkEntity.bookId}")
+        return bookmarkDao.findPosition(bookmarkEntity.bookId, bookmarkEntity.position)
+            .map { entities ->
+                entities.isNotEmpty()
+            }
+    }
 }
