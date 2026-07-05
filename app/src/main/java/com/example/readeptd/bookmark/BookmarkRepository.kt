@@ -70,7 +70,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      */
     private fun bookmarkDataToEntity(data: BookmarkData): BookmarkEntity {
         return BookmarkEntity(
-            id = data.id,
+            //id = data.id, // ID 由数据库自动生成
             bookId = data.name,
             fileUri = data.fileUri,
             mimeType = data.mimeType,
@@ -107,8 +107,10 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
      * @param bookId 书籍 ID
      * @return 返回一个 Flow，发射该书籍的所有书签数据列表
      */
-    fun getBookmarksForFile(bookId: String): Flow<List<BookmarkData>> {
+    fun getBookmarksForBook(bookId: String): Flow<List<BookmarkData>> {
         return bookmarkDao.getBookmarksForBook(bookId)
             .map { entities -> entities.map { bookmarkEntityToData(it) } }
     }
+
+
 }

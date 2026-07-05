@@ -9,7 +9,7 @@ sealed interface BookmarkData {
     val name: String
     val fileUri: String
     val mimeType: String
-    val note: String?
+    val note: String
     val createdTime: Long
     val lastModified: Long
 
@@ -18,11 +18,11 @@ sealed interface BookmarkData {
      * 支持 CFI
      */
     data class Epub(
-        override val id: Long,
+        override val id: Long = -1,
         override val fileUri: String,
-        override val name: String,
+        override val name: String = fileUri,
         override val mimeType: String = "application/epub+zip",
-        override val note: String? = null,
+        override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
         override val lastModified: Long = System.currentTimeMillis(),
 
@@ -34,11 +34,11 @@ sealed interface BookmarkData {
      * 基于页码
      */
     data class Pdf(
-        override val id: Long,
+        override val id: Long = -1,
         override val fileUri: String,
-        override val name: String,
+        override val name: String = fileUri,
         override val mimeType: String = "application/pdf",
-        override val note: String? = null,
+        override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
         override val lastModified: Long = System.currentTimeMillis(),
 
@@ -50,11 +50,11 @@ sealed interface BookmarkData {
      * 基于字符偏移量
      */
     data class Txt(
-        override val id: Long,
+        override val id: Long = -1,
         override val fileUri: String,
-        override val name: String,
+        override val name: String = fileUri,
         override val mimeType: String = "text/plain",
-        override val note: String? = null,
+        override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
         override val lastModified: Long = System.currentTimeMillis(),
 
@@ -66,11 +66,11 @@ sealed interface BookmarkData {
      * 仅记录基本信息
      */
     data class Unknown(
-        override val id: Long,
+        override val id: Long = -1,
         override val fileUri: String,
-        override val name: String,
+        override val name: String = fileUri,
         override val mimeType: String = "application/octet-stream",
-        override val note: String? = null,
+        override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
         override val lastModified: Long = System.currentTimeMillis(),
     ) : BookmarkData

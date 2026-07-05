@@ -69,6 +69,8 @@ import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.bookmark.BookmarkData
+import com.example.readeptd.bookmark.BookmarkDialog
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
@@ -197,6 +199,7 @@ fun PdfLazyViewer(
             var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
             var isShowSearchDialog by remember { mutableStateOf(false) }
             var showNoTextHint by remember { mutableStateOf(false) }
+            var isShowBookmarkDialog by remember { mutableStateOf(false) }
 
             LaunchedEffect(currentPage) {
                 Log.d("PdfLazyViewer", "当前页: $currentPage")
@@ -214,8 +217,8 @@ fun PdfLazyViewer(
                 contentViewModel.setOnClickSearchButtonCallback {
                     isShowSearchDialog = !isShowSearchDialog
                 }
-                contentViewModel.setOnClickBookmarkCallback {
-                    contentViewModel.updateBookmarkState(!it)
+                contentViewModel.setOnClickBookmarkCallback { isBookmarked ->
+                    isShowBookmarkDialog = true
                 }
 
                 ttsModel.setOnRequestSpeechStartListener {
@@ -260,6 +263,8 @@ fun PdfLazyViewer(
                     contentViewModel.setOnClickProgressInfoCallback(null)
                     contentViewModel.setOnLongPressProgressInfoCallback(null)
                     contentViewModel.setOnClickSearchButtonCallback(null)
+                    contentViewModel.setOnClickBookmarkCallback(null)
+                    contentViewModel.setOnLongPressBookmarkCallback(null)
                 }
             }
             Box(
@@ -406,6 +411,24 @@ fun PdfLazyViewer(
                         delay(2000)
                         showNoTextHint = false
                     }
+                }
+
+                if(isShowBookmarkDialog){
+                    BookmarkDialog(
+                        BookmarkData.Pdf(
+                            fileUri = fileInfo.uri,
+                            name = fileInfo.uri,
+                            page = currentPage,
+                            note = ""
+                        ),
+                        onDismiss = {
+                            isShowBookmarkDialog = false
+                        },
+                        onConfirm = {
+                            isShowBookmarkDialog = false
+                            contentViewModel.updateBookmarkState(true)
+                        }
+                    )
                 }
             }
         }

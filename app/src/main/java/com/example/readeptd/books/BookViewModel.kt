@@ -5,6 +5,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.Room
+import com.example.readeptd.bookmark.BookmarkRepository
+import com.example.readeptd.dao.AppDatabase
+import com.example.readeptd.dao.BookmarkDao
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.data.TempFileManager
@@ -39,6 +43,13 @@ abstract class BookViewModel<T : ReadingState>(
 
     private val fileDataStore = FileDataStore(application)
 
+    private val appDatabase by lazy {
+        Room.databaseBuilder(
+            application,
+            AppDatabase::class.java, "readeptd-database"
+        ).build()
+    }
+    val bookmarkRepository by lazy{BookmarkRepository(appDatabase.bookmarkDao())}
     private val _uiState = MutableStateFlow<BookUiState>(BookUiState.Loading)
     val uiState: StateFlow<BookUiState> = _uiState.asStateFlow()
 

@@ -21,7 +21,7 @@ data class BookmarkEntity(
     val fileUri: String,
     val mimeType: String,
     val position: String,
-    val note: String? = null,
+    val note: String = "",
     val createdTime: Long = System.currentTimeMillis(),
     val lastModified: Long = System.currentTimeMillis()
 )
