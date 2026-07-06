@@ -211,7 +211,7 @@ fun PdfLazyViewer(
                     fileUri = fileInfo.uri,
                     bookId = fileInfo.uri,
                     page = currentPage,
-                    note = ""
+                    note = "#[${currentPage + 1}]"
                 )
             ).collectAsStateWithLifecycle(initialValue = false)
 
@@ -426,7 +426,7 @@ fun PdfLazyViewer(
                             fileUri = fileInfo.uri,
                             bookId = fileInfo.uri,
                             page = currentPage,
-                            note = "#[$currentPage]"
+                            note = "#[${currentPage + 1}]"
                         ),
                         onClose = {
                             isShowBookmarkListPanel = false
@@ -452,7 +452,7 @@ fun PdfLazyViewer(
                             fileUri = fileInfo.uri,
                             bookId = fileInfo.uri,
                             page = currentPage,
-                            note = "#[$currentPage]"
+                            note = "#[${currentPage + 1}]"
                         ),
                         onDismiss = {
                             isShowBookmarkDialog = false
