@@ -3,10 +3,6 @@ package com.example.readeptd.bookmark
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateIntOffsetAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -81,6 +77,7 @@ import com.example.readeptd.search.SearchResultCard
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
+import com.example.readeptd.utils.SlideHint
 
 @Composable
 fun BookmarkDialog(
@@ -195,35 +192,16 @@ fun BookmarkHint(
             isShowBookmarkTip = false
         }
     }
-    AnimatedVisibility(
+
+    SlideHint(
+        tips = "找到书签",
         visible = isShowBookmarkTip && config.isShowBookmarkHint,
-        enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(), // 从左侧滑入并淡入
-        exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()  // 向左侧滑出并淡出
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 72.dp)
-                    .background(
-                        MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-                        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-                    )
-                    .clickable(
-                        onClick = {
-                            contentViewModel.onEvent(ContentUiEvent.OnClickBookmark)
-                        }
-                    )
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = "找到书签",
-                    color = MaterialTheme.colorScheme.inverseOnSurface,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+        alignment = Alignment.TopStart,
+        padding = PaddingValues(top = 72.dp),
+        onClick = {
+            contentViewModel.onEvent(ContentUiEvent.OnClickBookmark)
         }
-    }
+    )
 }
 
 @Composable

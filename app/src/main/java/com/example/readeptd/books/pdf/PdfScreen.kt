@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,6 +77,7 @@ import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
+import com.example.readeptd.utils.SlideHint
 import kotlinx.coroutines.delay
 
 @Composable
@@ -408,28 +410,13 @@ fun PdfLazyViewer(
                         showNoTextHint = false
                     }
                 }
-                AnimatedVisibility(
+
+                SlideHint(
+                    tips = "没有文本",
                     visible = showNoTextHint,
-                    enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(), // 从左侧滑入并淡入
-                    exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()  // 向左侧滑出并淡出
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(top = 32.dp)
-                            .background(
-                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-                                shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "没有文本",
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
+                    alignment = Alignment.TopStart,
+                    padding = PaddingValues(top = 32.dp)
+                )
 
                 BookmarkHint(contentViewModel = contentViewModel)
 
