@@ -206,7 +206,7 @@ fun PdfLazyViewer(
             var showNoTextHint by remember { mutableStateOf(false) }
             var isShowBookmarkDialog by remember { mutableStateOf(false) }
             var isShowBookmarkListPanel by remember { mutableStateOf(false) }
-            val isBookmarked by bookmarkModel.bookmarkRepository.existInPosition(
+            val isBookmarked by bookmarkModel.existInPosition(
                 BookmarkData.Pdf(
                     fileUri = fileInfo.uri,
                     bookId = fileInfo.uri,

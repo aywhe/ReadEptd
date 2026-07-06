@@ -75,7 +75,7 @@ fun BookmarkDialog(
     viewModel: BookmarkViewModel = viewModel()
 ){
     val scope = rememberCoroutineScope()
-    val existBookmarks by viewModel.bookmarkRepository.findInPosition(bookmarkData).collectAsStateWithLifecycle(initialValue = emptyList())
+    val existBookmarks by viewModel.findInPosition(bookmarkData).collectAsStateWithLifecycle(initialValue = emptyList())
     var text by remember { mutableStateOf(bookmarkData.note) }
     val maxLength = 50
 
@@ -118,7 +118,7 @@ fun BookmarkDialog(
                     onClick = {
                         val newBookmark = existBookmarks.first().copyVal(note = text)
                         scope.launch {
-                            viewModel.bookmarkRepository.removeBookmark(newBookmark.id)
+                            viewModel.removeBookmark(newBookmark.id)
                         }
                     }
                 ) {
@@ -134,11 +134,11 @@ fun BookmarkDialog(
                     }
                     if(existBookmarks.isNotEmpty()){
                         scope.launch {
-                            viewModel.bookmarkRepository.updateBookmark(newBookmark)
+                            viewModel.updateBookmark(newBookmark)
                         }
                     }else {
                         scope.launch {
-                            viewModel.bookmarkRepository.addBookmark(newBookmark)
+                            viewModel.addBookmark(newBookmark)
                         }
                     }
                     onConfirm(text)
@@ -209,7 +209,7 @@ fun BookmarkListPanel(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
-    val bookmarks by viewModel.bookmarkRepository.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val bookmarks by viewModel.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
     var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
     var bookmarkList by remember { mutableStateOf(emptyList<BookmarkData>()) }
     var isShowDelAllDialog by remember { mutableStateOf(false) }
@@ -255,7 +255,7 @@ fun BookmarkListPanel(
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
     Log.d("BookmarkListPanel", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
-    val panelWidthDp = (screenWidthDp * 3 / 5).coerceIn(128,212)
+    val panelWidthDp = (screenWidthDp * 2 / 5).coerceIn(128,212)
     val panelHeightDp = if (isFullScreen) screenHeightDp else screenHeightDp
     Log.d("BookmarkListPanel", "panelWidthDp: $panelWidthDp, panelHeightDp: $panelHeightDp")
     // ✅ 统一使用 px 进行计算
@@ -469,7 +469,7 @@ fun BookmarkListPanel(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    viewModel.bookmarkRepository.removeBookmarksForBook(bookmark.bookId)
+                                    viewModel.removeBookmarksForBook(bookmark.bookId)
                                 }
                                 isShowDelAllDialog = false
                             }

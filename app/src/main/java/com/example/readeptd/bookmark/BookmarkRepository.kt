@@ -1,6 +1,8 @@
 package com.example.readeptd.bookmark
 
+import android.content.Context
 import android.util.Log
+import com.example.readeptd.dao.AppDatabase
 import com.example.readeptd.dao.BookmarkDao
 import com.example.readeptd.dao.BookmarkEntity
 import kotlinx.coroutines.flow.Flow
@@ -12,8 +14,9 @@ import kotlinx.coroutines.flow.map
  * 负责管理书签数据的增删查改操作
  * 将数据库实体与应用层数据模型进行转换
  */
-class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
+class BookmarkRepository(context: Context) {
 
+    private val bookmarkDao = AppDatabase.getDatabase(context).bookmarkDao()
     /**
      * 将 BookmarkEntity 转换为 BookmarkData
      * 根据不同的 mimeType 创建对应的 BookmarkData 子类
@@ -146,20 +149,6 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
         return bookmarkDao.findPosition(bookmarkEntity.bookId, bookmarkEntity.position)
             .map { entities ->
                 entities.map { bookmarkEntityToData(it) }
-            }
-    }
-
-    /**
-     * 检查指定位置是否存在书签
-     * @param bookmark 要检查的书签数据（包含书籍 ID 和位置）
-     * @return 返回一个 Flow，发射布尔值，表示是否存在书签
-     */
-    fun existInPosition(bookmark: BookmarkData): Flow<Boolean> {
-        val bookmarkEntity = bookmarkDataToEntity(bookmark)
-        Log.d("BookmarkRepository", "Checking existence of bookmark in position: ${bookmarkEntity.position} for book ID: ${bookmarkEntity.bookId}")
-        return bookmarkDao.findPosition(bookmarkEntity.bookId, bookmarkEntity.position)
-            .map { entities ->
-                entities.isNotEmpty()
             }
     }
 }
