@@ -3,12 +3,7 @@ package com.example.readeptd.bookmark
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.room.Room
-import com.example.readeptd.dao.AppDatabase
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
 class BookmarkViewModel(

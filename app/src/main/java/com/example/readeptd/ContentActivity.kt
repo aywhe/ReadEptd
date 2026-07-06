@@ -79,7 +79,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme

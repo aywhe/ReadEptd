@@ -5,10 +5,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.Room
-import com.example.readeptd.bookmark.BookmarkRepository
-import com.example.readeptd.dao.AppDatabase
-import com.example.readeptd.dao.BookmarkDao
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.data.TempFileManager

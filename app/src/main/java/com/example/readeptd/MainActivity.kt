@@ -16,6 +16,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -44,6 +45,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -83,6 +85,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
+import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -382,6 +385,7 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun ContentScreen(
     viewModel: MainViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -512,9 +516,14 @@ fun ContentScreen(
                                 onClick = {fileInfo ->
                                     goToContentActivity(fileInfo)
                                 },
-                                onRemove = { 
+                                onRemove = { isRemoveBookmark->
                                     FileUtils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                                    if(isRemoveBookmark){
+                                        scope.launch {
+                                            bookmarkViewModel.removeBookmarksForBook(files[index].uri)
+                                        }
+                                    }
                                 },
                                 isDragging = isDragging,
                                 progress = progress,
@@ -629,7 +638,7 @@ fun DraggableFloatingButton(
 fun FileItemCard(
     fileInfo: FileInfo,
     onClick: (FileInfo) -> Unit,
-    onRemove: () -> Unit,
+    onRemove: (Boolean) -> Unit,
     isDragging: Boolean = false,
     progress: Float? = null,
     modifier: Modifier = Modifier
@@ -760,6 +769,7 @@ fun FileItemCard(
     }
 
     if (showConfirmDialog) {
+        var isRemoveBookmark by remember{mutableStateOf(true)}
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = {
@@ -769,15 +779,32 @@ fun FileItemCard(
                 )
             },
             text = {
-                Text(
-                    text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            isRemoveBookmark = !isRemoveBookmark
+                        } // 点击整行也能切换
+                    ) {
+                        Checkbox(
+                            checked = isRemoveBookmark,
+                            onCheckedChange = { isRemoveBookmark = it }
+                        )
+                        Text(text = "同时删除书签")
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        onRemove()
+                        onRemove(isRemoveBookmark)
                         showConfirmDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(

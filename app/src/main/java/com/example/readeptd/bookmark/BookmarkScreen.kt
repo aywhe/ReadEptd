@@ -339,19 +339,6 @@ fun BookmarkListPanel(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if(!isFullScreen) {
-                        // ✅ 左右切换按钮（更小）
-                        IconButton(
-                            onClick = { isOnRight = !isOnRight },
-                            modifier = Modifier.size(24.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
                     if(bookmarkList.isNotEmpty()) {
                         // 删除全部
                         IconButton(
@@ -363,6 +350,19 @@ fun BookmarkListPanel(
                             Icon(
                                 Icons.Outlined.Delete,
                                 contentDescription = "全部删除",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    if(!isFullScreen) {
+                        // ✅ 左右切换按钮（更小）
+                        IconButton(
+                            onClick = { isOnRight = !isOnRight },
+                            modifier = Modifier.size(24.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isOnRight) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = if (isOnRight) "切换到左侧" else "切换到右侧",
                                 modifier = Modifier.size(16.dp)
                             )
                         }

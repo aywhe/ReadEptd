@@ -3,7 +3,6 @@ package com.example.readeptd.bookmark
 import android.content.Context
 import android.util.Log
 import com.example.readeptd.dao.AppDatabase
-import com.example.readeptd.dao.BookmarkDao
 import com.example.readeptd.dao.BookmarkEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
