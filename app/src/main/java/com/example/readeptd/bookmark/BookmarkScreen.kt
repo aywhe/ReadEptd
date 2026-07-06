@@ -376,14 +376,19 @@ fun BookmarkListPanel(
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     TextButton(
-                        onClick = { isCollapsed = !isCollapsed },
+                        onClick = {
+                            if(bookmarkList.isNotEmpty()) {
+                                isCollapsed = !isCollapsed
+                            }
+                        },
                         modifier = Modifier
                             .padding(bottom = 0.dp)
                             .height(24.dp),
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
+                        val tail = if(bookmarkList.isNotEmpty()) "(${if (isCollapsed) "展开" else "收起"})" else ""
                         Text(
-                            text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${bookmarkList.size}条结果(${if (isCollapsed) "展开" else "收起"})",
+                            text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${bookmarkList.size}条结果$tail",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )

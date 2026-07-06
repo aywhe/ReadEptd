@@ -449,7 +449,7 @@ fun PdfLazyViewer(
                             fileUri = fileInfo.uri,
                             bookId = fileInfo.uri,
                             page = currentPage,
-                            note = ""
+                            note = "#[$currentPage]"
                         ),
                         onDismiss = {
                             isShowBookmarkDialog = false
