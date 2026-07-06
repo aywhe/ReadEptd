@@ -53,13 +53,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -227,7 +227,7 @@ fun SlideInSearchPanel(
             // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
             val currentSearchKeyword = results.firstOrNull()?.keyword
             val shouldShowResults = currentKeyword.isNotBlank() && results.isNotEmpty() && currentKeyword == currentSearchKeyword
-            var selectIndex by remember { mutableStateOf(-1) }  // 当前选中结果索引
+            var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -286,7 +286,7 @@ fun SlideInSearchPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
@@ -439,7 +439,7 @@ fun SlideInSearchPanel(
                 ) {
                     items(results.size) { index ->
                         SearchResultCard(
-                            result = results[index],
+                            searchResult = results[index],
                             isSelected = index == selectIndex,
                             onClick = { 
                                 viewModel.setCurrentIndex(index)
@@ -459,12 +459,12 @@ fun SlideInSearchPanel(
  */
 @Composable
 fun SearchResultCard(
-    result: SearchData.SearchResult,
+    searchResult: SearchData.SearchResult,
     isSelected: Boolean = false,
-    onClick: (SearchData.SearchResult) -> Unit
+    onClick: (SearchData.SearchResult) -> Unit = {}
 ) {
     Card(
-        onClick = { onClick(result) },
+        onClick = { onClick(searchResult) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 0.dp),
@@ -493,7 +493,7 @@ fun SearchResultCard(
                             fontSize = MaterialTheme.typography.labelSmall.fontSize
                         )
                     )
-                    append("${result.displayName}：")
+                    append("${searchResult.displayName}：")
                     pop()
 
                     // 预览内容（普通样式）
@@ -507,7 +507,7 @@ fun SearchResultCard(
                             fontSize = MaterialTheme.typography.bodySmall.fontSize
                         )
                     )
-                    append(result.previewContent)
+                    append(searchResult.previewContent)
                     pop()
                 },
                 style = MaterialTheme.typography.bodySmall,

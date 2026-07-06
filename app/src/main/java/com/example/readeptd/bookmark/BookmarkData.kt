@@ -6,7 +6,7 @@ package com.example.readeptd.bookmark
  */
 sealed interface BookmarkData {
     val id: Long
-    val name: String
+    val bookId: String
     val fileUri: String
     val mimeType: String
     val note: String
@@ -15,7 +15,7 @@ sealed interface BookmarkData {
 
     fun copyVal(
         id: Long = this.id,
-        name: String = this.name,
+        name: String = this.bookId,
         fileUri: String = this.fileUri,
         mimeType: String = this.mimeType,
         note: String = this.note,
@@ -30,7 +30,7 @@ sealed interface BookmarkData {
     data class Epub(
         override val id: Long = 0,
         override val fileUri: String,
-        override val name: String = fileUri,
+        override val bookId: String = fileUri,
         override val mimeType: String = "application/epub+zip",
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
@@ -49,7 +49,7 @@ sealed interface BookmarkData {
         ): BookmarkData {
             return Epub(
                 id = id,
-                name = name,
+                bookId = name,
                 fileUri = fileUri,
                 mimeType = mimeType,
                 note = note,
@@ -67,7 +67,7 @@ sealed interface BookmarkData {
     data class Pdf(
         override val id: Long = 0,
         override val fileUri: String,
-        override val name: String = fileUri,
+        override val bookId: String = fileUri,
         override val mimeType: String = "application/pdf",
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
@@ -86,7 +86,7 @@ sealed interface BookmarkData {
         ): BookmarkData {
             return Pdf(
                 id = id,
-                name = name,
+                bookId = name,
                 fileUri = fileUri,
                 mimeType = mimeType,
                 note = note,
@@ -104,7 +104,7 @@ sealed interface BookmarkData {
     data class Txt(
         override val id: Long = 0,
         override val fileUri: String,
-        override val name: String = fileUri,
+        override val bookId: String = fileUri,
         override val mimeType: String = "text/plain",
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
@@ -123,7 +123,7 @@ sealed interface BookmarkData {
         ): BookmarkData {
             return Txt(
                 id = id,
-                name = name,
+                bookId = name,
                 fileUri = fileUri,
                 mimeType = mimeType,
                 note = note,
@@ -141,7 +141,7 @@ sealed interface BookmarkData {
     data class Unknown(
         override val id: Long = 0,
         override val fileUri: String,
-        override val name: String = fileUri,
+        override val bookId: String = fileUri,
         override val mimeType: String = "application/octet-stream",
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
@@ -158,7 +158,7 @@ sealed interface BookmarkData {
         ): BookmarkData {
             return Unknown(
                 id = id,
-                name = name,
+                bookId = name,
                 fileUri = fileUri,
                 mimeType = mimeType,
                 note = note,

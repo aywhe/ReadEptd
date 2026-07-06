@@ -22,7 +22,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
         return when(entity.mimeType){
             "application/pdf" -> BookmarkData.Pdf(
                 id = entity.id,
-                name = entity.bookId,
+                bookId = entity.bookId,
                 fileUri = entity.fileUri,
                 mimeType = entity.mimeType,
                 note = entity.note,
@@ -33,7 +33,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
             )
             "text/plain" -> BookmarkData.Txt(
                 id = entity.id,
-                name = entity.bookId,
+                bookId = entity.bookId,
                 fileUri = entity.fileUri,
                 mimeType = entity.mimeType,
                 note = entity.note,
@@ -44,7 +44,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
             )
             "application/epub+zip" -> BookmarkData.Epub(
                 id = entity.id,
-                name = entity.bookId,
+                bookId = entity.bookId,
                 fileUri = entity.fileUri,
                 mimeType = entity.mimeType,
                 note = entity.note,
@@ -55,7 +55,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
             )
             else -> BookmarkData.Unknown(
                 id = entity.id,
-                name = entity.bookId,
+                bookId = entity.bookId,
                 fileUri = entity.fileUri,
                 mimeType = entity.mimeType,
                 note = entity.note,
@@ -72,7 +72,7 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
     private fun bookmarkDataToEntity(data: BookmarkData): BookmarkEntity {
         return BookmarkEntity(
             id = data.id,
-            bookId = data.name,
+            bookId = data.bookId,
             fileUri = data.fileUri,
             mimeType = data.mimeType,
             note = data.note,

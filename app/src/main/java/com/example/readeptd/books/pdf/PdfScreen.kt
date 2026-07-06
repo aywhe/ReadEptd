@@ -28,7 +28,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
@@ -72,6 +71,7 @@ import com.example.readeptd.activity.ContentViewModel
 import com.example.readeptd.bookmark.BookmarkData
 import com.example.readeptd.bookmark.BookmarkDialog
 import com.example.readeptd.bookmark.BookmarkHint
+import com.example.readeptd.bookmark.BookmarkListPanel
 import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
@@ -203,10 +203,11 @@ fun PdfLazyViewer(
             var isShowSearchDialog by remember { mutableStateOf(false) }
             var showNoTextHint by remember { mutableStateOf(false) }
             var isShowBookmarkDialog by remember { mutableStateOf(false) }
+            var isShowBookmarkListPanel by remember { mutableStateOf(false) }
             val isBookmarked by bookmarkModel.bookmarkRepository.existInPosition(
                 BookmarkData.Pdf(
                     fileUri = fileInfo.uri,
-                    name = fileInfo.uri,
+                    bookId = fileInfo.uri,
                     page = currentPage,
                     note = ""
                 )
@@ -234,6 +235,9 @@ fun PdfLazyViewer(
                 }
                 contentViewModel.setOnClickBookmarkCallback { isBookmarked ->
                     isShowBookmarkDialog = true
+                }
+                contentViewModel.setOnLongPressBookmarkCallback {
+                    isShowBookmarkListPanel = true
                 }
 
                 ttsModel.setOnRequestSpeechStartListener {
@@ -398,6 +402,12 @@ fun PdfLazyViewer(
                     fileUri = fileInfo.uri
                 )
 
+                LaunchedEffect(showNoTextHint) {
+                    if(showNoTextHint) {
+                        delay(2000)
+                        showNoTextHint = false
+                    }
+                }
                 AnimatedVisibility(
                     visible = showNoTextHint,
                     enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(), // 从左侧滑入并淡入
@@ -423,18 +433,34 @@ fun PdfLazyViewer(
 
                 BookmarkHint(contentViewModel = contentViewModel)
 
-                LaunchedEffect(showNoTextHint) {
-                    if(showNoTextHint) {
-                        delay(2000)
-                        showNoTextHint = false
-                    }
+                if(isShowBookmarkListPanel){
+                    BookmarkListPanel(
+                        bookmark = BookmarkData.Pdf(
+                            fileUri = fileInfo.uri,
+                            bookId = fileInfo.uri,
+                            page = currentPage,
+                            note = ""
+                        ),
+                        onClose = {
+                            isShowBookmarkListPanel = false
+                        },
+                        onBookmarkClick = { bookmarkData ->
+                            scope.launch {
+                                viewModel.goToPage((bookmarkData as BookmarkData.Pdf).page)
+                            }
+                        },
+                        getDistanceToBookmark = {
+                            val result = it as BookmarkData.Pdf
+                            kotlin.math.abs(result.page - currentPage).toLong()
+                        }
+                    )
                 }
 
                 if(isShowBookmarkDialog){
                     BookmarkDialog(
                         BookmarkData.Pdf(
                             fileUri = fileInfo.uri,
-                            name = fileInfo.uri,
+                            bookId = fileInfo.uri,
                             page = currentPage,
                             note = ""
                         ),
