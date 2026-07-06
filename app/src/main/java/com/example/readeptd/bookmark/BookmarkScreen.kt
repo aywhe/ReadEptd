@@ -84,7 +84,6 @@ fun BookmarkDialog(
     bookmarkData: BookmarkData,
     onDismiss: () -> Unit = {},
     onConfirm: (String) -> Unit = {},
-    onDelete: () -> Unit = {},
     viewModel: BookmarkViewModel = viewModel()
 ){
     val scope = rememberCoroutineScope()
@@ -162,7 +161,7 @@ fun BookmarkDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("关闭")
             }
         }
     )
@@ -222,6 +221,7 @@ fun BookmarkListPanel(
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
     val bookmarkList by viewModel.bookmarkRepository.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
+    var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
 
     // ✅ 当面板切换到全屏时，自动展开结果
     LaunchedEffect(isFullScreen) {
@@ -233,6 +233,7 @@ fun BookmarkListPanel(
     var isFirstShow by remember { mutableStateOf(true) }
     // ✅ 主动获取当前位置并滚动到最近的结果
     LaunchedEffect(bookmarkList, bookmarkList.size) {
+        selectIndex = -1
         // ✅ 只在搜索刚完成且结果不为空时触发
         if (isFirstShow && bookmarkList.isNotEmpty()) {
             var closestIndex = 0
@@ -271,17 +272,23 @@ fun BookmarkListPanel(
     Log.d("BookmarkListPanel", "screenWidthPx: $screenWidthPx, screenHeightPx: $screenHeightPx")
     Log.d("BookmarkListPanel", "panelWidthPx: $panelWidthPx, panelHeightPx: $panelHeightPx")
     // ✅ 面板位置使用 px
-    var panelPositionPx by remember(screenWidthPx, panelWidthPx, isOnRight, isFullScreen) {
+    var panelVisiblePositionPx by remember(screenWidthPx, panelWidthPx, isOnRight, isFullScreen) {
         mutableStateOf(
             if (isOnRight) IntOffset((screenWidthPx - panelWidthPx).toInt(), 0)
             else IntOffset(0, 0)
         )
     }
+    // ✅ 使用 px 管理位置
+    var panelPositionPx by remember { mutableStateOf(panelVisiblePositionPx) }
 
+    // ✅ 根据 visible 状态更新面板位置
+    LaunchedEffect(panelVisiblePositionPx) {
+        panelPositionPx = panelVisiblePositionPx
+    }
     // ✅ 使用 px 管理位置
     val animatedOffsetPx by animateIntOffsetAsState(
         targetValue = panelPositionPx,
-        label = "search_panel_animation"
+        label = "bookmark_panel_animation"
     )
 
     Box(
@@ -309,7 +316,6 @@ fun BookmarkListPanel(
                 .then(if (isFullScreen) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
                 .padding(4.dp)
         ) {
-            var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -387,8 +393,10 @@ fun BookmarkListPanel(
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
                         val tail = if(bookmarkList.isNotEmpty()) "(${if (isCollapsed) "展开" else "收起"})" else ""
+                        val text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${bookmarkList.size}条结果$tail"
+                        val tip = if(bookmarkList.isNotEmpty()) text else "没有书签"
                         Text(
-                            text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${bookmarkList.size}条结果$tail",
+                            text = tip,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -397,9 +405,13 @@ fun BookmarkListPanel(
             }
 
             if (!isCollapsed) {
-                var editIndex by remember { mutableIntStateOf(-1) }  // 当前编辑结果索引
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(4.dp))
+                //var editIndex by remember { mutableIntStateOf(-1) }  // 当前编辑结果索引
+                var isShowBookmarkDialog by remember { mutableStateOf(false) }
+                var editBookmarkData:BookmarkData? by remember { mutableStateOf(null) }
+                if(bookmarkList.isNotEmpty()) {
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier
@@ -418,25 +430,20 @@ fun BookmarkListPanel(
                                 onBookmarkClick(bookmarkList[index])
                             },
                             onLongPress = {
-                                editIndex = index
+                                editBookmarkData = bookmarkList[index]
+                                isShowBookmarkDialog = true
                             }
                         )
                     }
                 }
-                if(editIndex >= 0){
+                if(isShowBookmarkDialog && editBookmarkData != null){
                     BookmarkDialog(
-                        bookmarkData = bookmarkList[editIndex],
-                        onDelete = {
-                            if(editIndex == selectIndex){
-                                selectIndex = -1
-                            }
-                            editIndex = -1
-                        },
+                        bookmarkData = editBookmarkData!!,
                         onConfirm = {
-                            editIndex = -1
+                            isShowBookmarkDialog = false
                         },
                         onDismiss = {
-                            editIndex = -1
+                            isShowBookmarkDialog = false
                         }
                     )
                 }
