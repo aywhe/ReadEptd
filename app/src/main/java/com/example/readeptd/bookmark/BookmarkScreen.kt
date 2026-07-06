@@ -1,10 +1,8 @@
 package com.example.readeptd.bookmark
 
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -25,26 +23,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,9 +54,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -72,8 +62,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.search.SearchData
-import com.example.readeptd.search.SearchResultCard
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
@@ -208,6 +196,7 @@ fun BookmarkListPanel(
     modifier: Modifier = Modifier,
     bookmark: BookmarkData,
     onBookmarkClick: (BookmarkData) -> Unit = {},
+    compareFun:(BookmarkData,BookmarkData) -> Int = {_,_ -> -1 },
     getDistanceToBookmark: (BookmarkData) -> Long = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
     viewModel: BookmarkViewModel = viewModel()
@@ -220,8 +209,10 @@ fun BookmarkListPanel(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
-    val bookmarkList by viewModel.bookmarkRepository.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val bookmarks by viewModel.bookmarkRepository.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
     var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
+    var bookmarkList by remember { mutableStateOf(emptyList<BookmarkData>()) }
+    var isShowDelAllDialog by remember { mutableStateOf(false) }
 
     // ✅ 当面板切换到全屏时，自动展开结果
     LaunchedEffect(isFullScreen) {
@@ -230,12 +221,17 @@ fun BookmarkListPanel(
         }
     }
 
-    var isFirstShow by remember { mutableStateOf(true) }
+
+    //var isFirstShow by remember { mutableStateOf(true) }
     // ✅ 主动获取当前位置并滚动到最近的结果
-    LaunchedEffect(bookmarkList, bookmarkList.size) {
+    LaunchedEffect(bookmarks, bookmarks.size) {
         selectIndex = -1
+        bookmarkList = bookmarks
         // ✅ 只在搜索刚完成且结果不为空时触发
-        if (isFirstShow && bookmarkList.isNotEmpty()) {
+        if (bookmarkList.isNotEmpty()) {
+
+            bookmarkList = bookmarkList.sortedWith { data, data1 -> compareFun(data,data1) }
+
             var closestIndex = 0
             var minDistance = Long.MAX_VALUE
 
@@ -253,7 +249,6 @@ fun BookmarkListPanel(
                 }
                 lazyListState.scrollToItem(closestIndex)
             }
-            isFirstShow = false
         }
     }
 
@@ -357,6 +352,21 @@ fun BookmarkListPanel(
                             )
                         }
                     }
+                    if(bookmarkList.isNotEmpty()) {
+                        // 删除全部
+                        IconButton(
+                            onClick = {
+                                isShowDelAllDialog = true
+                            },
+                            modifier = Modifier.size(24.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = "全部删除",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                     // 关闭按钮（更小）
                     IconButton(
                         onClick = {
@@ -408,7 +418,7 @@ fun BookmarkListPanel(
                 //var editIndex by remember { mutableIntStateOf(-1) }  // 当前编辑结果索引
                 var isShowBookmarkDialog by remember { mutableStateOf(false) }
                 var editBookmarkData:BookmarkData? by remember { mutableStateOf(null) }
-                if(bookmarkList.isNotEmpty()) {
+                if(bookmarkList.isNotEmpty() && !isFullScreen) {
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(4.dp))
                 }
@@ -447,6 +457,36 @@ fun BookmarkListPanel(
                         }
                     )
                 }
+            }
+            if(isShowDelAllDialog){
+                AlertDialog(
+                    onDismissRequest = {
+                        isShowDelAllDialog = false
+                    },
+                    title = {Text("删除全部书签")},
+                    text = {Text("确定要删除全部书签吗？")},
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    viewModel.bookmarkRepository.removeBookmarksForBook(bookmark.bookId)
+                                }
+                                isShowDelAllDialog = false
+                            }
+                        ) {
+                            Text("确定")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                isShowDelAllDialog = false
+                            }
+                        ) {
+                            Text("取消")
+                        }
+                    }
+                )
             }
         }
     }

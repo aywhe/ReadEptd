@@ -436,6 +436,9 @@ fun PdfLazyViewer(
                                 viewModel.goToPage((bookmarkData as BookmarkData.Pdf).page)
                             }
                         },
+                        compareFun = {v1,v2 ->
+                            (v1 as BookmarkData.Pdf).page - (v2 as BookmarkData.Pdf).page
+                        },
                         getDistanceToBookmark = {
                             val result = it as BookmarkData.Pdf
                             kotlin.math.abs(result.page - currentPage).toLong()

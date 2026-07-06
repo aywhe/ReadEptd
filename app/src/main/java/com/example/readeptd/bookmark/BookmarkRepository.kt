@@ -127,6 +127,15 @@ class BookmarkRepository(private val bookmarkDao: BookmarkDao) {
     }
 
     /**
+     * 删除指定书籍的所有书签
+     * @param bookId 书籍 ID
+     */
+    suspend fun removeBookmarksForBook(bookId: String){
+        Log.d("BookmarkRepository", "Remove all bookmarks for book ID: $bookId")
+        bookmarkDao.deleteBookmarksForBook(bookId)
+    }
+
+    /**
      * 查找指定位置的书签
      * @param bookmark 要查找的书签数据（包含书籍 ID 和位置）
      * @return 返回一个 Flow，发射匹配的书签数据列表
