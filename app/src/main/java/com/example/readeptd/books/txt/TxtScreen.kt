@@ -52,6 +52,12 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.bookmark.BookmarkData
+import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkHint
+import com.example.readeptd.bookmark.BookmarkListPanel
+import com.example.readeptd.bookmark.BookmarkViewModel
+import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.JumpToProgressDialog
@@ -90,6 +96,7 @@ fun TxtScreen(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
 ) {
@@ -101,6 +108,7 @@ fun TxtScreen(
     LaunchedEffect(fileInfo.uri) {
         Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -109,6 +117,7 @@ fun TxtScreen(
             is BookUiState.Ready -> ReadyState(
                 fileInfo = fileInfo,
                 contentViewModel = contentViewModel,
+                bookmarkViewModel = bookmarkViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel
             )
@@ -162,6 +171,7 @@ private fun ErrorState(message: String) {
 private fun ReadyState(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
+    bookmarkViewModel:BookmarkViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel
 ) {
@@ -255,6 +265,7 @@ private fun ReadyState(
                 fileInfo = fileInfo,
                 isSwipeLayout = isSwipeLayout,
                 contentViewModel = contentViewModel,
+                bookmarkViewModel = bookmarkViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel,
                 onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
@@ -301,6 +312,7 @@ private fun ReaderContent(
     fileInfo: FileInfo,
     isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
+    bookmarkViewModel: BookmarkViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
     onLongPressProgressInfo: (String) -> Unit,
@@ -342,6 +354,29 @@ private fun ReaderContent(
             }
     }
 
+    var isShowBookmarkDialog by remember { mutableStateOf(false) }
+    var isShowBookmarkListPanel by remember { mutableStateOf(false) }
+
+
+    var currentPageChunk: TextChunk? by remember {mutableStateOf(null)}
+    LaunchedEffect(currentPage) {
+        currentPageChunk = viewModel.getPage(currentPage)
+    }
+
+    val currentBookmarkDataList by bookmarkViewModel.findInPosition(
+        BookmarkData.Txt(
+            bookId = fileInfo.uri,
+            startPos = if(currentPageChunk == null) 0 else currentPageChunk!!.startPos,
+            endPos = if(currentPageChunk == null) 0 else currentPageChunk!!.endPos,
+            note = "[#${if(currentPageChunk == null) "" else currentPageChunk!!.startPos}#$currentPage]"
+        )
+    ).collectAsStateWithLifecycle(emptyList())
+
+    LaunchedEffect(currentBookmarkDataList, currentBookmarkDataList.size) {
+        contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
+    }
+
+
     Box(modifier = Modifier.fillMaxSize()
         .pointerInput(Unit) {
             detectTransformGestures(
@@ -359,6 +394,8 @@ private fun ReaderContent(
             contentViewModel = contentViewModel,
             onClickProgressInfo = { isShowJumpToPageDialog = true },
             onLongPressProgressInfo = onLongPressProgressInfo,
+            onClickBookmark = { isShowBookmarkDialog = true },
+            onLongPressBookmark = { isShowBookmarkListPanel = true },
             onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
         )
         
@@ -447,6 +484,54 @@ private fun ReaderContent(
             searchExecutor = { keyword -> viewModel.search(keyword) },
             fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
         )
+        BookmarkHint(contentViewModel = contentViewModel)
+
+        if(isShowBookmarkListPanel){
+            BookmarkListPanel(
+                viewModel = bookmarkViewModel,
+                onClose = {
+                    isShowBookmarkListPanel = false
+                },
+                onBookmarkClick = { bookmarkData ->
+                    scope.launch {
+                        try {
+                            val pageIndex = viewModel.findPageByCharOffset((bookmarkData as BookmarkData.Txt).startPos)
+                            viewModel.goToPage(pageIndex)
+                        } catch (e: Exception) {
+                            Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                        }
+                    }
+                },
+                currentDistanceToBookmark = {
+                    if(currentPageChunk == null) Long.MAX_VALUE else
+                        kotlin.math.abs((it as BookmarkData.Txt).startPos - currentPageChunk!!.startPos)
+                }
+            )
+        }
+
+        if(isShowBookmarkDialog){
+            BookmarkDialog(
+                bookmarkData =
+                    if(currentBookmarkDataList.isNotEmpty())
+                        currentBookmarkDataList.first()
+                    else
+                        BookmarkData.Txt(
+                            bookId = fileInfo.uri,
+                            startPos = if(currentPageChunk == null) 0 else currentPageChunk!!.startPos,
+                            endPos = if(currentPageChunk == null) 0 else currentPageChunk!!.endPos,
+                            note = "[#${if(currentPageChunk == null) "" else currentPageChunk!!.startPos}#$currentPage]"
+                        ),
+                onDismiss = {
+                    isShowBookmarkDialog = false
+                },
+                onAfterConfirm = {
+                    isShowBookmarkDialog = false
+                },
+                onAfterDelete = {
+                    isShowBookmarkDialog = false
+                }
+            )
+        }
     }
 }
 
@@ -458,17 +543,22 @@ private fun SetupCallbacks(
     contentViewModel: ContentViewModel,
     onClickProgressInfo: (String) -> Unit,
     onLongPressProgressInfo: (String) -> Unit,
+    onClickBookmark: () -> Unit,
+    onLongPressBookmark: () -> Unit,
     onClickSearchButton: () -> Unit
 ) {
     DisposableEffect(Unit) {
         contentViewModel.setOnClickProgressInfoCallback { onClickProgressInfo(it) }
         contentViewModel.setOnLongPressProgressInfoCallback { onLongPressProgressInfo(it) }
         contentViewModel.setOnClickSearchButtonCallback { onClickSearchButton() }
-
+        contentViewModel.setOnClickBookmarkCallback { onClickBookmark() }
+        contentViewModel.setOnLongPressBookmarkCallback { onLongPressBookmark() }
         onDispose {
             contentViewModel.setOnClickProgressInfoCallback(null)
             contentViewModel.setOnLongPressProgressInfoCallback(null)
             contentViewModel.setOnClickSearchButtonCallback(null)
+            contentViewModel.setOnClickBookmarkCallback(null)
+            contentViewModel.setOnLongPressBookmarkCallback(null)
         }
     }
 }

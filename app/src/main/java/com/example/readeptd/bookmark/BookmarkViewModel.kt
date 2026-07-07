@@ -78,7 +78,7 @@ class BookmarkViewModel(
     fun findInPosition(bookmark: BookmarkData): Flow<List<BookmarkData>> {
         Log.d("BookmarkViewModel", "Look for existence of bookmark in position: $bookmark")
         return bookmarks.map { entities ->
-            entities.filter { it.isInPosition(bookmark) }
+            entities.filter { bookmark.isInPosition(it) }
         }
     }
 
@@ -91,7 +91,7 @@ class BookmarkViewModel(
     fun existInPosition(bookmark: BookmarkData): Flow<Boolean> {
         Log.d("BookmarkViewModel", "Checking existence of bookmark in position: $bookmark")
         return bookmarks.map { entities ->
-            entities.any { it.isInPosition(bookmark) }
+            entities.any { bookmark.isInPosition(it) }
         }
     }
 }
