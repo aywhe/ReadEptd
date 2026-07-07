@@ -18,10 +18,8 @@ import androidx.room.PrimaryKey
 data class BookmarkEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val bookId: String,
-    val fileUri: String,
     val mimeType: String,
     val position: String,
     val note: String = "",
-    val createdTime: Long = System.currentTimeMillis(),
-    val lastModified: Long = System.currentTimeMillis()
+    val createdTime: Long = System.currentTimeMillis()
 )

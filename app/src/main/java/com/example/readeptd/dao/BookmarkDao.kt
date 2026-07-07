@@ -18,7 +18,7 @@ interface BookmarkDao {
     @Update
     suspend fun updateBookmark(bookmark: BookmarkEntity)
 
-    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId ORDER BY lastModified DESC")
+    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId ORDER BY createdTime DESC")
     fun getBookmarksForBook(bookId: String): Flow<List<BookmarkEntity>>
 
     @Query("DELETE FROM bookmarks WHERE bookId = :bookId")
@@ -26,7 +26,4 @@ interface BookmarkDao {
 
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun deleteBookmark(id: Long)
-
-    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND position = :position")
-    fun findPosition(bookId: String, position: String): Flow<List<BookmarkEntity>>
 }

@@ -385,7 +385,6 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun ContentScreen(
     viewModel: MainViewModel,
-    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -521,7 +520,7 @@ fun ContentScreen(
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
                                     if(isRemoveBookmark){
                                         scope.launch {
-                                            bookmarkViewModel.removeBookmarksForBook(files[index].uri)
+                                            viewModel.removeBookmarksForBook(files[index].uri)
                                         }
                                     }
                                 },

@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.bookmark.BookmarkRepository
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
@@ -18,6 +19,8 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val fileDataStore = FileDataStore(application)
+
+    private val bookmarkRepository by lazy { BookmarkRepository(application) }
     
     private val _uiState = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -268,6 +271,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _configData.value = currentConfig
             }
         }
+    }
+
+    /**
+     * 删除指定书籍的所有书签
+     * @param bookId 书籍 ID
+     */
+    suspend fun removeBookmarksForBook(bookId: String){
+        bookmarkRepository.removeBookmarksForBook(bookId)
     }
 
 }

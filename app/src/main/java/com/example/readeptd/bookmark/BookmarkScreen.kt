@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,26 +72,19 @@ import com.example.readeptd.utils.SlideHint
 fun BookmarkDialog(
     bookmarkData: BookmarkData,
     onDismiss: () -> Unit = {},
-    onConfirm: (String) -> Unit = {},
-    viewModel: BookmarkViewModel = viewModel()
+    onConfirm: (String) -> Unit = {}
 ){
+    val bookmarkRepository = BookmarkRepository(LocalContext.current)
     val scope = rememberCoroutineScope()
-    val existBookmarks by viewModel.findInPosition(bookmarkData).collectAsStateWithLifecycle(initialValue = emptyList())
     var text by remember { mutableStateOf(bookmarkData.note) }
     val maxLength = 50
-
-    LaunchedEffect(existBookmarks) {
-        if(existBookmarks.isNotEmpty()){
-            text = existBookmarks.first().note
-        }
-    }
 
     AlertDialog(
         onDismissRequest = {
             // do nothing
         },
         title = {
-            Text(text = if(existBookmarks.isEmpty()) "增加书签" else "修改书签")
+            Text(text = if(bookmarkData.id != 0L) "增加书签" else "修改书签")
         },
         text = {
             Column {
@@ -113,12 +107,11 @@ fun BookmarkDialog(
             }
         },
         confirmButton = {
-            if(existBookmarks.isNotEmpty()) {
+            if(bookmarkData.id != 0L) {
                 OutlinedButton(
                     onClick = {
-                        val newBookmark = existBookmarks.first().copyVal(note = text)
                         scope.launch {
-                            viewModel.removeBookmark(newBookmark.id)
+                            bookmarkRepository.removeBookmark(bookmarkData.id)
                         }
                     }
                 ) {
@@ -127,24 +120,20 @@ fun BookmarkDialog(
             }
             Button(
                 onClick = {
-                    val newBookmark = if(existBookmarks.isNotEmpty()){
-                        existBookmarks.first().copyVal(note = text)
-                    }else {
-                        bookmarkData.copyVal(note = text)
-                    }
-                    if(existBookmarks.isNotEmpty()){
+                    val newBookmark = bookmarkData.copyVal(note = text)
+                    if(bookmarkData.id != 0L){
                         scope.launch {
-                            viewModel.updateBookmark(newBookmark)
+                            bookmarkRepository.updateBookmark(newBookmark)
                         }
                     }else {
                         scope.launch {
-                            viewModel.addBookmark(newBookmark)
+                            bookmarkRepository.addBookmark(newBookmark)
                         }
                     }
                     onConfirm(text)
                 }
             ) {
-                Text( if(existBookmarks.isEmpty()) "添加" else "修改")
+                Text( if(bookmarkData.id != 0L) "添加" else "修改")
             }
         },
         dismissButton = {
@@ -194,12 +183,10 @@ fun BookmarkHint(
 @Composable
 fun BookmarkListPanel(
     modifier: Modifier = Modifier,
-    bookmark: BookmarkData,
+    viewModel: BookmarkViewModel,
     onBookmarkClick: (BookmarkData) -> Unit = {},
-    compareFun:(BookmarkData,BookmarkData) -> Int = {_,_ -> -1 },
-    getDistanceToBookmark: (BookmarkData) -> Long = { 0 },  // ✅ 获取当前位置（页码/偏移等）
-    onClose: () -> Unit = {},
-    viewModel: BookmarkViewModel = viewModel()
+    currentDistanceToBookmark: (BookmarkData) -> Long = { 0 },  // ✅ 获取当前位置（页码/偏移等）
+    onClose: () -> Unit = {}
 ) {
     var isCollapsed by remember { mutableStateOf(false) }
     var isOnRight by remember { mutableStateOf(true) }
@@ -209,7 +196,7 @@ fun BookmarkListPanel(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isFullScreen by remember {  mutableStateOf( false) }
-    val bookmarks by viewModel.getBookmarksForBook(bookmark.bookId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
     var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
     var bookmarkList by remember { mutableStateOf(emptyList<BookmarkData>()) }
     var isShowDelAllDialog by remember { mutableStateOf(false) }
@@ -226,17 +213,14 @@ fun BookmarkListPanel(
     // ✅ 主动获取当前位置并滚动到最近的结果
     LaunchedEffect(bookmarks, bookmarks.size) {
         selectIndex = -1
-        bookmarkList = bookmarks
+        bookmarkList = bookmarks.sorted()
         // ✅ 只在搜索刚完成且结果不为空时触发
         if (bookmarkList.isNotEmpty()) {
-
-            bookmarkList = bookmarkList.sortedWith { data, data1 -> compareFun(data,data1) }
-
             var closestIndex = 0
             var minDistance = Long.MAX_VALUE
 
             bookmarkList.forEachIndexed { index, bookmark ->
-                val distance = getDistanceToBookmark(bookmark)
+                val distance = currentDistanceToBookmark(bookmark)
                 if (distance < minDistance) {
                     minDistance = distance
                     closestIndex = index
@@ -469,7 +453,7 @@ fun BookmarkListPanel(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    viewModel.removeBookmarksForBook(bookmark.bookId)
+                                    viewModel.removeAllBookmarks()
                                 }
                                 isShowDelAllDialog = false
                             }

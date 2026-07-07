@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,6 +79,7 @@ fun PdfScreen(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
 ) {
@@ -88,6 +88,7 @@ fun PdfScreen(
 
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -113,6 +114,7 @@ fun PdfScreen(
                     contentViewModel = contentViewModel,
                     viewModel = viewModel,
                     ttsModel = ttsModel,
+                    bookmarkViewModel = bookmarkViewModel,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -141,7 +143,7 @@ fun PdfLazyViewer(
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
-    bookmarkModel: BookmarkViewModel = viewModel(),
+    bookmarkViewModel: BookmarkViewModel,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -201,18 +203,18 @@ fun PdfLazyViewer(
             var showNoTextHint by remember { mutableStateOf(false) }
             var isShowBookmarkDialog by remember { mutableStateOf(false) }
             var isShowBookmarkListPanel by remember { mutableStateOf(false) }
-            val isBookmarked by bookmarkModel.existInPosition(
+            val currentBookmarkDataList by bookmarkViewModel.findInPosition(
                 BookmarkData.Pdf(
-                    fileUri = fileInfo.uri,
                     bookId = fileInfo.uri,
-                    page = currentPage,
-                    note = "#[${currentPage + 1}]"
+                    pageNumber = currentPage,
+                    note = "[#${currentPage + 1}]"
                 )
-            ).collectAsStateWithLifecycle(initialValue = false)
+            ).collectAsStateWithLifecycle(emptyList())
 
-            LaunchedEffect(isBookmarked) {
-                contentViewModel.updateBookmarkState(isBookmarked)
+            LaunchedEffect(currentBookmarkDataList, currentBookmarkDataList.size) {
+                contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
             }
+
 
             LaunchedEffect(currentPage) {
                 Log.d("PdfLazyViewer", "当前页: $currentPage")
@@ -417,38 +419,33 @@ fun PdfLazyViewer(
 
                 if(isShowBookmarkListPanel){
                     BookmarkListPanel(
-                        bookmark = BookmarkData.Pdf(
-                            fileUri = fileInfo.uri,
-                            bookId = fileInfo.uri,
-                            page = currentPage,
-                            note = "#[${currentPage + 1}]"
-                        ),
+                        viewModel = bookmarkViewModel,
                         onClose = {
                             isShowBookmarkListPanel = false
                         },
                         onBookmarkClick = { bookmarkData ->
                             scope.launch {
-                                viewModel.goToPage((bookmarkData as BookmarkData.Pdf).page)
+                                viewModel.goToPage((bookmarkData as BookmarkData.Pdf).pageNumber)
                             }
                         },
-                        compareFun = {v1,v2 ->
-                            (v1 as BookmarkData.Pdf).page - (v2 as BookmarkData.Pdf).page
-                        },
-                        getDistanceToBookmark = {
+                        currentDistanceToBookmark = {
                             val result = it as BookmarkData.Pdf
-                            kotlin.math.abs(result.page - currentPage).toLong()
+                            kotlin.math.abs(result.pageNumber - currentPage).toLong()
                         }
                     )
                 }
 
                 if(isShowBookmarkDialog){
                     BookmarkDialog(
-                        BookmarkData.Pdf(
-                            fileUri = fileInfo.uri,
-                            bookId = fileInfo.uri,
-                            page = currentPage,
-                            note = "#[${currentPage + 1}]"
-                        ),
+                        bookmarkData =
+                            if(currentBookmarkDataList.isNotEmpty())
+                                currentBookmarkDataList.first()
+                            else
+                                BookmarkData.Pdf(
+                                    bookId = fileInfo.uri,
+                                    pageNumber = currentPage,
+                                    note = "[#${currentPage + 1}]"
+                                ),
                         onDismiss = {
                             isShowBookmarkDialog = false
                         },
