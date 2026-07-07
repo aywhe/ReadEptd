@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -67,24 +68,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 import com.example.readeptd.utils.SlideHint
+import kotlinx.coroutines.delay
 
 @Composable
 fun BookmarkDialog(
     bookmarkData: BookmarkData,
     onDismiss: () -> Unit = {},
-    onConfirm: (String) -> Unit = {}
+    onAfterConfirm: (BookmarkData) -> Unit = {},
+    onAfterDelete:()->Unit = {},
 ){
     val bookmarkRepository = BookmarkRepository(LocalContext.current)
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf(bookmarkData.note) }
     val maxLength = 50
+    var deleteButtonClickNum by remember { mutableIntStateOf(0) }
 
     AlertDialog(
         onDismissRequest = {
             // do nothing
         },
         title = {
-            Text(text = if(bookmarkData.id != 0L) "增加书签" else "修改书签")
+            Text(text = if(bookmarkData.id == 0L) "增加书签" else "修改书签")
         },
         text = {
             Column {
@@ -110,12 +114,29 @@ fun BookmarkDialog(
             if(bookmarkData.id != 0L) {
                 OutlinedButton(
                     onClick = {
-                        scope.launch {
-                            bookmarkRepository.removeBookmark(bookmarkData.id)
+                        deleteButtonClickNum++
+                        if(deleteButtonClickNum > 1) {
+                            scope.launch {
+                                bookmarkRepository.removeBookmark(bookmarkData.id)
+                            }
+                            onAfterDelete()
                         }
+                    },
+                    colors = if (deleteButtonClickNum > 0) {
+                        ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    } else {
+                        ButtonDefaults.outlinedButtonColors() // 不传 containerColor
+                    },
+                    border = if (deleteButtonClickNum > 0) {
+                        null
+                    } else {
+                        ButtonDefaults.outlinedButtonBorder()
                     }
                 ) {
-                    Text("删除")
+                    Text(if (deleteButtonClickNum > 0) "确认删除" else "删除")
                 }
             }
             Button(
@@ -130,10 +151,10 @@ fun BookmarkDialog(
                             bookmarkRepository.addBookmark(newBookmark)
                         }
                     }
-                    onConfirm(text)
+                    onAfterConfirm(newBookmark)
                 }
             ) {
-                Text( if(bookmarkData.id != 0L) "添加" else "修改")
+                Text( if(bookmarkData.id == 0L) "添加" else "修改")
             }
         },
         dismissButton = {
@@ -161,7 +182,7 @@ fun BookmarkHint(
         if (isBookmarked) {
             delayJob = scope.launch {
                 isShowBookmarkTip = true
-                kotlinx.coroutines.delay(5000)
+                delay(5000)
                 isShowBookmarkTip = false
             }
         } else {
@@ -433,7 +454,10 @@ fun BookmarkListPanel(
                 if(isShowBookmarkDialog && editBookmarkData != null){
                     BookmarkDialog(
                         bookmarkData = editBookmarkData!!,
-                        onConfirm = {
+                        onAfterConfirm = {
+                            isShowBookmarkDialog = false
+                        },
+                        onAfterDelete = {
                             isShowBookmarkDialog = false
                         },
                         onDismiss = {

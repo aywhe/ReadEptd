@@ -449,7 +449,10 @@ fun PdfLazyViewer(
                         onDismiss = {
                             isShowBookmarkDialog = false
                         },
-                        onConfirm = {
+                        onAfterConfirm = {
+                            isShowBookmarkDialog = false
+                        },
+                        onAfterDelete = {
                             isShowBookmarkDialog = false
                         }
                     )
