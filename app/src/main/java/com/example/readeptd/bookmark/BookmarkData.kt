@@ -43,7 +43,7 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
         override fun isInPosition(other:BookmarkData): Boolean{
             return other is BookmarkData.Epub
                     && start.percentage >= other.start.percentage
-                    && start.percentage < other.end.percentage
+                    && start.percentage <= other.end.percentage
         }
         override fun copyVal(
             id: Long,
