@@ -674,7 +674,7 @@ private fun JumpDialogs(
         )
     } else {
         JumpToProgressDialog(
-            progress = viewModel.getProgress(),
+            progress = viewModel.getProgress().toFloat(),
             onDismiss = onDismiss,
             onConfirm = {
                 scope.launch { viewModel.goToPage(viewModel.findPageByProgress(it)) }

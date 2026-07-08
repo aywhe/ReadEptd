@@ -390,7 +390,7 @@ class PdfViewModel(
         // ✅ 获取当前状态，如果不存在则创建新状态
         val currentState = readingState.value
 
-        val progress = if (_totalPages.value > 0) pageIndex.toFloat() / _totalPages.value else 0f
+        val progress = if (_totalPages.value > 0) pageIndex.toDouble() / _totalPages.value else 0.0
 
         val newState = currentState?.let {
             // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段

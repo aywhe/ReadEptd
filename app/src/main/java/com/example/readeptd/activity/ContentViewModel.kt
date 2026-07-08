@@ -58,13 +58,17 @@ class ContentViewModel(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
+    fun clearCallBacks(){
         _onClickProgressInfoCallback = null
         _onLongPressProgressInfoCallback = null
         _onClickBookmarkCallback = null
         _onLongPressBookmarkCallback = null
         _onClickSearchButtonCallback = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        clearCallBacks()
         Log.d("ContentViewModel", "ViewModel 清除: ${this.hashCode()}")
     }
 

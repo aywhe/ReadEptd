@@ -64,7 +64,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param uri 文件 URI
      * @return 阅读进度（0.0-1.0），如果不存在则返回 null
      */
-    fun getProgress(uri: String): Float? {
+    fun getProgress(uri: String): Double? {
         return _readingStates.value[uri]?.progress
     }
 

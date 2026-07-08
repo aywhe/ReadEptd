@@ -32,7 +32,7 @@ data class EpubLocation(
         val cfi: String,
         val displayed: Displayed,
         val location: Int,
-        val percentage: Float
+        val percentage: Double
     ) {
         companion object {
             /**
@@ -52,7 +52,7 @@ data class EpubLocation(
                     cfi = positionJson.optString("cfi", ""),
                     displayed = displayed,
                     location = positionJson.optInt("location", 0),
-                    percentage = positionJson.optDouble("percentage", 0.0).toFloat()
+                    percentage = positionJson.optDouble("percentage", 0.0)
                 )
             }
 
@@ -66,7 +66,7 @@ data class EpubLocation(
                     cfi = "",
                     displayed = Displayed.default(),
                     location = 0,
-                    percentage = 0f
+                    percentage = 0.0
                 )
             }
         }

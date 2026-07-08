@@ -539,12 +539,12 @@ class TxtViewModel(
      * 
      * @return 阅读进度 (0.0 - 1.0),如果没有保存状态或页面为空则返回 0f
      */
-    fun getProgress(): Float {
+    fun getProgress(): Double {
         val savedState = readingState.value
         val pages = getCurrentPages()
         if (savedState == null || pages.isEmpty()) {
             Log.d(TAG, "[getProgress] 没有保存状态或页面为空,返回 0f")
-            return 0f
+            return 0.0
         }
         Log.d(TAG, "[getProgress] 当前进度: progress=${savedState.progress}, currentKey=$currentKey, pageSize=${pages.size}")
         return savedState.progress
@@ -684,7 +684,7 @@ class TxtViewModel(
     ) {
         val pages = getCurrentPages()
         val progress =
-            if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos).toFloat() else 0f
+            if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos) else 0.0
             //if (pages.isNotEmpty()) pageIndex.toFloat() / pages.size else 0f
         val charOffset = pages.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "[updateTxtProgress] 保存进度: pageIndex=$pageIndex, progress=$progress, charOffset=$charOffset")

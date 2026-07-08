@@ -7,8 +7,11 @@ object BookmarkMapper {
     private const val KEY_MIMETYPE_EPUB = "application/epub+zip"
     private const val KEY_MIMETYPE_PDF = "application/pdf"
     private const val KEY_MIMETYPE_TXT = "text/plain"
+    private const val KEY_EPUB_START = "key_epub_start"
+    private const val KEY_EPUB_END = "key_epub_end"
     private const val KEY_EPUB_CFI = "key_epub_cfi"
     private const val KEY_EPUB_LOC = "key_epub_loc"
+    private const val KEY_EPUB_PERCENT = "key_epub_percent"
     private const val KEY_PDF_PAGE = "key_pdf_page"
     private const val KEY_TXT_START_POS = "key_txt_start_pos"
     private const val KEY_TXT_END_POS = "key_txt_end_pos"
@@ -16,8 +19,16 @@ object BookmarkMapper {
     fun dataToEntity(data: BookmarkData): BookmarkEntity {
         val (type, pos) = when (data) {
             is BookmarkData.Epub -> KEY_MIMETYPE_EPUB to JSONObject().apply {
-                put(KEY_EPUB_CFI, data.cfi)
-                put(KEY_EPUB_LOC, data.loc)
+                put(KEY_EPUB_START, JSONObject().apply {
+                    put(KEY_EPUB_CFI, data.start.cfi)
+                    put(KEY_EPUB_LOC, data.start.loc)
+                    put(KEY_EPUB_PERCENT, data.start.percentage)
+                })
+                put(KEY_EPUB_END, JSONObject().apply {
+                    put(KEY_EPUB_CFI, data.end.cfi)
+                    put(KEY_EPUB_LOC, data.end.loc)
+                    put(KEY_EPUB_PERCENT, data.end.percentage)
+                })
             }.toString()
 
             is BookmarkData.Pdf -> KEY_MIMETYPE_PDF to JSONObject().apply {
@@ -47,8 +58,20 @@ object BookmarkMapper {
                 bookId = entity.bookId,
                 note = entity.note,
                 createdTime = entity.createdTime,
-                cfi = jsonPos.getString(KEY_EPUB_CFI),
-                loc = jsonPos.getLong(KEY_EPUB_LOC)
+                start = JSONObject(jsonPos.getString(KEY_EPUB_START)).let {
+                    BookmarkData.Epub.Position(
+                        cfi = it.getString(KEY_EPUB_CFI),
+                        loc = it.getInt(KEY_EPUB_LOC),
+                        percentage = it.getDouble(KEY_EPUB_PERCENT)
+                    )
+                },
+                end = JSONObject(jsonPos.getString(KEY_EPUB_END)).let {
+                    BookmarkData.Epub.Position(
+                        cfi = it.getString(KEY_EPUB_CFI),
+                        loc = it.getInt(KEY_EPUB_LOC),
+                        percentage = it.getDouble(KEY_EPUB_PERCENT)
+                    )
+                }
             )
             KEY_MIMETYPE_PDF -> BookmarkData.Pdf(
                 id = entity.id,

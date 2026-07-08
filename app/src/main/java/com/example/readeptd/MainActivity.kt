@@ -639,7 +639,7 @@ fun FileItemCard(
     onClick: (FileInfo) -> Unit,
     onRemove: (Boolean) -> Unit,
     isDragging: Boolean = false,
-    progress: Float? = null,
+    progress: Double? = null,
     modifier: Modifier = Modifier
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }

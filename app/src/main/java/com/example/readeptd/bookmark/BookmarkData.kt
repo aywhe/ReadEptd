@@ -30,11 +30,20 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
         override val bookId: String,
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
-        val cfi: String,
-        val loc: Long
+        val start: Position,
+        val end: Position
     ) : BookmarkData {
+
+        data class Position(
+            val cfi: String,
+            val loc: Int,
+            val percentage: Double
+        )
+
         override fun isInPosition(other:BookmarkData): Boolean{
-            return false
+            return other is BookmarkData.Epub
+                    && start.percentage >= other.start.percentage
+                    && start.percentage < other.end.percentage
         }
         override fun copyVal(
             id: Long,
@@ -47,12 +56,13 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
                 bookId = bookId,
                 note = note,
                 createdTime = createdTime,
-                cfi = this.cfi,
-                loc = this.loc
+                start = this.start,
+                end = this.end
             )
         }
         override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Epub) (loc - other.loc).toInt() else 0
+            return if(other is BookmarkData.Epub) start.percentage.compareTo(other.start.percentage)
+                else 0
         }
     }
 
@@ -85,7 +95,7 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
             )
         }
         override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Pdf) pageNumber - other.pageNumber else 0
+            return if(other is BookmarkData.Pdf) pageNumber.compareTo(other.pageNumber) else 0
         }
     }
 
@@ -122,7 +132,7 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
             )
         }
         override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Txt) (startPos - other.startPos).toInt() else 0
+            return if(other is BookmarkData.Txt) (startPos.compareTo(other.startPos)) else 0
         }
     }
 }

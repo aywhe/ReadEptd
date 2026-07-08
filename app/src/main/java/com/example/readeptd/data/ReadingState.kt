@@ -10,7 +10,7 @@ sealed interface ReadingState {
     val uri: String
     val lastReadTime: Long
     val mimeType: String
-    val progress: Float
+    val progress: Double
     val isSwipeLayout: Boolean
     val isRtl: Boolean
 
@@ -35,7 +35,7 @@ sealed interface ReadingState {
             val mimeType = jsonObject.optString(KEY_MIME_TYPE, "application/octet-stream")
             val uri = jsonObject.getString(KEY_URI)
             val lastReadTime = jsonObject.optLong(KEY_LAST_READ_TIME, System.currentTimeMillis())
-            val progress = jsonObject.optDouble(KEY_PROGRESS, 0.0).toFloat()
+            val progress = jsonObject.optDouble(KEY_PROGRESS, 0.0)
             val isSwipeLayout = jsonObject.optBoolean(KEY_IS_SWIPE_LAYOUT, true)
             val isRtl = jsonObject.optBoolean(KEY_IS_RTL, false)
 
@@ -78,7 +78,7 @@ sealed interface ReadingState {
         val cfi: String? = null,           // EPUB CFI 定位符
         val page: Int? = null,             // 当前页码
         val totalPages: Int? = null,       // 总页数
-        override val progress: Float = 0f,          // 阅读进度 0.0-1.0
+        override val progress: Double = 0.0,          // 阅读进度 0.0-1.0
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/epub+zip",
         override val isSwipeLayout: Boolean = true,
@@ -93,7 +93,7 @@ sealed interface ReadingState {
                 jsonObject: JSONObject,
                 uri: String,
                 lastReadTime: Long,
-                progress: Float,
+                progress: Double,
                 isSwipeLayout: Boolean,
                 isRtl: Boolean
             ): Epub {
@@ -127,7 +127,7 @@ sealed interface ReadingState {
         override val uri: String,
         val page: Int = 1,                 // 当前页码
         val totalPages: Int = 1,           // 总页数
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf",
         override val isSwipeLayout: Boolean = true,
@@ -141,7 +141,7 @@ sealed interface ReadingState {
                 jsonObject: JSONObject,
                 uri: String,
                 lastReadTime: Long,
-                progress: Float,
+                progress: Double,
                 isSwipeLayout: Boolean,
                 isRtl: Boolean
             ): Pdf {
@@ -172,7 +172,7 @@ sealed interface ReadingState {
     data class Txt(
         override val uri: String,
         val charOffset: Long = 0,          // 字符偏移量
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "text/plain",
         override val isSwipeLayout: Boolean = true,
@@ -185,7 +185,7 @@ sealed interface ReadingState {
                 jsonObject: JSONObject,
                 uri: String,
                 lastReadTime: Long,
-                progress: Float,
+                progress: Double,
                 isSwipeLayout: Boolean,
                 isRtl: Boolean
             ): Txt {
@@ -213,7 +213,7 @@ sealed interface ReadingState {
      */
     data class Unknown(
         override val uri: String,
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/octet-stream",
         override val isSwipeLayout: Boolean = true,

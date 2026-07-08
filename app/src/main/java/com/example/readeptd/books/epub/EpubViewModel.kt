@@ -24,8 +24,8 @@ class EpubViewModel(
     application: Application
 ) : BookViewModel<ReadingState.Epub>(application, ReadingState.Epub::class.java) {
 
-    private val _currentLocation = MutableStateFlow(EpubLocation.default())
-    val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
+    //private val _currentLocation = MutableStateFlow(EpubLocation.default())
+    //val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
 
     var fontSizePx: Float? = null
     val currentFontSizePx: Float? get() = fontSizePx
@@ -34,9 +34,9 @@ class EpubViewModel(
         fontSizePx = newFontSizePx
     }
 
-    fun updateLocation(location: EpubLocation) {
-        _currentLocation.value = location
-    }
+//    fun updateLocation(location: EpubLocation) {
+//        _currentLocation.value = location
+//    }
 
     /**
      * 更新 EPUB 阅读进度（update 方式）
@@ -47,7 +47,7 @@ class EpubViewModel(
         cfi: String? = null,
         page: Int? = null,
         totalPages: Int? = null,
-        progress: Float = 0f
+        progress: Double = 0.0
     ) {
         // ✅ 获取当前状态，如果不存在则创建新状态
         val currentState = readingState.value
