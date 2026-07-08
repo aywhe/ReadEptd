@@ -321,13 +321,14 @@ fun MainScreen(
                         
                         主要功能：
                         • 支持 TXT、PDF、EPUB 格式
+                        • 自动保存阅读进度
+                        • 夜间主题色
                         • 文字转语音朗读
                         • 定时关闭朗读
-                        • 自动保存阅读进度
                         • 关键词搜索
-                        • 分页及滚动阅读
+                        • 分页及滚动阅读模式
                         • 调整字体大小
-                        • 夜间模式
+                        • 书签管理
                         
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyMedium
