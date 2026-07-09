@@ -34,13 +34,13 @@ sealed interface TxtEvent {
      * 字体大小调整事件
      * @param fontSize 新的字体大小（sp）
      */
-    data class OnFontSizeChanged(val fontSize: Int) : TxtEvent
+    data class OnFontSizeChanged(val fontSize: Float) : TxtEvent
 
     /**
      * 行距调整事件
      * @param lineHeight 新的行距（sp）
      */
-    data class OnLineHeightChanged(val lineHeight: Int) : TxtEvent
+    data class OnLineHeightChanged(val lineHeight: Float) : TxtEvent
 
     object OnDoubleClickScreen: TxtEvent
     data  class OnScreenOrientationChanged(val orientation: Int): TxtEvent

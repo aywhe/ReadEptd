@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.readeptd.bookmark.BookmarkRepository
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
@@ -18,6 +19,8 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val fileDataStore = FileDataStore(application)
+
+    private val bookmarkRepository by lazy { BookmarkRepository(application) }
     
     private val _uiState = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -61,7 +64,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param uri 文件 URI
      * @return 阅读进度（0.0-1.0），如果不存在则返回 null
      */
-    fun getProgress(uri: String): Float? {
+    fun getProgress(uri: String): Double? {
         return _readingStates.value[uri]?.progress
     }
 
@@ -87,7 +90,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             fileDataStore.allReadingStatesFlow.collect { states ->
                 _readingStates.value = states
-                Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
+                //Log.d("MainViewModel", "更新了阅读状态缓存，共 ${states.size} 个")
             }
         }
     }
@@ -268,6 +271,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _configData.value = currentConfig
             }
         }
+    }
+
+    /**
+     * 删除指定书籍的所有书签
+     * @param bookId 书籍 ID
+     */
+    suspend fun removeBookmarksForBook(bookId: String){
+        bookmarkRepository.removeBookmarksForBook(bookId)
     }
 
 }

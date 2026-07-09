@@ -11,11 +11,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,24 +32,34 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.bookmark.BookmarkData
+import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkHint
+import com.example.readeptd.bookmark.BookmarkListPanel
+import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
+import kotlinx.coroutines.launch
 
 @Composable
 fun EpubScreen(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier,
     viewModel: EpubViewModel = viewModel()
 ) {
+    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentLocation by viewModel.currentLocation.collectAsState()
-    
+    //val currentLocation by viewModel.currentLocation.collectAsState()
+    var currentLocation by remember { mutableStateOf(EpubLocation.default()) }
+
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -77,9 +89,34 @@ fun EpubScreen(
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
                 var isShowLayoutSettingDialog by remember { mutableStateOf(false)}
+
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
+                //var scale by remember { mutableStateOf(1f) }
+                var isShowBookmarkDialog by remember { mutableStateOf(false) }
+                var isShowBookmarkListPanel by remember { mutableStateOf(false) }
+
+                val currentBookmarkDataList by bookmarkViewModel.findInPosition(
+                    BookmarkData.Epub(
+                        bookId = fileInfo.uri,
+                        start = BookmarkData.Epub.Position(
+                            cfi = currentLocation.start.cfi,
+                            loc = currentLocation.start.location,
+                            percentage = currentLocation.start.percentage
+                        ),
+                        end = BookmarkData.Epub.Position(
+                            cfi = currentLocation.end.cfi,
+                            loc = currentLocation.end.location,
+                            percentage = currentLocation.end.percentage
+                        ),
+                        note = "[#${(currentLocation.start.percentage * 100).toInt()}%#${currentLocation.start.location}]"
+                    )
+                ).collectAsStateWithLifecycle(emptyList())
+
+                LaunchedEffect(currentBookmarkDataList, currentBookmarkDataList.size) {
+                    contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
+                }
 
                 LaunchedEffect(isSwipeLayout) {
                     webView?.setFlowMode(
@@ -92,7 +129,8 @@ fun EpubScreen(
                     webView?.startEpubWebsite()
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize()
+                ) {
                     // 准备完成，显示 WebView
                     AndroidView(
                         factory = { context ->
@@ -120,10 +158,17 @@ fun EpubScreen(
                                         false -> EpubFlowMode.Scrolled
                                     }
                                 )
+                                setFontSize(viewModel.currentFontSizePx)
+
+                                setOnFontSizeChangedListener { newFontSizePx->
+                                    Log.d("EpubScreen", "字体大小变化: $newFontSizePx px")
+                                    viewModel.updateFontSize(newFontSizePx)
+                                }
 
                                 // 设置页面变化监听器，自动保存阅读进度
                                 setOnPageChangedListener { epubLocation ->
-                                    viewModel.updateLocation(epubLocation)
+                                    currentLocation = epubLocation
+                                    //viewModel.updateLocation(epubLocation)
                                     contentViewModel.updateProgressText("${(epubLocation.start.percentage * 100).toInt()}%")
                                     Log.d("EpubScreen", "保存进度: $epubLocation")
                                     // 并保存进度
@@ -146,12 +191,19 @@ fun EpubScreen(
                                     contentViewModel.setOnClickSearchButtonCallback {
                                         isShowSearchDialog = !isShowSearchDialog
                                     }
+                                    contentViewModel.setOnClickBookmarkCallback { isShowBookmarkDialog = true }
+                                    contentViewModel.setOnLongPressBookmarkCallback { isShowBookmarkListPanel = true }
+
                                     Log.d("EpubScreen", "加载完成")
                                 }
 
                                 setOnDoubleClickListener {
                                     Log.d("EpubScreen", "双击")
                                     contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                }
+
+                                setOnClickJumpToProgressListener {
+                                    isShowJumpToProgressDialog = true
                                 }
 
                                 setOnErrorListener { errorMessage ->
@@ -225,6 +277,7 @@ fun EpubScreen(
                         onRelease = { webView ->
                             Log.d("EpubScreen", "AndroidView 销毁")
                             ttsModel.clearCallbacks()
+                            contentViewModel.clearCallBacks()
                             webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
@@ -232,7 +285,7 @@ fun EpubScreen(
                     
                     if (isShowJumpToProgressDialog) {
                         JumpToProgressDialog(
-                            progress = currentLocation.start.percentage,
+                            progress = currentLocation.start.percentage.toFloat(),
                             onDismiss = {
                                 isShowJumpToProgressDialog = false
                             },
@@ -268,19 +321,79 @@ fun EpubScreen(
                         onVisibleChange =  {isShowSearchDialog = it},
                         onClose = {
                             isShowSearchDialog = false
-                            viewModel.removeAllHighlights(epubWebView = webView)
+                            webView?.removeAllHighlights()
                         },
                         searchExecutor = { query ->
                             viewModel.search(query, epubWebView = webView)  // ✅ 调用 ViewModel 的搜索函数
                         },
                         onResultClick = { result ->
                             val epubResult = (result as SearchData.EpubSearchResult)
-                            viewModel.highlightSingle(epubResult.cfi, webView)
+                            webView?.highlightSingle(epubResult.cfi)
                             webView?.goToLocation(epubResult.cfi)
+                        },
+                        getDistanceToResult = {
+                            val result = (it as SearchData.EpubSearchResult)
+                            kotlin.math.abs(currentLocation.end.location - result.locInd).toLong()
                         },
                         onKeywordChange = { keyword -> currentKeyword = keyword},
                         fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
                     )
+
+                    BookmarkHint(contentViewModel = contentViewModel)
+
+                    if(isShowBookmarkListPanel){
+                        BookmarkListPanel(
+                            viewModel = bookmarkViewModel,
+                            onClose = {
+                                isShowBookmarkListPanel = false
+                            },
+                            onBookmarkClick = { bookmarkData ->
+                                scope.launch {
+                                    try {
+                                        val cfi = (bookmarkData as BookmarkData.Epub).start.cfi
+                                        webView?.goToLocation(cfi)
+                                    } catch (e: Exception) {
+                                        Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                                    }
+                                }
+                            },
+                            currentDistanceToBookmark = {
+                                kotlin.math.abs((((it as BookmarkData.Epub).start.percentage - currentLocation.start.percentage) * 1000000).toLong())
+                            }
+                        )
+                    }
+
+                    if(isShowBookmarkDialog){
+                        BookmarkDialog(
+                            bookmarkData =
+                                if(currentBookmarkDataList.isNotEmpty())
+                                    currentBookmarkDataList.first()
+                                else
+                                    BookmarkData.Epub(
+                                        bookId = fileInfo.uri,
+                                        start = BookmarkData.Epub.Position(
+                                            cfi = currentLocation.start.cfi,
+                                            loc = currentLocation.start.location,
+                                            percentage = currentLocation.start.percentage
+                                        ),
+                                        end = BookmarkData.Epub.Position(
+                                            cfi = currentLocation.end.cfi,
+                                            loc = currentLocation.end.location,
+                                            percentage = currentLocation.end.percentage
+                                        ),
+                                        note = "[#${(currentLocation.start.percentage * 100).toInt()}%#${currentLocation.start.location}]"
+                                    ),
+                            onDismiss = {
+                                isShowBookmarkDialog = false
+                            },
+                            onAfterConfirm = {
+                                isShowBookmarkDialog = false
+                            },
+                            onAfterDelete = {
+                                isShowBookmarkDialog = false
+                            }
+                        )
+                    }
                 }
             }
             is BookUiState.Error -> {

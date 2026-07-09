@@ -53,6 +53,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,7 +85,7 @@ fun SlideInSearchPanel(
     onResultClick: (SearchData.SearchResult) -> Unit = {},
     onKeywordChange: (String) -> Unit = {},
     onVisibleChange: (Boolean) -> Unit = {},
-    getCurrentPosition: () -> Int = { 0 },  // ✅ 获取当前位置（页码/偏移等）
+    getDistanceToResult: (SearchData.SearchResult) -> Long = { 0 },  // ✅ 获取当前位置（页码/偏移等）
     onClose: () -> Unit = {},
     visible: Boolean = true,
     initKeyword: String = "",
@@ -113,6 +114,13 @@ fun SlideInSearchPanel(
         }
     }
 
+    // ✅ 当面板切换到全屏时，自动展开搜索结果
+    LaunchedEffect(isFullScreen) {
+        if(isFullScreen){
+            isCollapsed = false
+        }
+    }
+
     DisposableEffect(Unit) {
         Log.d("SlideInSearchPanel", "DisposableEffect: 设置 onClickHistoryKeyword 回调")
         viewModel.setOnClickHistoryKeyword {
@@ -135,11 +143,8 @@ fun SlideInSearchPanel(
     LaunchedEffect(isSearching, results.size) {
         // ✅ 只在搜索刚完成且结果不为空时触发
         if (!isSearching && results.isNotEmpty()) {
-            // ✅ 主动获取当前位置
-            val currentPosition = getCurrentPosition()
-            
             // ✅ 使用 ViewModel 的方法找到最近的索引
-            val closestIndex = viewModel.findClosestResultIndex(currentPosition)
+            val closestIndex = viewModel.findClosestResultIndex(getDistanceToResult)
             
             if (closestIndex >= 0) {
                 // 更新选中状态并滚动
@@ -154,7 +159,7 @@ fun SlideInSearchPanel(
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
     Log.d("SlideInSearchPanel", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
-    val panelWidthDp = (screenWidthDp * 2 / 5).coerceIn(128,212)
+    val panelWidthDp = (screenWidthDp * 3 / 5).coerceIn(128,212)
     val panelHeightDp = if (isFullScreen) screenHeightDp else screenHeightDp
     Log.d("SlideInSearchPanel", "panelWidthDp: $panelWidthDp, panelHeightDp: $panelHeightDp")
     // ✅ 统一使用 px 进行计算
@@ -222,7 +227,7 @@ fun SlideInSearchPanel(
             // ✅ 判断是否应该显示搜索结果：从结果中获取关键词
             val currentSearchKeyword = results.firstOrNull()?.keyword
             val shouldShowResults = currentKeyword.isNotBlank() && results.isNotEmpty() && currentKeyword == currentSearchKeyword
-
+            var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -243,7 +248,7 @@ fun SlideInSearchPanel(
                 )
                 if(isFullScreen && shouldShowResults) {
                     Text(
-                        text = "${results.size}条结果",
+                        text = "${if (selectIndex >= 0) "${selectIndex + 1}/" else ""}${results.size}条结果",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -281,11 +286,10 @@ fun SlideInSearchPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
-            
             // 搜索输入框（更紧凑）
             OutlinedTextField(
                 value = currentKeyword,
@@ -313,6 +317,7 @@ fun SlideInSearchPanel(
                     } else {
                         IconButton(
                             onClick = {
+                                selectIndex = -1
                                 viewModel.onSearch(currentKeyword, searchExecutor)
                                 isCollapsed = false
                             },
@@ -368,7 +373,7 @@ fun SlideInSearchPanel(
                             contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
                         Text(
-                            text = "${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
+                            text = "${if(selectIndex >= 0) "${selectIndex+1}/" else ""}${results.size}条结果(${if (isCollapsed) "展开" else "收起"})",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -378,6 +383,7 @@ fun SlideInSearchPanel(
                             viewModel.navigateToPrevious(bySortKey =  true)
                             viewModel.getCurrentResult()?.let { onResultClick(it) }
                             scope.launch {
+                                selectIndex = currentIndex
                                 lazyListState.scrollToItem(index = currentIndex)
                             }
                         },
@@ -395,6 +401,7 @@ fun SlideInSearchPanel(
                             viewModel.navigateToNext(bySortKey = true)
                             viewModel.getCurrentResult()?.let { onResultClick(it)}
                             scope.launch {
+                                selectIndex = currentIndex
                                 lazyListState.scrollToItem(index = currentIndex)
                             }
                         },
@@ -432,9 +439,11 @@ fun SlideInSearchPanel(
                 ) {
                     items(results.size) { index ->
                         SearchResultCard(
-                            result = results[index],
+                            searchResult = results[index],
+                            isSelected = index == selectIndex,
                             onClick = { 
                                 viewModel.setCurrentIndex(index)
+                                selectIndex = index
                                 onResultClick(results[index]) 
                             }
                         )
@@ -450,40 +459,55 @@ fun SlideInSearchPanel(
  */
 @Composable
 fun SearchResultCard(
-    result: SearchData.SearchResult,
-    onClick: (SearchData.SearchResult) -> Unit
+    searchResult: SearchData.SearchResult,
+    isSelected: Boolean = false,
+    onClick: (SearchData.SearchResult) -> Unit = {}
 ) {
     Card(
-        onClick = { onClick(result) },
+        onClick = { onClick(searchResult) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp)
+            .padding(vertical = 0.dp),
+        colors = if (isSelected) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        } else {
+            CardDefaults.cardColors() // 不传 containerColor，保持 Card 默认颜色
+        }
     ) {
         Column(
             modifier = Modifier.padding(4.dp)
         ) {
-            // ✅ 合并为一个 Text，使用 AnnotatedString 实现不同样式
             Text(
                 text = buildAnnotatedString {
                     // 页码部分（加粗、主题色）
                     pushStyle(
                         SpanStyle(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
                             fontWeight = MaterialTheme.typography.labelSmall.fontWeight,
                             fontSize = MaterialTheme.typography.labelSmall.fontSize
                         )
                     )
-                    append("${result.displayName}：")
+                    append("${searchResult.displayName}：")
                     pop()
 
                     // 预览内容（普通样式）
                     pushStyle(
                         SpanStyle(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             fontSize = MaterialTheme.typography.bodySmall.fontSize
                         )
                     )
-                    append(result.previewContent)
+                    append(searchResult.previewContent)
                     pop()
                 },
                 style = MaterialTheme.typography.bodySmall,

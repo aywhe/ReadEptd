@@ -126,3 +126,10 @@ reject 同理。
 【方法】： 管理 isPagesReady， 在分页前设置为 false， 分页结束后才设置为 true， 
 页面就会显示“正在分页”，就不会触发重组。而两次触发分页的问题就使用防抖延迟解决。
 swipe变化和padding变化，都会在防抖500ms，最后一起做一次分页
+
+- 【问题】： epub滚动模式下，向上滚动，跨章节，页面跳变到章节末尾。
+【方法】： https://github.com/futurepress/epub.js/issues/1303
+修改css
+.epub-container{
+    overflow-anchor: none !important;
+}

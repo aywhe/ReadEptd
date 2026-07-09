@@ -16,6 +16,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -37,13 +38,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
@@ -315,15 +317,18 @@ fun MainScreen(
 
                 Text(
                     text = """
-                        ReadEptd - 智能听书助手 v$versionName
+                        ReadEptd - 阅读听书助手 v$versionName
                         
                         主要功能：
                         • 支持 TXT、PDF、EPUB 格式
-                        • 文字转语音朗读
-                        • 定时关闭功能
                         • 自动保存阅读进度
-                        • 关键词搜索功能
-                        • 支持分页及滚动
+                        • 夜间主题色
+                        • 文字转语音朗读
+                        • 定时关闭朗读
+                        • 关键词搜索
+                        • 分页及滚动阅读模式
+                        • 调整字体大小
+                        • 书签管理
                         
                     """.trimIndent(),
                     style = MaterialTheme.typography.bodyMedium
@@ -511,9 +516,14 @@ fun ContentScreen(
                                 onClick = {fileInfo ->
                                     goToContentActivity(fileInfo)
                                 },
-                                onRemove = { 
+                                onRemove = { isRemoveBookmark->
                                     FileUtils.releasePersistableUriPermission(context, files[index].uri)
                                     viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                                    if(isRemoveBookmark){
+                                        scope.launch {
+                                            viewModel.removeBookmarksForBook(files[index].uri)
+                                        }
+                                    }
                                 },
                                 isDragging = isDragging,
                                 progress = progress,
@@ -628,9 +638,9 @@ fun DraggableFloatingButton(
 fun FileItemCard(
     fileInfo: FileInfo,
     onClick: (FileInfo) -> Unit,
-    onRemove: () -> Unit,
+    onRemove: (Boolean) -> Unit,
     isDragging: Boolean = false,
-    progress: Float? = null,
+    progress: Double? = null,
     modifier: Modifier = Modifier
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
@@ -741,7 +751,7 @@ fun FileItemCard(
                         onClick = { showConfirmDialog = true }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Delete,
+                            imageVector = Icons.Outlined.Delete,
                             contentDescription = "删除"
                         )
                     }
@@ -759,6 +769,7 @@ fun FileItemCard(
     }
 
     if (showConfirmDialog) {
+        var isRemoveBookmark by remember{mutableStateOf(true)}
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = {
@@ -768,15 +779,33 @@ fun FileItemCard(
                 )
             },
             text = {
-                Text(
-                    text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable {
+                                isRemoveBookmark = !isRemoveBookmark
+                            }
+                    ) {
+                        Checkbox(
+                            checked = isRemoveBookmark,
+                            onCheckedChange = { isRemoveBookmark = it }
+                        )
+                        Text(text = "同时删除书签")
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        onRemove()
+                        onRemove(isRemoveBookmark)
                         showConfirmDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -886,6 +915,23 @@ fun SettingsDialog(
 
                 HorizontalDivider()
 
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                Text("显示书签提示")
+                Switch(
+                    checked = config.isShowBookmarkHint,
+                    onCheckedChange = {
+                        viewModel.updateConfig { copy(isShowBookmarkHint = it) }
+                    }
+                )
+            }
+
+                HorizontalDivider()
+
                 // TTS 设置按钮
                 Button(
                     onClick = {
@@ -896,7 +942,8 @@ fun SettingsDialog(
                             Log.d("MainActivity", "已打开 TTS 设置页面")
                         } catch (e: Exception) {
                             Log.e("MainActivity", "无法打开 TTS 设置：${e.message}", e)
-                        } 
+                        }
+                        onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

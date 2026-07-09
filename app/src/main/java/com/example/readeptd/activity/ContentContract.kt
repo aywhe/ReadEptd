@@ -18,6 +18,8 @@ sealed interface ContentUiEvent {
     data class Initialize(val fileInfo: FileInfo?) : ContentUiEvent
     data class OnClickProgressInfo(val progressText: String): ContentUiEvent
     data class OnLongPressProgressInfo(val progressText: String): ContentUiEvent
+    object OnClickBookmark: ContentUiEvent
+    object OnLongPressBookmark: ContentUiEvent
     object OnDoubleClickScreen : ContentUiEvent
     data  class OnScreenOrientationChanged(val orientation: Int): ContentUiEvent
     object OnClickSearchButton : ContentUiEvent

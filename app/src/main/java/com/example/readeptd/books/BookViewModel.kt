@@ -31,6 +31,7 @@ sealed interface BookUiState {
  * 
  * @param T 具体的 ReadingState 类型
  */
+@OptIn(FlowPreview::class)
 abstract class BookViewModel<T : ReadingState>(
     application: Application,
     private val stateClass: Class<T>

@@ -38,8 +38,8 @@ class TxtViewModel(
 
     private val textExtractor = TxtExtractor(application)
     private var viewSize: IntSize = IntSize(0, 0)
-    private var lineHeightSp: Int = 24
-    private var fontSizeSp: Int = 16
+    private var lineHeightSp: Float = 24.0f
+    private var fontSizeSp: Float = 16.0f
 
     // Padding 设置（由 UI 层传入，单位：像素）
     private var leftPaddingDp: Int = 0
@@ -81,8 +81,8 @@ class TxtViewModel(
     val isPagesReady: StateFlow<Boolean> = _isPagesReady.asStateFlow()
 
     // 暴露字体大小和行距给 UI
-    val currentFontSizeSp: Int get() = fontSizeSp
-    val currentLineHeightSp: Int get() = lineHeightSp
+    val currentFontSizeSp: Float get() = fontSizeSp
+    val currentLineHeightSp: Float get() = lineHeightSp
 
     private var _onGoToPageListener: ((Int) -> Unit)? = null
     private var _splitPagesMode: SplitPagesMode = SplitPagesMode.ByLayoutSize
@@ -248,7 +248,7 @@ class TxtViewModel(
     /**
      * 处理字体大小变化
      */
-    private fun handleFontSizeChanged(newFontSize: Int) {
+    private fun handleFontSizeChanged(newFontSize: Float) {
         if (fontSizeSp == newFontSize) {
             Log.d(TAG, "[handleFontSizeChanged] 字体大小未变化: $newFontSize")
             return
@@ -269,7 +269,7 @@ class TxtViewModel(
     /**
      * 处理行距变化
      */
-    private fun handleLineHeightChanged(newLineHeight: Int) {
+    private fun handleLineHeightChanged(newLineHeight: Float) {
         if (lineHeightSp == newLineHeight) {
             Log.d(TAG, "[handleLineHeightChanged] 行距未变化: $newLineHeight")
             return
@@ -298,8 +298,8 @@ class TxtViewModel(
         // 统一转换为像素单位
         val pageWidthPx = viewSize.width
         val pageHeightPx = viewSize.height
-        val fontSizePx = (fontSizeSp * scaledDensity).toInt()
-        val lineHeightPx = (lineHeightSp * scaledDensity).toInt()
+        val fontSizePx = (fontSizeSp * scaledDensity)
+        val lineHeightPx = (lineHeightSp * scaledDensity)
         val leftPaddingPx = (leftPaddingDp * density).toInt()
         val rightPaddingPx = (rightPaddingDp * density).toInt()
         val topPaddingPx = (topPaddingDp * density).toInt()
@@ -539,12 +539,12 @@ class TxtViewModel(
      * 
      * @return 阅读进度 (0.0 - 1.0),如果没有保存状态或页面为空则返回 0f
      */
-    fun getProgress(): Float {
+    fun getProgress(): Double {
         val savedState = readingState.value
         val pages = getCurrentPages()
         if (savedState == null || pages.isEmpty()) {
             Log.d(TAG, "[getProgress] 没有保存状态或页面为空,返回 0f")
-            return 0f
+            return 0.0
         }
         Log.d(TAG, "[getProgress] 当前进度: progress=${savedState.progress}, currentKey=$currentKey, pageSize=${pages.size}")
         return savedState.progress
@@ -603,6 +603,25 @@ class TxtViewModel(
         }
         
         return resultPage
+    }
+
+    /**
+     * ✅ 获取指定页的 TextChunk 对象
+     *
+     * @param pageIndex 页码索引
+     * @return 对应的 TextChunk 对象,如果页码超出范围则返回 null
+     */
+    fun getPage(pageIndex: Int): TextChunk? {
+        val pages = getCurrentPages()
+        if (pageIndex !in pages.indices) {
+            Log.w(
+                TxtViewModel.Companion.TAG,
+                "[getPageContent] 页码超出范围: pageIndex=$pageIndex, 总页数: ${pages.size}"
+            )
+            return null
+        } else {
+            return pages[pageIndex]
+        }
     }
 
     /**
@@ -665,7 +684,7 @@ class TxtViewModel(
     ) {
         val pages = getCurrentPages()
         val progress =
-            if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos).toFloat() else 0f
+            if (pages.isNotEmpty()) (pages[pageIndex].startPos.toDouble() / pages.last().endPos) else 0.0
             //if (pages.isNotEmpty()) pageIndex.toFloat() / pages.size else 0f
         val charOffset = pages.getOrNull(pageIndex)?.startPos ?: 0
         Log.d(TAG, "[updateTxtProgress] 保存进度: pageIndex=$pageIndex, progress=$progress, charOffset=$charOffset")
@@ -714,8 +733,8 @@ class TxtViewModel(
     fun search(
         keyword: String,
         startPage: Int = 0,
-        previewCharsNeighborLeft: Int = 25,
-        previewCharsNeighborRight: Int = 25,
+        previewCharsNeighborLeft: Int = 32,
+        previewCharsNeighborRight: Int = 32,
         maxCountOnePage: Int = 10,
         searchSwitchStep: Int = 20
     ): Flow<SearchData.TxtSearchResult> = flow {

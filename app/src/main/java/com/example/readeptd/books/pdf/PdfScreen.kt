@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,8 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,9 +63,15 @@ import com.example.readeptd.books.BookUiState
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.bookmark.BookmarkData
+import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkHint
+import com.example.readeptd.bookmark.BookmarkListPanel
+import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.LayoutSettingDialog
+import com.example.readeptd.utils.SlideHint
 import kotlinx.coroutines.delay
 
 @Composable
@@ -74,6 +79,7 @@ fun PdfScreen(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier,
     viewModel: PdfViewModel = viewModel()
 ) {
@@ -82,6 +88,7 @@ fun PdfScreen(
 
     LaunchedEffect(fileInfo.uri) {
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -107,6 +114,7 @@ fun PdfScreen(
                     contentViewModel = contentViewModel,
                     viewModel = viewModel,
                     ttsModel = ttsModel,
+                    bookmarkViewModel = bookmarkViewModel,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -135,6 +143,7 @@ fun PdfLazyViewer(
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -192,6 +201,20 @@ fun PdfLazyViewer(
             var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
             var isShowSearchDialog by remember { mutableStateOf(false) }
             var showNoTextHint by remember { mutableStateOf(false) }
+            var isShowBookmarkDialog by remember { mutableStateOf(false) }
+            var isShowBookmarkListPanel by remember { mutableStateOf(false) }
+            val currentBookmarkDataList by bookmarkViewModel.findInPosition(
+                BookmarkData.Pdf(
+                    bookId = fileInfo.uri,
+                    pageNumber = currentPage,
+                    note = "[#${currentPage + 1}]"
+                )
+            ).collectAsStateWithLifecycle(emptyList())
+
+            LaunchedEffect(currentBookmarkDataList, currentBookmarkDataList.size) {
+                contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
+            }
+
 
             LaunchedEffect(currentPage) {
                 Log.d("PdfLazyViewer", "当前页: $currentPage")
@@ -208,6 +231,12 @@ fun PdfLazyViewer(
                 }
                 contentViewModel.setOnClickSearchButtonCallback {
                     isShowSearchDialog = !isShowSearchDialog
+                }
+                contentViewModel.setOnClickBookmarkCallback { isBookmarked ->
+                    isShowBookmarkDialog = true
+                }
+                contentViewModel.setOnLongPressBookmarkCallback {
+                    isShowBookmarkListPanel = true
                 }
 
                 ttsModel.setOnRequestSpeechStartListener {
@@ -240,6 +269,8 @@ fun PdfLazyViewer(
                     contentViewModel.setOnClickProgressInfoCallback(null)
                     contentViewModel.setOnLongPressProgressInfoCallback(null)
                     contentViewModel.setOnClickSearchButtonCallback(null)
+                    contentViewModel.setOnClickBookmarkCallback(null)
+                    contentViewModel.setOnLongPressBookmarkCallback(null)
                 }
             }
             Box(
@@ -284,6 +315,7 @@ fun PdfLazyViewer(
                         PdfSwipeLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -291,6 +323,7 @@ fun PdfLazyViewer(
                         PdfScrollLayout(
                             contentViewModel = contentViewModel,
                             viewModel = viewModel,
+                            isRtl = isRtl,
                             scale = scale,
                             offset = offset
                         )
@@ -341,8 +374,9 @@ fun PdfLazyViewer(
                     searchExecutor = { query ->
                         viewModel.search(query)
                     },
-                    getCurrentPosition = {
-                        currentPage
+                    getDistanceToResult = {
+                        val result = it as SearchData.PdfSearchResult
+                        kotlin.math.abs(result.pageIndex - currentPage).toLong()
                     },
                     onResultClick = { result ->
                         scope.launch {
@@ -355,28 +389,61 @@ fun PdfLazyViewer(
                     fileUri = fileInfo.uri
                 )
 
-                if (showNoTextHint) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(top = 32.dp)
-                            .background(
-                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-                                shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-                            )
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "没有文本",
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    LaunchedEffect(Unit) {
-                        delay(1500)
+                LaunchedEffect(showNoTextHint) {
+                    if(showNoTextHint) {
+                        delay(2000)
                         showNoTextHint = false
                     }
+                }
+
+                SlideHint(
+                    tips = "没有文本",
+                    visible = showNoTextHint,
+                    alignment = Alignment.TopStart,
+                    padding = PaddingValues(top = 32.dp)
+                )
+
+                BookmarkHint(contentViewModel = contentViewModel)
+
+                if(isShowBookmarkListPanel){
+                    BookmarkListPanel(
+                        viewModel = bookmarkViewModel,
+                        onClose = {
+                            isShowBookmarkListPanel = false
+                        },
+                        onBookmarkClick = { bookmarkData ->
+                            scope.launch {
+                                viewModel.goToPage((bookmarkData as BookmarkData.Pdf).pageNumber)
+                            }
+                        },
+                        currentDistanceToBookmark = {
+                            val result = it as BookmarkData.Pdf
+                            kotlin.math.abs(result.pageNumber - currentPage).toLong()
+                        }
+                    )
+                }
+
+                if(isShowBookmarkDialog){
+                    BookmarkDialog(
+                        bookmarkData =
+                            if(currentBookmarkDataList.isNotEmpty())
+                                currentBookmarkDataList.first()
+                            else
+                                BookmarkData.Pdf(
+                                    bookId = fileInfo.uri,
+                                    pageNumber = currentPage,
+                                    note = "[#${currentPage + 1}]"
+                                ),
+                        onDismiss = {
+                            isShowBookmarkDialog = false
+                        },
+                        onAfterConfirm = {
+                            isShowBookmarkDialog = false
+                        },
+                        onAfterDelete = {
+                            isShowBookmarkDialog = false
+                        }
+                    )
                 }
             }
         }
@@ -421,6 +488,7 @@ fun PdfLazyViewer(
 fun PdfPageContent(
     page: Int,
     isSwipeLayout: Boolean = true,
+    isRtl: Boolean = false,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
     scale: Float = 1f,
@@ -438,11 +506,21 @@ fun PdfPageContent(
     }
     val config by contentViewModel.configData.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
     val screenWidthDp = configuration.screenWidthDp
+
+    val preloadJob = remember(page) {
+        scope.launch {
+            viewModel.renderPageAsync(page, keepNeighbourNumber = 2)
+        }
+    }
+
+//    LaunchedEffect(page) {
+//        scope.launch {
+//            viewModel.renderPage(page, 2)
+//        }
+//    }
 
     val bitmap by viewModel.getPageBitmapState(page).collectAsStateWithLifecycle()
 
@@ -471,14 +549,6 @@ fun PdfPageContent(
                     )
             )
         } else {
-            LaunchedEffect(page, bitmap) {
-                if(bitmap == null) {
-                    scope.launch {
-                        Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空，开始异步渲染")
-                        viewModel.renderPage(page, 2)
-                    }
-                }
-            }
             Log.d("PdfLazyViewer", "页面 $page 的 bmp 为空")
             Box(
                 modifier = if(isSwipeLayout) {
@@ -506,30 +576,28 @@ fun PdfSwipeLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset,
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    val initialPage = remember{ viewModel.getInitialPage() }
     val scope = rememberCoroutineScope()
-    // ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
 
-    Log.d("PdfLazyViewer", "PDF 加载成功，页数: $totalPages, 初始页: $initialPage")
 
     val pagerState = rememberPagerState(
         initialPage = initialPage,
         pageCount = { totalPages }
     )
     LaunchedEffect(pagerState.currentPage) {
-        Log.d("PdfLazyViewer", "当前页: ${pagerState.currentPage}")
+        Log.d("PdfSwipeLayout", "当前页: ${pagerState.currentPage}")
         viewModel.onEvent(PdfEvent.OnPageChanged(pagerState.currentPage))
         // 使用 LinkedHashMap 实现 LRU 缓存，不需要手动清理过期页面
         //val currentPage = pagerState.currentPage
         //viewModel.cleanupUnusedPages(currentPage)
     }
     LaunchedEffect(Unit) {
+        Log.d("PdfSwipeLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener {
             scope.launch {
                 pagerState.scrollToPage(it)
@@ -544,6 +612,7 @@ fun PdfSwipeLayout(
         PdfPageContent(
             page = page,
             isSwipeLayout = true,
+            isRtl = isRtl,
             contentViewModel = contentViewModel,
             viewModel = viewModel,
             scale = scale,
@@ -557,15 +626,13 @@ fun PdfScrollLayout(
     modifier: Modifier = Modifier,
     contentViewModel: ContentViewModel,
     viewModel: PdfViewModel,
+    isRtl: Boolean = false,
     scale: Float,
     offset: Offset
 ) {
     val totalPages by viewModel.totalPages.collectAsStateWithLifecycle()
-    val initialPage = viewModel.getInitialPage()
+    val initialPage = remember{ viewModel.getInitialPage() }
     val scope = rememberCoroutineScope()
-// ✅ 使用 StateFlow 获取阅读状态
-    val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val isRtl = readingState?.isRtl?: false
 
     // 创建 LazyListState 用于控制滚动
     val lazyListState = rememberLazyListState(
@@ -575,6 +642,7 @@ fun PdfScrollLayout(
 
     // 监听页面跳转请求
     LaunchedEffect(Unit) {
+        Log.d("PdfScrollLayout", "设置页面跳转监听")
         viewModel.setOnGoToPageListener { targetPage ->
             scope.launch {
                 lazyListState.scrollToItem(targetPage)
@@ -628,6 +696,7 @@ fun PdfScrollLayout(
             PdfPageContent(
                 page = page,
                 isSwipeLayout = false,
+                isRtl = isRtl,
                 contentViewModel = contentViewModel,
                 viewModel = viewModel
             )

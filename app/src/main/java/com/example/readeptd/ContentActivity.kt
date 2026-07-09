@@ -8,6 +8,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,11 +31,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,7 +79,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.activity.ContentUiState
 import com.example.readeptd.activity.ContentViewModel
-import com.example.readeptd.activity.MainViewModel
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.books.epub.EpubScreen
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -273,15 +279,14 @@ fun ContentScreen(
             )
         }
 
-        if(isFullScreen && isShowToolTipInFullScreen) {
-            DraggableFloatingToolTip(
-                modifier = modifier.padding(innerPadding),
-                onDismiss = { isShowToolTipInFullScreen = false },
-                onLongPressSpeak =  { isShowTimerDialog = true },
-                viewModel = viewModel,
-                ttsModel = ttsModel
-            )
-        }
+        DraggableFloatingToolTip(
+            modifier = modifier.padding(innerPadding),
+            visible = isFullScreen && isShowToolTipInFullScreen,
+            onDismiss = { isShowToolTipInFullScreen = false },
+            onLongPressSpeak =  { isShowTimerDialog = true },
+            viewModel = viewModel,
+            ttsModel = ttsModel
+        )
     }
 }
 
@@ -310,6 +315,8 @@ fun ToolTip(
     var isShowSearchHistoryDialog by remember {
         mutableStateOf(false)
     }
+    val isBookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
+
     if (progressText.isNotBlank()) {
         Box(
             contentAlignment = Alignment.Center,
@@ -340,6 +347,27 @@ fun ToolTip(
                 style = MaterialTheme.typography.titleMedium
             )
         }
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .padding(start = 4.dp, end = 4.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        viewModel.onEvent(ContentUiEvent.OnClickBookmark)
+                    },
+                    onLongPress = {
+                        viewModel.onEvent(ContentUiEvent.OnLongPressBookmark)
+                    }
+                )
+            }
+    ) {
+        Icon(
+            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+            contentDescription = "书签",
+            tint = MaterialTheme.colorScheme.onSurface
+        )
     }
     Box(
         contentAlignment = Alignment.Center,
@@ -391,7 +419,7 @@ fun ToolTip(
                 }
         ) {
             Icon(
-                imageVector = if (isSpeaking) Icons.Default.HeadsetOff else Icons.Default.Headset,
+                imageVector = if (isSpeaking) Icons.Filled.HeadsetOff else Icons.Filled.Headset,
                 contentDescription = if (isSpeaking) "停止朗读" else "开始朗读",
                 tint = MaterialTheme.colorScheme.onSurface
             )
@@ -422,6 +450,7 @@ fun ToolTip(
 @Composable
 fun DraggableFloatingToolTip(
     modifier: Modifier = Modifier,
+    visible: Boolean = true,
     onDismiss: () -> Unit = {},
     onLongPressSpeak: () -> Unit = {},
     viewModel: ContentViewModel,
@@ -479,6 +508,19 @@ fun DraggableFloatingToolTip(
         offset = IntOffset(targetX, offset.y)
     }
 
+    val animatedIconSize by animateDpAsState(
+        targetValue = if (isCollapsed) collapsedIconSizeDp else (iconSizeDp * 2 / 3),
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "icon_size_animation"
+    )
+    val animatedButtonWidth by animateDpAsState(
+        targetValue = if (isCollapsed) collapsedIconSizeDp else iconSizeDp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "button_width_animation"
+    )
+
+    if(!visible) return
+
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -518,7 +560,7 @@ fun DraggableFloatingToolTip(
                     )
                 }
         ) {
-            val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
+            // val buttonWidth = if (isCollapsed) collapsedIconSizeDp else iconSizeDp
             // 工具提示内容
             if (showTip && !isCollapsed) {
                 var cachedIsButtonOnRightSide by remember { mutableStateOf(isButtonOnRightSide) }
@@ -575,7 +617,7 @@ fun DraggableFloatingToolTip(
                                 }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                imageVector = Icons.Outlined.Delete,
                                 contentDescription = "删除",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
@@ -604,7 +646,7 @@ fun DraggableFloatingToolTip(
             Surface(
                 shape = buttonShape,
                 color = surfaceColor,
-                modifier = Modifier.size(buttonWidth, iconSizeDp)
+                modifier = Modifier.size(animatedButtonWidth, iconSizeDp)
             ) {
                 Box(
                     modifier = Modifier
@@ -623,7 +665,7 @@ fun DraggableFloatingToolTip(
                         contentDescription = if (showTip) "关闭工具栏" else "打开工具栏",
                         tint = onSurfaceColor,
                         modifier = Modifier.size(
-                            if (isCollapsed) collapsedIconSizeDp else iconSizeDp * 2 / 3,
+                            animatedIconSize,
                             iconSizeDp * 2 / 3
                         )
                     )
