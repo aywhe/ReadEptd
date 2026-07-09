@@ -101,12 +101,27 @@ fun BookmarkDialog(
                     singleLine = false,
                     maxLines = 6,
                     label = { Text("备注") },
+                    placeholder = { Text("请输入备注") },
                     supportingText = {
-                        Text(
-                            text = "${text.length} / $maxLength",
-                            color = if (text.length >= maxLength) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${text.length} / $maxLength",
+                                color = if (text.length >= maxLength) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if(text.isBlank()){
+                                Text(
+                                    text = "请输入备注信息",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    },
+                    isError = text.isBlank() || text.length > maxLength
                 )
             }
         },
@@ -140,6 +155,7 @@ fun BookmarkDialog(
                 }
             }
             Button(
+                enabled = !(text.isBlank() || text.length > maxLength),
                 onClick = {
                     val newBookmark = bookmarkData.copyVal(note = text)
                     if(bookmarkData.id != 0L){

@@ -85,7 +85,7 @@ fun JumpToPageDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    isError = pageNumber.toIntOrNull()?.let { it < 1 || it > totalPages } ?: false
+                    isError = pageNumber.toIntOrNull()?.let { it !in 1..totalPages } ?: false
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Slider(
@@ -124,7 +124,7 @@ fun JumpToPageDialog(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                enabled = pageNumber.toIntOrNull()?.let { it in 1..totalPages } == true
+                enabled = pageNumber.toIntOrNull()?.let { it in 1..totalPages && it != (currentPage + 1) } == true
             ) {
                 Text("跳转")
             }

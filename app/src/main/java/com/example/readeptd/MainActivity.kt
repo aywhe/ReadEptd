@@ -789,9 +789,10 @@ fun FileItemCard(
                     Row(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable {
-                            isRemoveBookmark = !isRemoveBookmark
-                        } // 点击整行也能切换
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable {
+                                isRemoveBookmark = !isRemoveBookmark
+                            }
                     ) {
                         Checkbox(
                             checked = isRemoveBookmark,
