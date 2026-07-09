@@ -209,7 +209,6 @@ body, html {
 /* 目录面板内的控制按钮 */
 .nav-control-btn {
     position: absolute;
-    right: 60px;
     top: 20px;
     background: none;
     border: none;
@@ -219,6 +218,13 @@ body, html {
     padding: 8px 12px;
     border-radius: 4px;
     transition: background var(--transition-fast);
+}
+
+#toc-toggle-btn{
+    right: 120px;
+}
+#jump-progress-btn{
+    right: 36px;
 }
 
 .nav-control-btn:hover {

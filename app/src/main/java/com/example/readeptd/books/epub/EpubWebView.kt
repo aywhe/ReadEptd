@@ -43,6 +43,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
 
     private var onDoubleClickListener: (() -> Unit)? = null
     private var onFontSizeChangedListener: ((Float) -> Unit)? = null
+    private var onClickJumpToProgressListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
 
@@ -70,6 +71,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         currentPageTextCallback = null
         onSearchingResultCallback = null
         onSearchCompletedCallback = null
+        onClickJumpToProgressListener = null
         
         super.destroy()
     }
@@ -445,6 +447,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     fun setOnFontSizeChangedListener(listener: (Float) -> Unit) {
         onFontSizeChangedListener = listener
     }
+
+    /**
+     * 点击了弹出跳转到进度的按钮
+     */
+    fun setOnClickJumpToProgressListener(listener: () -> Unit){
+        onClickJumpToProgressListener = listener
+    }
     
     /**
      * JavaScript 桥接类
@@ -596,6 +605,15 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onFontSizeChanged(fontSizePx: Float) {
             Log.d(TAG, "字体大小变化: $fontSizePx")
             runOnMain { onFontSizeChangedListener?.invoke(fontSizePx) }
+        }
+
+        /**
+         * 点击了跳转到进度的按钮
+         */
+        @JavascriptInterface
+        fun onClickJumpToProgress(){
+            Log.d(TAG, "点击跳转到进度")
+            runOnMain { onClickJumpToProgressListener?.invoke() }
         }
         
         /**

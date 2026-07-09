@@ -134,6 +134,12 @@ const AndroidBridge = {
         if (window.Android && window.Android.onFontSizeChanged) {
             window.Android.onFontSizeChanged(newFontSize);
         }
+    },
+
+    onClickJumpToProgress(){
+        if (window.Android && window.Android.onClickJumpToProgress) {
+            window.Android.onClickJumpToProgress();
+        }
     }
 };
 
@@ -238,6 +244,11 @@ const UIManager = {
                 links[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }, 10);
+    },
+
+    jumpToProgressButtonClicked(){
+        AndroidBridge.onClickJumpToProgress();
+        this.closeNavPanel();
     },
 
     closeNavPanel() {

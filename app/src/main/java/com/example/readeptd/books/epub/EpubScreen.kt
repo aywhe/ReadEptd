@@ -89,6 +89,7 @@ fun EpubScreen(
                 var isShowSearchDialog by remember { mutableStateOf(false) }
                 var isShowJumpToProgressDialog by remember { mutableStateOf(false)}
                 var isShowLayoutSettingDialog by remember { mutableStateOf(false)}
+
                 var webView by remember { mutableStateOf<EpubWebView?>(null) }
                 var currentKeyword by remember { mutableStateOf("") }
                 val config by contentViewModel.configData.collectAsStateWithLifecycle()
@@ -199,6 +200,10 @@ fun EpubScreen(
                                 setOnDoubleClickListener {
                                     Log.d("EpubScreen", "双击")
                                     contentViewModel.onEvent(ContentUiEvent.OnDoubleClickScreen)
+                                }
+
+                                setOnClickJumpToProgressListener {
+                                    isShowJumpToProgressDialog = true
                                 }
 
                                 setOnErrorListener { errorMessage ->
