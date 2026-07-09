@@ -191,7 +191,7 @@ fun BookmarkHint(
     }
 
     SlideHint(
-        tips = "找到书签",
+        tips = "发现书签",
         visible = isShowBookmarkTip && config.isShowBookmarkHint,
         alignment = Alignment.TopStart,
         padding = PaddingValues(top = 72.dp),

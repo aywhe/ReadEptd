@@ -733,8 +733,8 @@ class TxtViewModel(
     fun search(
         keyword: String,
         startPage: Int = 0,
-        previewCharsNeighborLeft: Int = 25,
-        previewCharsNeighborRight: Int = 25,
+        previewCharsNeighborLeft: Int = 32,
+        previewCharsNeighborRight: Int = 32,
         maxCountOnePage: Int = 10,
         searchSwitchStep: Int = 20
     ): Flow<SearchData.TxtSearchResult> = flow {

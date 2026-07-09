@@ -4,13 +4,13 @@ package com.example.readeptd.bookmark
  * 书签基类
  * 不同的文件格式有不同的书签属性
  */
-sealed interface BookmarkData: Comparable<BookmarkData> {
+sealed interface BookmarkData : Comparable<BookmarkData> {
     val id: Long
     val bookId: String
     val note: String
     val createdTime: Long
 
-    fun isInPosition(other:BookmarkData): Boolean
+    fun isInPosition(other: BookmarkData): Boolean
     fun copyVal(
         id: Long = this.id,
         bookId: String = this.bookId,
@@ -21,6 +21,7 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
     override fun compareTo(other: BookmarkData): Int {
         return 0
     }
+
     /**
      * EPUB 格式的书签
      * 支持 CFI
@@ -40,11 +41,16 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
             val percentage: Double
         )
 
-        override fun isInPosition(other:BookmarkData): Boolean{
+        override fun isInPosition(other: BookmarkData): Boolean {
             return other is BookmarkData.Epub
                     && start.percentage >= other.start.percentage
-                    && start.percentage <= other.end.percentage
+                    && if (other.start.percentage == other.end.percentage) {
+                        start.percentage <= other.end.percentage
+                    } else {
+                        start.percentage < other.end.percentage
+                    }
         }
+
         override fun copyVal(
             id: Long,
             bookId: String,
@@ -60,9 +66,10 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
                 end = this.end
             )
         }
-        override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Epub) start.percentage.compareTo(other.start.percentage)
-                else 0
+
+        override fun compareTo(other: BookmarkData): Int {
+            return if (other is BookmarkData.Epub) start.percentage.compareTo(other.start.percentage)
+            else 0
         }
     }
 
@@ -76,10 +83,11 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
         override val note: String = "",
         override val createdTime: Long = System.currentTimeMillis(),
         val pageNumber: Int
-    ) : BookmarkData{
-        override fun isInPosition(other:BookmarkData): Boolean{
+    ) : BookmarkData {
+        override fun isInPosition(other: BookmarkData): Boolean {
             return other is BookmarkData.Pdf && other.pageNumber == pageNumber
         }
+
         override fun copyVal(
             id: Long,
             bookId: String,
@@ -94,8 +102,9 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
                 pageNumber = this.pageNumber
             )
         }
-        override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Pdf) pageNumber.compareTo(other.pageNumber) else 0
+
+        override fun compareTo(other: BookmarkData): Int {
+            return if (other is BookmarkData.Pdf) pageNumber.compareTo(other.pageNumber) else 0
         }
     }
 
@@ -110,12 +119,13 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
         override val createdTime: Long = System.currentTimeMillis(),
         val startPos: Long,
         val endPos: Long
-    ) : BookmarkData{
-        override fun isInPosition(other:BookmarkData): Boolean{
+    ) : BookmarkData {
+        override fun isInPosition(other: BookmarkData): Boolean {
             return other is BookmarkData.Txt
                     && startPos >= other.startPos
                     && startPos < other.endPos
         }
+
         override fun copyVal(
             id: Long,
             bookId: String,
@@ -131,8 +141,9 @@ sealed interface BookmarkData: Comparable<BookmarkData> {
                 endPos = this.endPos
             )
         }
-        override fun compareTo(other: BookmarkData): Int{
-            return if(other is BookmarkData.Txt) (startPos.compareTo(other.startPos)) else 0
+
+        override fun compareTo(other: BookmarkData): Int {
+            return if (other is BookmarkData.Txt) (startPos.compareTo(other.startPos)) else 0
         }
     }
 }

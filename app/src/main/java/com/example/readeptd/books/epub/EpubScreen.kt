@@ -320,7 +320,6 @@ fun EpubScreen(
                                 scope.launch {
                                     try {
                                         val cfi = (bookmarkData as BookmarkData.Epub).start.cfi
-                                        //webView?.highlightSingle(cfi) // TODO: 改成mark
                                         webView?.goToLocation(cfi)
                                     } catch (e: Exception) {
                                         Log.e("TxtScreen", "跳转页失败: ${e.message}")
