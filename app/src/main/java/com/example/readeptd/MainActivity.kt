@@ -17,7 +17,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -72,8 +71,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import com.example.readeptd.data.ConfigureData
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +82,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.activity.MainUiEvent
 import com.example.readeptd.activity.MainUiState
 import com.example.readeptd.activity.MainViewModel
-import com.example.readeptd.bookmark.BookmarkViewModel
 import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.ui.theme.ReadEptdTheme
@@ -654,7 +650,7 @@ fun FileItemCard(
             // ✅ 检查原始 URI 是否仍然可访问
             // 注意：临时文件是在打开文件时才创建的，不是在选择文件时
             // 所以需要检查原始 URI 的有效性
-            isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
+            //isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
 
@@ -896,14 +892,27 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                Text("显示书签提示")
-                Switch(
-                    checked = config.isShowBookmarkHint,
-                    onCheckedChange = {
-                        viewModel.updateConfig { copy(isShowBookmarkHint = it) }
-                    }
-                )
-            }
+                    Text("显示书签提示")
+                    Switch(
+                        checked = config.isShowBookmarkHint,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isShowBookmarkHint = it) }
+                        }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("显示悬浮球")
+                    Switch(
+                        checked = config.isShowToolTipsInFullScreen,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isShowToolTipsInFullScreen = it) }
+                        }
+                    )
+                }
 
                 HorizontalDivider()
 

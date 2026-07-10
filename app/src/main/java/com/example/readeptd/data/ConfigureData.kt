@@ -11,6 +11,7 @@ data class ConfigureData(
     val isDynamicColor: Boolean = true,
     val autoNightMode: Boolean = false,
     val isShowBookmarkHint: Boolean = true,
+    val isShowToolTipsInFullScreen: Boolean = true,
     val autoNightStartTime: String = "20:00",
     val autoNightEndTime: String = "06:00"
 ) {
@@ -23,6 +24,7 @@ data class ConfigureData(
             put(KEY_IS_DYNAMIC_COLOR, isDynamicColor)
             put(KEY_AUTO_NIGHT_MODE, autoNightMode)
             put(KEY_IS_SHOW_BOOKMARK_HINT,isShowBookmarkHint)
+            put(KEY_IS_SHOW_TOOLTIPS_IN_FULLSCREEN,isShowToolTipsInFullScreen)
             put(KEY_AUTO_NIGHT_START_TIME, autoNightStartTime)
             put(KEY_AUTO_NIGHT_END_TIME, autoNightEndTime)
         }.toString()
@@ -33,6 +35,7 @@ data class ConfigureData(
         private const val KEY_IS_DYNAMIC_COLOR = "is_dynamic_color"
         private const val KEY_AUTO_NIGHT_MODE = "auto_night_mode"
         private const val KEY_IS_SHOW_BOOKMARK_HINT = "is_show_bookmark_hint"
+        private const val KEY_IS_SHOW_TOOLTIPS_IN_FULLSCREEN = "key_is_show_tooltips_in_fullscreen"
         private const val KEY_AUTO_NIGHT_START_TIME = "auto_night_start_time"
         private const val KEY_AUTO_NIGHT_END_TIME = "auto_night_end_time"
 
@@ -46,6 +49,7 @@ data class ConfigureData(
                 isDynamicColor = jsonObject.optBoolean(KEY_IS_DYNAMIC_COLOR, true),
                 autoNightMode = jsonObject.optBoolean(KEY_AUTO_NIGHT_MODE, false),
                 isShowBookmarkHint = jsonObject.optBoolean(KEY_IS_SHOW_BOOKMARK_HINT, true),
+                isShowToolTipsInFullScreen = jsonObject.optBoolean(KEY_IS_SHOW_TOOLTIPS_IN_FULLSCREEN, true),
                 autoNightStartTime = jsonObject.optString(KEY_AUTO_NIGHT_START_TIME, "20:00"),
                 autoNightEndTime = jsonObject.optString(KEY_AUTO_NIGHT_END_TIME, "06:00")
             )
