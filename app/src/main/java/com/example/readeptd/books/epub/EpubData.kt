@@ -5,6 +5,21 @@ import org.json.JSONObject
 /**
  * EPUB 页面信息数据类
  * 对应 epub.js relocated 事件返回的完整位置信息
+ *
+ * |---------------------------------------|--------|-----------------------|
+ * | 成员                                   | 类型    | 含义 |
+ * |---------------------------------------|--------|-----------------------|
+ * | `start`                               | Object | 当前显示页面起始位置的信息 |
+ * | `end`                                 | Object | 当前显示页面结束位置的信息 |
+ * | `start.cfi` / `end.cfi`               | string | 起始/结束位置的 CFI 定位符 |
+ * | `start.href` / `end.href`             | string | 所在章节的 HTML 文件名 |
+ * | `start.index` / `end.index`           | number | 章节在 spine 中的索引（从1开始） |
+ * | `start.location` / `end.location`     | number | 线性位置索引，对应 `book.locations` 数组的下标 |
+ * | `start.percentage` / `end.percentage` | number | 起始/结束位置占全书的百分比（0~1） |
+ * | `start.displayed.page`                | number | 当前页在章节内的页码 |
+ * | `start.displayed.total`               | number | 当前章节的总页数 |
+ * |---------------------------------------|--------|-----------------------|
+ *
  */
 data class EpubLocation(
     val start: Position,
@@ -17,7 +32,7 @@ data class EpubLocation(
         val cfi: String,
         val displayed: Displayed,
         val location: Int,
-        val percentage: Float
+        val percentage: Double
     ) {
         companion object {
             /**
@@ -37,7 +52,7 @@ data class EpubLocation(
                     cfi = positionJson.optString("cfi", ""),
                     displayed = displayed,
                     location = positionJson.optInt("location", 0),
-                    percentage = positionJson.optDouble("percentage", 0.0).toFloat()
+                    percentage = positionJson.optDouble("percentage", 0.0)
                 )
             }
 
@@ -51,7 +66,7 @@ data class EpubLocation(
                     cfi = "",
                     displayed = Displayed.default(),
                     location = 0,
-                    percentage = 0f
+                    percentage = 0.0
                 )
             }
         }
@@ -132,6 +147,7 @@ data class EpubSearchResult(
     val href: String = "",
     val sectionIndex: Int = -1,
     val cfi: String = "",
+    val locInd: Int = -1,
     val excerpt: String = "",
     val chapterTitle: String = "",
     val idref: String = "",
@@ -151,6 +167,7 @@ data class EpubSearchResult(
                 href = json.optString("href", ""),
                 sectionIndex = json.optInt("sectionIndex", -1),
                 cfi = json.optString("cfi", ""),
+                locInd = json.optInt("locInd", -1),
                 excerpt = json.optString("excerpt", ""),
                 chapterTitle = json.optString("chapterTitle", ""),
                 idref = json.optString("idref", ""),

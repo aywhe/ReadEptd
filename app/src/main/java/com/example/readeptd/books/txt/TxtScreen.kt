@@ -4,6 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,18 +52,27 @@ import com.example.readeptd.activity.ContentUiEvent
 import com.example.readeptd.speech.TtsViewModel
 import com.example.readeptd.utils.JumpToPageDialog
 import com.example.readeptd.activity.ContentViewModel
+import com.example.readeptd.bookmark.BookmarkData
+import com.example.readeptd.bookmark.BookmarkDialog
+import com.example.readeptd.bookmark.BookmarkHint
+import com.example.readeptd.bookmark.BookmarkListPanel
+import com.example.readeptd.bookmark.BookmarkViewModel
+import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
 import com.example.readeptd.utils.JumpToProgressDialog
 import com.example.readeptd.utils.LayoutSettingDialog
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.text.toInt
 
 /**
  * ✅ TXT 阅读器主屏幕
@@ -84,6 +96,7 @@ fun TxtScreen(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
     ttsModel: TtsViewModel,
+    bookmarkViewModel: BookmarkViewModel = viewModel(),
     modifier: Modifier = Modifier,
     viewModel: TxtViewModel = viewModel()
 ) {
@@ -95,6 +108,7 @@ fun TxtScreen(
     LaunchedEffect(fileInfo.uri) {
         Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
         viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -103,6 +117,7 @@ fun TxtScreen(
             is BookUiState.Ready -> ReadyState(
                 fileInfo = fileInfo,
                 contentViewModel = contentViewModel,
+                bookmarkViewModel = bookmarkViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel
             )
@@ -156,6 +171,7 @@ private fun ErrorState(message: String) {
 private fun ReadyState(
     fileInfo: FileInfo,
     contentViewModel: ContentViewModel,
+    bookmarkViewModel:BookmarkViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel
 ) {
@@ -249,6 +265,7 @@ private fun ReadyState(
                 fileInfo = fileInfo,
                 isSwipeLayout = isSwipeLayout,
                 contentViewModel = contentViewModel,
+                bookmarkViewModel = bookmarkViewModel,
                 viewModel = viewModel,
                 ttsModel = ttsModel,
                 onLongPressProgressInfo = { isShowLayoutSettingDialog = true },
@@ -289,11 +306,13 @@ private fun PagingState() {
 /**
  * ✅ 阅读器内容（分页完成后）
  */
+@OptIn(FlowPreview::class)
 @Composable
 private fun ReaderContent(
     fileInfo: FileInfo,
     isSwipeLayout: Boolean,
     contentViewModel: ContentViewModel,
+    bookmarkViewModel: BookmarkViewModel,
     viewModel: TxtViewModel,
     ttsModel: TtsViewModel,
     onLongPressProgressInfo: (String) -> Unit,
@@ -302,17 +321,81 @@ private fun ReaderContent(
 ) {
     val currentPage by viewModel.currentPage.collectAsState()
     var currentKeyword by remember { mutableStateOf("") }
+    var currentKeywordCharOffset by remember { mutableStateOf(-1L) }
 
     // ✅ 对话框状态管理 - 就近定义
     var isShowJumpToPageDialog by remember { mutableStateOf(false) }
     var isShowSearchDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    var previewScale by remember { mutableFloatStateOf(1f) }
+    val zoomSensitivity = 0.2f
+    val maxFontSize = 32f
+    val minFontSize = 12f
+    val maxLineHeight = 48f
+    val minLineHeight = 18f
+
+    LaunchedEffect(Unit) {
+        // 4. 监听预览缩放的变化
+        snapshotFlow { previewScale }
+            .debounce(1500) // 300ms 防抖，等待用户手指松开或停止缩放
+            .collectLatest { finalScale ->
+                if(finalScale == 1f) return@collectLatest  // 如果没有缩放，直接返回
+                // 5. 只有当用户停止操作后，才更新最终的 scale 状态
+                // 这会触发 viewModel 发送 OnFontSizeChanged 事件
+                val newFontSizeSp = (viewModel.currentFontSizeSp * finalScale).coerceIn(minFontSize, maxFontSize)
+                val newLineHeightSp = (viewModel.currentLineHeightSp * finalScale).coerceIn(minLineHeight, maxLineHeight)
+                if(newFontSizeSp != viewModel.currentFontSizeSp) {
+                    viewModel.onEvent(TxtEvent.OnFontSizeChanged(newFontSizeSp))
+                }
+                if(newLineHeightSp != viewModel.currentLineHeightSp) {
+                    viewModel.onEvent(TxtEvent.OnLineHeightChanged(newLineHeightSp))
+                }
+                previewScale = 1f  // 重置预览缩放
+            }
+    }
+
+    var isShowBookmarkDialog by remember { mutableStateOf(false) }
+    var isShowBookmarkListPanel by remember { mutableStateOf(false) }
+
+
+    var currentPageChunk: TextChunk? by remember {mutableStateOf(null)}
+    LaunchedEffect(currentPage) {
+        currentPageChunk = viewModel.getPage(currentPage)
+    }
+
+    val currentBookmarkDataList by bookmarkViewModel.findInPosition(
+        BookmarkData.Txt(
+            bookId = fileInfo.uri,
+            startPos = if(currentPageChunk == null) 0 else currentPageChunk!!.startPos,
+            endPos = if(currentPageChunk == null) 0 else currentPageChunk!!.endPos,
+            note = "[#${if(currentPageChunk == null) "" else currentPageChunk!!.startPos}#$currentPage]"
+        )
+    ).collectAsStateWithLifecycle(emptyList())
+
+    LaunchedEffect(currentBookmarkDataList, currentBookmarkDataList.size) {
+        contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
+    }
+
+
+    Box(modifier = Modifier.fillMaxSize()
+        .pointerInput(Unit) {
+            detectTransformGestures(
+                onGesture = { centroid, pan, zoom, rotation ->
+                    // 阻尼处理
+                    val dampenedScale = 1 + (zoom - 1) * zoomSensitivity;
+                    previewScale *= dampenedScale
+                    previewScale = previewScale.coerceIn(0.2f, 5.0f)
+                }
+            )
+        }
+    ) {
         // ✅ 设置回调
         SetupCallbacks(
             contentViewModel = contentViewModel,
             onClickProgressInfo = { isShowJumpToPageDialog = true },
             onLongPressProgressInfo = onLongPressProgressInfo,
+            onClickBookmark = { isShowBookmarkDialog = true },
+            onLongPressBookmark = { isShowBookmarkListPanel = true },
             onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
         )
 
@@ -338,14 +421,22 @@ private fun ReaderContent(
         ) { page ->
             val pageContent = viewModel.getPageContent(page).trimEnd()
             val pageAnnotatedContent = if(isShowSearchDialog) {
-                highLightText(pageContent, currentKeyword)
+                // 因为不同的分页，搜索结果在页面中得到位置不准确，需要重新计算
+                val pageChunk = viewModel.getPage(page)
+                var offsetInChunk = -1L
+                if(pageChunk != null && currentKeywordCharOffset >= pageChunk.startPos && currentKeywordCharOffset <= pageChunk.endPos) {
+                    offsetInChunk = currentKeywordCharOffset - pageChunk.startPos
+                }
+                highLightText(pageContent, currentKeyword, offsetInChunk.toInt())
             } else {
                 AnnotatedString(pageContent)
             }
+            val currentDisplayFontSizeSp = (viewModel.currentFontSizeSp * previewScale).coerceIn(minFontSize,maxFontSize)
+            val currentDisplayLineHeightSp = (viewModel.currentLineHeightSp * previewScale).coerceIn(minLineHeight,maxLineHeight)
             PageContent(
                 pageAnnotatedContent = pageAnnotatedContent,
-                fontSize = viewModel.currentFontSizeSp,
-                lineHeight = viewModel.currentLineHeightSp,
+                fontSize = currentDisplayFontSizeSp,
+                lineHeight = currentDisplayLineHeightSp,
                 contentPadding = contentPadding
             )
         }
@@ -360,16 +451,87 @@ private fun ReaderContent(
             scope = scope
         )
 
-        SearchPanel(
-            fileInfo = fileInfo,
-            isShowSearchDialog = isShowSearchDialog,
-            currentPage = currentPage,
-            currentKeyword = currentKeyword,
-            viewModel = viewModel,
+        LaunchedEffect(isShowSearchDialog) {
+            if(!isShowSearchDialog){
+                currentKeywordCharOffset = -1L
+            }
+        }
+
+        SlideInSearchPanel(
+            visible = isShowSearchDialog,
             onVisibleChange = { isShowSearchDialog = it },
-            onKeywordChange = { currentKeyword = it },
-            scope = scope
+            onClose = { isShowSearchDialog = false },
+            getDistanceToResult = {
+                val result = it as SearchData.TxtSearchResult
+                kotlin.math.abs(result.pageIndex - currentPage).toLong()
+            },
+            onResultClick = {
+                scope.launch {
+                    try {
+                        val result = it as SearchData.TxtSearchResult
+                        currentKeywordCharOffset = result.charOffset
+                        val pageIndex = viewModel.findPageByCharOffset(result.charOffset)
+                        viewModel.goToPage(pageIndex)
+                    } catch (e: Exception) {
+                        Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                    }
+                }
+            },
+            onKeywordChange = {
+                currentKeyword = it
+                currentKeywordCharOffset = -1L
+            },
+            searchExecutor = { keyword -> viewModel.search(keyword) },
+            fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
         )
+        BookmarkHint(contentViewModel = contentViewModel)
+
+        if(isShowBookmarkListPanel){
+            BookmarkListPanel(
+                viewModel = bookmarkViewModel,
+                onClose = {
+                    isShowBookmarkListPanel = false
+                },
+                onBookmarkClick = { bookmarkData ->
+                    scope.launch {
+                        try {
+                            val pageIndex = viewModel.findPageByCharOffset((bookmarkData as BookmarkData.Txt).startPos)
+                            viewModel.goToPage(pageIndex)
+                        } catch (e: Exception) {
+                            Log.e("TxtScreen", "跳转页失败: ${e.message}")
+                        }
+                    }
+                },
+                currentDistanceToBookmark = {
+                    if(currentPageChunk == null) Long.MAX_VALUE else
+                        kotlin.math.abs((it as BookmarkData.Txt).startPos - currentPageChunk!!.startPos)
+                }
+            )
+        }
+
+        if(isShowBookmarkDialog){
+            BookmarkDialog(
+                bookmarkData =
+                    if(currentBookmarkDataList.isNotEmpty())
+                        currentBookmarkDataList.first()
+                    else
+                        BookmarkData.Txt(
+                            bookId = fileInfo.uri,
+                            startPos = if(currentPageChunk == null) 0 else currentPageChunk!!.startPos,
+                            endPos = if(currentPageChunk == null) 0 else currentPageChunk!!.endPos,
+                            note = "[#${if(currentPageChunk == null) "" else currentPageChunk!!.startPos}#$currentPage]"
+                        ),
+                onDismiss = {
+                    isShowBookmarkDialog = false
+                },
+                onAfterConfirm = {
+                    isShowBookmarkDialog = false
+                },
+                onAfterDelete = {
+                    isShowBookmarkDialog = false
+                }
+            )
+        }
     }
 }
 
@@ -381,17 +543,22 @@ private fun SetupCallbacks(
     contentViewModel: ContentViewModel,
     onClickProgressInfo: (String) -> Unit,
     onLongPressProgressInfo: (String) -> Unit,
+    onClickBookmark: () -> Unit,
+    onLongPressBookmark: () -> Unit,
     onClickSearchButton: () -> Unit
 ) {
     DisposableEffect(Unit) {
         contentViewModel.setOnClickProgressInfoCallback { onClickProgressInfo(it) }
         contentViewModel.setOnLongPressProgressInfoCallback { onLongPressProgressInfo(it) }
         contentViewModel.setOnClickSearchButtonCallback { onClickSearchButton() }
-
+        contentViewModel.setOnClickBookmarkCallback { onClickBookmark() }
+        contentViewModel.setOnLongPressBookmarkCallback { onLongPressBookmark() }
         onDispose {
             contentViewModel.setOnClickProgressInfoCallback(null)
             contentViewModel.setOnLongPressProgressInfoCallback(null)
             contentViewModel.setOnClickSearchButtonCallback(null)
+            contentViewModel.setOnClickBookmarkCallback(null)
+            contentViewModel.setOnLongPressBookmarkCallback(null)
         }
     }
 }
@@ -494,7 +661,7 @@ private fun JumpDialogs(
         )
     } else {
         JumpToProgressDialog(
-            progress = viewModel.getProgress(),
+            progress = viewModel.getProgress().toFloat(),
             onDismiss = onDismiss,
             onConfirm = {
                 scope.launch { viewModel.goToPage(viewModel.findPageByProgress(it)) }
@@ -530,41 +697,6 @@ private fun LayoutSettingDialogs(
 }
 
 /**
- * ✅ 搜索面板
- */
-@Composable
-private fun SearchPanel(
-    fileInfo: FileInfo,
-    isShowSearchDialog: Boolean,
-    currentPage: Int,
-    currentKeyword: String,
-    viewModel: TxtViewModel,
-    onVisibleChange: (Boolean) -> Unit,
-    onKeywordChange: (String) -> Unit,
-    scope: CoroutineScope
-) {
-    SlideInSearchPanel(
-        visible = isShowSearchDialog,
-        onVisibleChange = { onVisibleChange(it) },
-        onClose = { onVisibleChange(false) },
-        getCurrentPosition = { currentPage },
-        onResultClick = {
-            scope.launch {
-                try {
-                    val pageIndex = viewModel.findPageByCharOffset((it as SearchData.TxtSearchResult).charOffset)
-                    viewModel.goToPage(pageIndex)
-                } catch (e: Exception) {
-                    Log.e("TxtScreen", "跳转页失败: ${e.message}")
-                }
-            }
-        },
-        onKeywordChange = onKeywordChange,
-        searchExecutor = { keyword -> viewModel.search(keyword) },
-        fileUri = fileInfo.uri  // ✅ 传递文件 URI，用于隔离搜索历史
-    )
-}
-
-/**
  * ✅ 页面内容显示组件
  *
  * 使用 SelectionContainer 包裹以支持文本选择
@@ -577,8 +709,8 @@ private fun SearchPanel(
 @Composable
 fun PageContent(
     pageAnnotatedContent: AnnotatedString,
-    fontSize: Int,
-    lineHeight: Int,
+    fontSize: Float,
+    lineHeight: Float,
     contentPadding: PaddingValues = PaddingValues()
 ) {
     SelectionContainer {
@@ -600,10 +732,11 @@ fun PageContent(
  *
  * @param content 原始文本
  * @param keyword 要高亮的关键词
+ * @param offset 关键词在文本中的偏移位置（可选，用于定位特定实例）
  * @return 带高亮样式的 AnnotatedString
  */
 @Composable
-fun highLightText(content: String, keyword: String): AnnotatedString {
+fun highLightText(content: String, keyword: String, offset: Int = -1): AnnotatedString {
     return if (keyword.isNotBlank()) {
         buildAnnotatedString {
             append(content)
@@ -612,7 +745,11 @@ fun highLightText(content: String, keyword: String): AnnotatedString {
             var startIndex = 0
             while (startIndex <= content.length - keyword.length) {
                 val matchIndex = content.indexOf(keyword, startIndex, ignoreCase = true)
-                if (matchIndex == -1) break
+                if (matchIndex == -1) break // 没有更多匹配项，退出循环
+                if(offset >=0 && matchIndex != offset) {
+                    startIndex = matchIndex + keyword.length
+                    continue // 如果指定了偏移位置且不匹配，跳过当前匹配
+                }
 
                 // 为匹配的关键词添加黄色背景高亮
                 addStyle(
@@ -652,7 +789,10 @@ fun TxtLayoutWrapper(
     pageContent: @Composable (Int) -> Unit
 ) {
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
-    val initialPage = viewModel.findPageByCharOffset(readingState?.charOffset ?: 0)
+    val totalPages = viewModel.getPagesCount()
+    val initialPage by remember(isSwipeLayout,totalPages){
+        mutableIntStateOf(viewModel.findPageByCharOffset(readingState?.charOffset ?: 0))
+    }
     Log.d("TxtScreen", "[TxtLayoutWrapper] 初始页: $initialPage")
     if (isSwipeLayout) {
         TxtSwipeLayout(

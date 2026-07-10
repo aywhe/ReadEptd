@@ -16,6 +16,9 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.ArrayDeque
+import java.util.Queue
+import kotlin.math.roundToInt
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -27,6 +30,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onLoadCompleteListener: (() -> Unit)? = null
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
+    private var lastFontSizePx: Float? = null
     private var currentTheme: EpubTheme = EpubTheme.Light
     private var currentFlowMode: EpubFlowMode = EpubFlowMode.Paginated
 
@@ -38,8 +42,12 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onSearchCompletedCallback: (() -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
+    private var onFontSizeChangedListener: ((Float) -> Unit)? = null
+    private var onClickJumpToProgressListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
     private val scope: CoroutineScope = MainScope()
+
+    private val highlightedCFIs: Queue<String> = ArrayDeque()
     
     init {
         setupWebView()
@@ -57,11 +65,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         onLoadCompleteListener = null
         onErrorListener = null
         onDoubleClickListener = null
+        onFontSizeChangedListener = null
         pageActionPendingCallback = null
         locationRetrievedCallback = null
         currentPageTextCallback = null
         onSearchingResultCallback = null
         onSearchCompletedCallback = null
+        onClickJumpToProgressListener = null
         
         super.destroy()
     }
@@ -146,6 +156,16 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "设置起始位置 CFI: ${cfi ?: "(无)"}")
     }
 
+    /**
+     * 设置最后一次字体大小（px）
+     * 必须在 HTML 加载完成前调用
+     * @param fontSizePx 字体大小（px）
+     */
+    fun setFontSize(fontSizePx: Float?) {
+        this.lastFontSizePx = fontSizePx
+        Log.d(TAG, "设置字体大小: ${fontSizePx ?: "(无)"}")
+    }
+
     private fun setLastReadingCfi(cfi: String?) {
         Log.d(TAG, "设置最后阅读位置 CFI: ${cfi ?: "(无)"}")
         executeJs("window.EpubReader.setLastReadingCfi('$cfi')") { result ->
@@ -179,6 +199,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
 
     fun startEpubWebsite(){
         setLastReadingCfi(startCfi)
+        setLastFontSize(lastFontSizePx) // 设置默认字体大小为 16px
         updateFlowMode(currentFlowMode)
         setHtmlTheme(currentTheme) // 设置当前主题
         initEpubWebSite(epubFilePath)
@@ -296,11 +317,20 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.getCurrentLocation()")
     }
 
+    /**
+     * 切换导航面板（异步）
+     */
     fun toggleNavPanel(){
         Log.d(TAG, "执行 JavaScript 切换导航面板...")
         executeJs("window.EpubReader.toggleNavPanel()")
     }
 
+    /**
+     * 搜索文本（异步回调方式）
+     * @param keyword 搜索关键词
+     * @param resultCallback 回调函数，接收搜索结果
+     * @param completedCallback 回调函数，搜索完成时调用
+     */
     fun search(keyword: String,
                resultCallback: (EpubSearchResult?) -> Unit,
                completedCallback: () -> Unit) {
@@ -311,8 +341,53 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         executeJs("window.EpubReader.search('$keyword')")
     }
 
+    /**
+     * 移除所有高亮
+     */
+    fun removeAllHighlights() {
+        // 移除所有已存在的高亮
+        while (highlightedCFIs.isNotEmpty()) {
+            val oldCfi = highlightedCFIs.poll()
+            if (oldCfi != null) {
+                highlight(oldCfi, true)
+            }
+        }
+    }
+
+    /**
+     * 清除所有高亮并添加新的高亮
+     * @param cfi 要高亮的 CFI 位置
+     */
+    fun highlightSingle(cfi: String) {
+
+        removeAllHighlights()
+
+        // 添加新的高亮
+        highlight(cfi, false)
+        highlightedCFIs.add(cfi)
+        Log.d(TAG, "添加高亮: $cfi")
+    }
+
+    /**
+     * 高亮文本（异步）
+     * @param cfi 高亮位置的 CFI
+     * @param isRemove 是否移除高亮
+     */
     fun highlight(cfi: String, isRemove: Boolean){
         executeJs("window.EpubReader.highlight('$cfi', $isRemove)")
+    }
+
+    /**
+     * 设置最后一次字体大小（px）
+     * @param fontSizePx 字体大小（px）
+     */
+    private fun setLastFontSize(fontSizePx: Float?) {
+        if(fontSizePx == null) {
+            Log.d(TAG, "字体大小为 null，跳过设置")
+            return
+        }
+        Log.d(TAG, "执行 JavaScript 设置字体大小: ${fontSizePx}px")
+        executeJs("window.EpubReader.setLastFontSize($fontSizePx)")
     }
 
     /**
@@ -365,12 +440,30 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     fun setOnDoubleClickListener(listener: () -> Unit) {
         onDoubleClickListener = listener
     }
+
+    /**
+     * 设置字体大小变化监听器
+     */
+    fun setOnFontSizeChangedListener(listener: (Float) -> Unit) {
+        onFontSizeChangedListener = listener
+    }
+
+    /**
+     * 点击了弹出跳转到进度的按钮
+     */
+    fun setOnClickJumpToProgressListener(listener: () -> Unit){
+        onClickJumpToProgressListener = listener
+    }
     
     /**
      * JavaScript 桥接类
      */
     inner class AndroidBridge {
-        
+
+        /**
+         * 页面位置变化的回调
+         * @param locationJson 位置信息 JSON 字符串
+         */
         @JavascriptInterface
         fun onPageChanged(locationJson: String) {
             Log.d(TAG, "页面位置变化: $locationJson")
@@ -385,7 +478,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                 Log.e(TAG, "解析页面位置信息失败", e)
             }
         }
-        
+
+        /**
+         * 获取到位置信息的回调
+         * @param locationJson 位置信息 JSON 字符串
+         */
         @JavascriptInterface
         fun onLocationRetrieved(locationJson: String) {
             Log.d(TAG, "获取到位置信息: $locationJson")
@@ -408,6 +505,11 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                 }
             }
         }
+
+        /**
+         * 搜索结果的回调
+         * @param result 搜索结果 JSON 字符串
+         */
         @JavascriptInterface
         fun onSearchingResult(result: String) {
             Log.d(TAG, "搜索结果: $result")
@@ -419,6 +521,10 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             }
             runOnMain { onSearchingResultCallback?.invoke(searchResult) }
         }
+
+        /**
+         * 搜索完成的回调
+         */
         @JavascriptInterface
         fun onSearchCompleted() {
             runOnMain {
@@ -427,19 +533,30 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                 onSearchCompletedCallback = null
             }
         }
-        
+
+        /**
+         * 加载完成的回调
+         */
         @JavascriptInterface
         fun onLoadComplete() {
             Log.d(TAG, "加载完成")
             runOnMain { onLoadCompleteListener?.invoke() }
         }
 
+        /**
+         * 错误回调
+         * @param message 错误信息
+         */
         @JavascriptInterface
         fun onError(message: String) {
             Log.e(TAG, "错误: $message")
             runOnMain { onErrorListener?.invoke(message) }
         }
 
+        /**
+         * 页面操作完成的回调（如翻页、跳转等）
+         * @param action 操作类型，如 "nextPage"、"prevPage"、"goToLocation"
+         */
         @JavascriptInterface
         fun onPageActionComplete(action: String) {
             Log.d(TAG, "页面操作完成: $action")
@@ -449,18 +566,28 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
             }
         }
 
+        /**
+         * HTML 准备就绪的回调
+         */
         @JavascriptInterface
         fun onHtmlReady() {
             Log.d(TAG, "HTML 准备就绪，开始加载 EPUB 文件")
             startEpubWebsite()
         }
 
+        /**
+         * 检测到双击事件的回调
+         */
         @JavascriptInterface
         fun onDoubleClick(){
             Log.d(TAG, "检测到双击事件")
             runOnMain { onDoubleClickListener?.invoke() }
         }
 
+        /**
+         * 获取到页面文本的回调
+         * @param text 页面文本内容
+         */
         @JavascriptInterface
         fun onPageTextRetrieved(text: String) {
             Log.d(TAG, "获取到页面文本，长度: ${text.length}")
@@ -468,6 +595,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
                 currentPageTextCallback?.invoke(text)
                 currentPageTextCallback = null
             }
+        }
+
+        /**
+         * 字体大小变化回调
+         * @param fontSizePx 新的字体大小（px）
+         */
+        @JavascriptInterface
+        fun onFontSizeChanged(fontSizePx: Float) {
+            Log.d(TAG, "字体大小变化: $fontSizePx")
+            runOnMain { onFontSizeChangedListener?.invoke(fontSizePx) }
+        }
+
+        /**
+         * 点击了跳转到进度的按钮
+         */
+        @JavascriptInterface
+        fun onClickJumpToProgress(){
+            Log.d(TAG, "点击跳转到进度")
+            runOnMain { onClickJumpToProgressListener?.invoke() }
         }
         
         /**

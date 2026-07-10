@@ -10,7 +10,7 @@ sealed interface ReadingState {
     val uri: String
     val lastReadTime: Long
     val mimeType: String
-    val progress: Float
+    val progress: Double
     val isSwipeLayout: Boolean
     val isRtl: Boolean
 
@@ -35,59 +35,37 @@ sealed interface ReadingState {
             val mimeType = jsonObject.optString(KEY_MIME_TYPE, "application/octet-stream")
             val uri = jsonObject.getString(KEY_URI)
             val lastReadTime = jsonObject.optLong(KEY_LAST_READ_TIME, System.currentTimeMillis())
-            val progress = jsonObject.optDouble(KEY_PROGRESS, 0.0).toFloat()
+            val progress = jsonObject.optDouble(KEY_PROGRESS, 0.0)
             val isSwipeLayout = jsonObject.optBoolean(KEY_IS_SWIPE_LAYOUT, true)
             val isRtl = jsonObject.optBoolean(KEY_IS_RTL, false)
 
             return when {
                 mimeType == "application/epub+zip" || mimeType.contains("epub") -> {
-                    Epub(
-                        uri = uri,
-                        cfi = if (jsonObject.has(Epub.KEY_CFI)) jsonObject.getString(Epub.KEY_CFI) else null,
-                        page = if (jsonObject.has(Epub.KEY_PAGE)) jsonObject.getInt(Epub.KEY_PAGE) else null,
-                        totalPages = if (jsonObject.has(Epub.KEY_TOTAL_PAGES)) jsonObject.getInt(
-                            Epub.KEY_TOTAL_PAGES
-                        ) else null,
-                        progress = progress,
-                        lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout,
-                        isRtl = isRtl
-                    )
+                    Epub.fromJson(jsonObject, uri, lastReadTime, progress, isSwipeLayout, isRtl)
                 }
 
                 mimeType == "application/pdf" -> {
-                    Pdf(
-                        uri = uri,
-                        page = jsonObject.optInt(Pdf.KEY_PAGE, 1),
-                        totalPages = jsonObject.optInt(Pdf.KEY_TOTAL_PAGES, 1),
-                        progress = progress,
-                        lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout,
-                        isRtl = isRtl
-                    )
+                    Pdf.fromJson(jsonObject, uri, lastReadTime, progress, isSwipeLayout, isRtl)
                 }
 
                 mimeType == "text/plain" -> {
-                    Txt(
-                        uri = uri,
-                        charOffset = jsonObject.optLong(Txt.KEY_CHAR_OFFSET, 0),
-                        progress = progress,
-                        lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout,
-                        isRtl = isRtl
-                    )
+                    Txt.fromJson(jsonObject, uri, lastReadTime, progress, isSwipeLayout, isRtl)
                 }
 
                 else -> {
-                    Unknown(
-                        uri = uri,
-                        progress = progress,
-                        lastReadTime = lastReadTime,
-                        isSwipeLayout = isSwipeLayout,
-                        isRtl = isRtl
-                    )
+                    Unknown(uri, progress, lastReadTime, mimeType, isSwipeLayout, isRtl)
                 }
             }
+        }
+
+        // 提取公共字段到单独的方法，供各子类调用
+        fun createBaseJsonObject(readingState: ReadingState): JSONObject = JSONObject().apply {
+            put(KEY_MIME_TYPE, readingState.mimeType)
+            put(KEY_URI, readingState.uri)
+            put(KEY_LAST_READ_TIME, readingState.lastReadTime)
+            put(KEY_PROGRESS, readingState.progress)
+            put(KEY_IS_SWIPE_LAYOUT, readingState.isSwipeLayout)
+            put(KEY_IS_RTL, readingState.isRtl)
         }
     }
 
@@ -100,7 +78,7 @@ sealed interface ReadingState {
         val cfi: String? = null,           // EPUB CFI 定位符
         val page: Int? = null,             // 当前页码
         val totalPages: Int? = null,       // 总页数
-        override val progress: Float = 0f,          // 阅读进度 0.0-1.0
+        override val progress: Double = 0.0,          // 阅读进度 0.0-1.0
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/epub+zip",
         override val isSwipeLayout: Boolean = true,
@@ -110,21 +88,34 @@ sealed interface ReadingState {
             const val KEY_CFI = "cfi"
             const val KEY_PAGE = "page"
             const val KEY_TOTAL_PAGES = "totalPages"
+
+            fun fromJson(
+                jsonObject: JSONObject,
+                uri: String,
+                lastReadTime: Long,
+                progress: Double,
+                isSwipeLayout: Boolean,
+                isRtl: Boolean
+            ): Epub {
+                return Epub(
+                    uri = uri,
+                    cfi = if (jsonObject.has(KEY_CFI)) jsonObject.getString(KEY_CFI) else null,
+                    page = if (jsonObject.has(KEY_PAGE)) jsonObject.getInt(KEY_PAGE) else null,
+                    totalPages = if (jsonObject.has(KEY_TOTAL_PAGES)) jsonObject.getInt(KEY_TOTAL_PAGES) else null,
+                    progress = progress,
+                    lastReadTime = lastReadTime,
+                    isSwipeLayout = isSwipeLayout,
+                    isRtl = isRtl
+                )
+            }
         }
 
         override fun toJson(): String {
-            return JSONObject().apply {
-                put(KEY_MIME_TYPE, mimeType)
-                put(KEY_URI, uri)
-                put(KEY_LAST_READ_TIME, lastReadTime)
-                put(KEY_PROGRESS, progress)
-                put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
-                put(KEY_IS_RTL, isRtl)
-
-                cfi?.let { put(KEY_CFI, it) }
-                page?.let { put(KEY_PAGE, it) }
-                totalPages?.let { put(KEY_TOTAL_PAGES, it) }
-            }.toString()
+            val baseObj = ReadingState.Companion.createBaseJsonObject(this)
+            cfi?.let { baseObj.put(KEY_CFI, it) }
+            page?.let { baseObj.put(KEY_PAGE, it) }
+            totalPages?.let { baseObj.put(KEY_TOTAL_PAGES, it) }
+            return baseObj.toString()
         }
     }
 
@@ -136,7 +127,7 @@ sealed interface ReadingState {
         override val uri: String,
         val page: Int = 1,                 // 当前页码
         val totalPages: Int = 1,           // 总页数
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/pdf",
         override val isSwipeLayout: Boolean = true,
@@ -145,19 +136,32 @@ sealed interface ReadingState {
         companion object {
             const val KEY_PAGE = "page"
             const val KEY_TOTAL_PAGES = "totalPages"
+
+            fun fromJson(
+                jsonObject: JSONObject,
+                uri: String,
+                lastReadTime: Long,
+                progress: Double,
+                isSwipeLayout: Boolean,
+                isRtl: Boolean
+            ): Pdf {
+                return Pdf(
+                    uri = uri,
+                    page = jsonObject.optInt(KEY_PAGE, 1),
+                    totalPages = jsonObject.optInt(KEY_TOTAL_PAGES, 1),
+                    progress = progress,
+                    lastReadTime = lastReadTime,
+                    isSwipeLayout = isSwipeLayout,
+                    isRtl = isRtl
+                )
+            }
         }
 
         override fun toJson(): String {
-            return JSONObject().apply {
-                put(KEY_MIME_TYPE, mimeType)
-                put(KEY_URI, uri)
-                put(KEY_LAST_READ_TIME, lastReadTime)
-                put(KEY_PROGRESS, progress)
-                put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
-                put(KEY_IS_RTL, isRtl)
-                put(KEY_PAGE, page)
-                put(KEY_TOTAL_PAGES, totalPages)
-            }.toString()
+            val baseObj = ReadingState.Companion.createBaseJsonObject(this)
+            baseObj.put(KEY_PAGE, page)
+            baseObj.put(KEY_TOTAL_PAGES, totalPages)
+            return baseObj.toString()
         }
     }
 
@@ -168,7 +172,7 @@ sealed interface ReadingState {
     data class Txt(
         override val uri: String,
         val charOffset: Long = 0,          // 字符偏移量
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "text/plain",
         override val isSwipeLayout: Boolean = true,
@@ -176,18 +180,30 @@ sealed interface ReadingState {
     ) : ReadingState {
         companion object {
             const val KEY_CHAR_OFFSET = "charOffset"
+
+            fun fromJson(
+                jsonObject: JSONObject,
+                uri: String,
+                lastReadTime: Long,
+                progress: Double,
+                isSwipeLayout: Boolean,
+                isRtl: Boolean
+            ): Txt {
+                return Txt(
+                    uri = uri,
+                    charOffset = jsonObject.optLong(KEY_CHAR_OFFSET, 0),
+                    progress = progress,
+                    lastReadTime = lastReadTime,
+                    isSwipeLayout = isSwipeLayout,
+                    isRtl = isRtl
+                )
+            }
         }
 
         override fun toJson(): String {
-            return JSONObject().apply {
-                put(KEY_MIME_TYPE, mimeType)
-                put(KEY_URI, uri)
-                put(KEY_LAST_READ_TIME, lastReadTime)
-                put(KEY_PROGRESS, progress)
-                put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
-                put(KEY_IS_RTL, isRtl)
-                put(KEY_CHAR_OFFSET, charOffset)
-            }.toString()
+            val baseObj = ReadingState.Companion.createBaseJsonObject(this)
+            baseObj.put(KEY_CHAR_OFFSET, charOffset)
+            return baseObj.toString()
         }
     }
 
@@ -197,21 +213,15 @@ sealed interface ReadingState {
      */
     data class Unknown(
         override val uri: String,
-        override val progress: Float = 0f,
+        override val progress: Double = 0.0,
         override val lastReadTime: Long = System.currentTimeMillis(),
         override val mimeType: String = "application/octet-stream",
         override val isSwipeLayout: Boolean = true,
         override val isRtl: Boolean = false
     ) : ReadingState {
         override fun toJson(): String {
-            return JSONObject().apply {
-                put(KEY_MIME_TYPE, mimeType)
-                put(KEY_URI, uri)
-                put(KEY_LAST_READ_TIME, lastReadTime)
-                put(KEY_PROGRESS, progress)
-                put(KEY_IS_SWIPE_LAYOUT, isSwipeLayout)
-                put(KEY_IS_RTL, isRtl)
-            }.toString()
+            val baseObj = ReadingState.Companion.createBaseJsonObject(this)
+            return baseObj.toString()
         }
     }
 }

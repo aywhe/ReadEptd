@@ -33,8 +33,9 @@ class SearchData {
         val chapterTitle: String,     // 章节标题
         val href: String,             // 章节链接
         val cfi: String,              // CFI 位置
+        val locInd: Int,              // location index
         override val displayName: String = chapterTitle,
-        override val sortKey: Long = 0  // EPUB 按文档顺序
+        override val sortKey: Long = locInd.toLong()  // EPUB 按文档顺序
     ) : SearchResult
 
     /**

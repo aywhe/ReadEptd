@@ -196,6 +196,20 @@ class PdfViewModel(
     }
 
     /**
+     * 异步渲染指定页面及其周围页面
+     */
+    suspend fun renderPageAsync(
+        currentPage: Int,
+        keepNeighbourNumber: Int = 2,
+        bitMapWhScale: Int = 3,
+        maxScaleSize: Int = 2400,
+        callback: (Bitmap?) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            renderPage(currentPage, keepNeighbourNumber, bitMapWhScale, maxScaleSize, callback)
+        }
+    }
+    /**
      * 渲染指定页面及其周围页面
      */
     suspend fun renderPage(
@@ -376,7 +390,7 @@ class PdfViewModel(
         // ✅ 获取当前状态，如果不存在则创建新状态
         val currentState = readingState.value
 
-        val progress = if (_totalPages.value > 0) pageIndex.toFloat() / _totalPages.value else 0f
+        val progress = if (_totalPages.value > 0) pageIndex.toDouble() / _totalPages.value else 0.0
 
         val newState = currentState?.let {
             // ✅ 基于当前状态更新，保留 isSwipeLayout 等其他字段
@@ -414,8 +428,8 @@ class PdfViewModel(
     fun search(
         keyword: String,
         startPage: Int = 0,
-        previewCharsNeighborLeft: Int = 25,
-        previewCharsNeighborRight: Int = 25,
+        previewCharsNeighborLeft: Int = 32,
+        previewCharsNeighborRight: Int = 32,
         maxCountOnePage: Int = 10,
         searchSwitchStep: Int = 20
     ): Flow<SearchData.PdfSearchResult> = flow {

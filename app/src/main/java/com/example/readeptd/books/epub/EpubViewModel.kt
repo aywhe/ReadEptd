@@ -24,12 +24,19 @@ class EpubViewModel(
     application: Application
 ) : BookViewModel<ReadingState.Epub>(application, ReadingState.Epub::class.java) {
 
-    private val _currentLocation = MutableStateFlow(EpubLocation.default())
-    val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
+    //private val _currentLocation = MutableStateFlow(EpubLocation.default())
+    //val currentLocation: StateFlow<EpubLocation> = _currentLocation.asStateFlow()
 
-    fun updateLocation(location: EpubLocation) {
-        _currentLocation.value = location
+    var fontSizePx: Float? = null
+    val currentFontSizePx: Float? get() = fontSizePx
+
+    fun updateFontSize(newFontSizePx: Float) {
+        fontSizePx = newFontSizePx
     }
+
+//    fun updateLocation(location: EpubLocation) {
+//        _currentLocation.value = location
+//    }
 
     /**
      * 更新 EPUB 阅读进度（update 方式）
@@ -40,7 +47,7 @@ class EpubViewModel(
         cfi: String? = null,
         page: Int? = null,
         totalPages: Int? = null,
-        progress: Float = 0f
+        progress: Double = 0.0
     ) {
         // ✅ 获取当前状态，如果不存在则创建新状态
         val currentState = readingState.value
@@ -102,7 +109,9 @@ class EpubViewModel(
                         chapterTitle = result.chapterTitle,
                         href = result.href,
                         cfi = result.cfi,
-                        sortKey = (result.sectionIndex * 1000 + result.matchIndex).toLong()
+                        locInd = result.locInd,
+                        //sortKey = result.locInd.toLong() // 稳定排序，不怕重复
+                        sortKey = (result.sectionIndex * 10000000 + result.position).toLong() // 一个章节不超过一千万字
                     )
                     // ✅ 发送结果到 Flow
                     trySend(searchResult)
@@ -122,42 +131,6 @@ class EpubViewModel(
             // ✅ 通知底层 JS 停止搜索
             epubWebView.cancelSearch()
         }
-    }
-
-    private val highlightedCFIs: Queue<String> = ArrayDeque()
-
-    fun removeAllHighlights(epubWebView: EpubWebView?) {
-        if (epubWebView == null) {
-            Log.w(TAG, "EPUB WebView 未初始化，无法执行清除操作")
-            return
-        }
-
-        // 移除所有已存在的高亮
-        while (highlightedCFIs.isNotEmpty()) {
-            val oldCfi = highlightedCFIs.poll()
-            if (oldCfi != null) {
-                epubWebView.highlight(oldCfi, true)
-            }
-        }
-    }
-    
-    /**
-     * 清除所有高亮并添加新的高亮
-     * @param cfi 要高亮的 CFI 位置
-     * @param epubWebView EPUB WebView 实例
-     */
-    fun highlightSingle(cfi: String, epubWebView: EpubWebView?) {
-        if (epubWebView == null) {
-            Log.w(TAG, "EPUB WebView 未初始化，无法执行高亮操作")
-            return
-        }
-
-        removeAllHighlights(epubWebView)
-        
-        // 添加新的高亮
-        epubWebView.highlight(cfi, false)
-        highlightedCFIs.add(cfi)
-        Log.d(TAG, "添加高亮: $cfi")
     }
 
     override fun getViewModelName(): String {

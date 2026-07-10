@@ -17,6 +17,7 @@ const AppState = {
     isThemeRegistered: false,
     isMappingHooked: false,
     lastReadingCfi: '',
+    lastFontSize: null,
     config: {},
 
     // 按钮拖动状态
@@ -35,6 +36,10 @@ const AppState = {
 
     setLastReadingCfi(lastReadingCfi){
         this.lastReadingCfi = lastReadingCfi;
+    },
+
+    setLastFontSize(lastFontSize){
+        this.lastFontSize = lastFontSize;
     },
 
     updateConfig(configJson){
@@ -123,6 +128,18 @@ const AndroidBridge = {
         if (window.Android && window.Android.onSearchCompleted) {
             window.Android.onSearchCompleted();
         }
+    },
+
+    onFontSizeChanged(newFontSize) {
+        if (window.Android && window.Android.onFontSizeChanged) {
+            window.Android.onFontSizeChanged(newFontSize);
+        }
+    },
+
+    onClickJumpToProgress(){
+        if (window.Android && window.Android.onClickJumpToProgress) {
+            window.Android.onClickJumpToProgress();
+        }
     }
 };
 
@@ -159,6 +176,7 @@ const ResourceManager = {
 const UIManager = {
     init() {
         this.initDraggableButton();
+        this.setupNavClickBackgroundListener();
     },
 
     showLoading() {
@@ -221,7 +239,16 @@ const UIManager = {
         setTimeout(() => {
             navPanel.style.opacity = '1';
             navContent.style.transform = 'translateX(0)';
+            const links = navContent.querySelectorAll('#toc-container a.active');
+            if(links && links.length > 0){
+                links[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }, 10);
+    },
+
+    jumpToProgressButtonClicked(){
+        AndroidBridge.onClickJumpToProgress();
+        this.closeNavPanel();
     },
 
     closeNavPanel() {
@@ -251,6 +278,22 @@ const UIManager = {
         }
     },
 
+    // 点击背景关闭导航面板
+    setupNavClickBackgroundListener() {
+        console.log('Setting up nav panel background click listener...');
+        const navPanel = document.getElementById('nav-panel');
+        if (navPanel) {
+            console.log('Nav panel background click listener attached');
+            navPanel.addEventListener('click', (e) => {
+                if (e.target === navPanel) {
+                    // 使用箭头函数可以保持 this 指向 UIManager
+                    this.closeNavPanel();
+                    //UIManager.closeNavPanel(); // 如果使用普通函数，不能使用this
+                }
+            });
+        }
+    },
+
     generateTOC(toc) {
         const container = document.getElementById('toc-container');
         if (!container || !toc || toc.length === 0) {
@@ -268,6 +311,8 @@ const UIManager = {
             const fontSize = Math.max(12, 16 - level * 2);
             const href = chapter.href || '';
             const label = chapter.label || '未命名章节';
+
+            console.log('Generating TOC item: level[', level, '],label[', label.trim(), '],href[', href, ']');
 
             html += `
                 <li style="margin: 5px 0;">
@@ -298,11 +343,13 @@ const UIManager = {
         const links = document.querySelectorAll('#toc-container a');
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
+            //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
             const isMatch = linkHref === currentHref ||
                            linkHref.startsWith(currentHref) ||
                            currentHref.startsWith(linkHref.split('#')[0]);
 
             if (isMatch) {
+                //console.log('Highlighting chapter link:', linkHref);
                 link.classList.add('active');
                 link.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
@@ -659,6 +706,8 @@ const ReaderCore = {
                             console.log('Current location:', JSON.stringify(location));
                             AndroidBridge.onPageChanged(JSON.stringify(location));
                             UIManager.highlightCurrentChapter(location.end.href);
+                        } else {
+                            console.warn('No current location available yet');
                         }
                     } catch (err) {
                         console.error('Error in scroll event:', err.stack);
@@ -691,6 +740,7 @@ const ReaderCore = {
             console.log('Section rendered:', section.href);
             this.setupDoubleClickHandler(view);
         });
+        GestureManager.initFontSizeGesture();
     },
 
     setupDoubleClickHandler(view) {
@@ -900,6 +950,13 @@ const ReaderCore = {
                     mapping.mappingFunctionsReplaced = true;
                 }
             };
+            // resize delay
+            console.log('Hooking manager resize with delay resize...');
+            const originalResize = AppState.rendition.manager.resize.bind(AppState.rendition.manager);
+            AppState.rendition.manager.resize = UtilsTool.debounce((width, height, epubcfi) => {
+                originalResize(width, height, epubcfi);
+            },200);
+
             // ✅ 标记为已绑定
             this.isMappingHooked = true;
         }
@@ -1067,13 +1124,21 @@ const PageOperations = {
                                     pageRange.setEnd(endRange.endContainer, endRange.endOffset);
                                     const text = pageRange.toString();
                                     result += text;
+                                } else {
+                                    console.warn('Could not create range for current location');
                                 }
                             } catch (e) {
                                 console.error('Error getting range:', e);
                             }
+                        } else {
+                            console.warn('View or contents not available for getting page text');
                         }
                     });
+                } else {
+                    console.warn('No visible views available for getting page text');
                 }
+            } else {
+                console.warn('No current location available for getting page text');
             }
         } catch (error) {
             console.error('Error in getCurrentPageText:', error);
@@ -1179,11 +1244,13 @@ const SearchManager = {
                             break;
                         }
                         const match = matches[matchIndex];
+                        const locInd = book.locations.locationFromCfi(match.cfi)
                         
                         const result = {
                             href: section.href,
                             sectionIndex: section.index,
                             cfi: match.cfi,
+                            locInd: locInd,
                             excerpt: match.excerpt,
                             chapterTitle: chapterTitle,
                             idref: section.idref,
@@ -1302,6 +1369,101 @@ const HighlightManager = {
 };
 
 // ============================================
+// 手势功能模块
+// ============================================
+const GestureManager = {
+
+    initFontSizeGesture() {
+        const rendition = AppState.rendition;
+        if (!rendition) {
+            console.error('Rendition not ready for gesture manager');
+            return;
+        }
+        console.log('Initializing font size gesture manager...');
+        if(AppState.lastFontSize){
+            console.log('Restoring last font size:', AppState.lastFontSize);
+            rendition.themes.fontSize(AppState.lastFontSize + 'px');
+        }
+        if(rendition.hooks.content._registeredGestureHooks){
+            console.log('Font size gesture hooks already registered, skip');
+        } else {
+            rendition.hooks.content.register((contents) => {
+                console.log('Content hook triggered for font size gesture manager');
+                const body = contents.document.body;
+
+                let startDistance = 0;
+                let startFontSize = AppState.lastFontSize || parseFloat(rendition.themes.fontSize()) || 16;
+                let newSize = startFontSize;
+                let isPinching = false;
+                let sensitivity = 0.2;
+
+                // 1. touchstart：检测双指
+                body.addEventListener('touchstart', function(e) {
+                    console.log('touchstart event:', e.touches.length, 'touches');
+                    if (e.touches.length === 2) {
+                        // 双指触摸：记录初始数据
+                        const t1 = e.touches[0];
+                        const t2 = e.touches[1];
+                        startDistance = Math.hypot(
+                            t1.clientX - t2.clientX,
+                            t1.clientY - t2.clientY
+                        );
+                        console.log(e.touches.length, ' touches event start, startDistance:', startDistance, ', startFontSize:', startFontSize);
+                        isPinching = true;
+
+                        // 阻止双指的默认行为（如页面缩放）
+                        e.preventDefault();
+                    }
+                    // 单指：完全不管，让 epub.js 处理
+                }, { passive: false });
+
+                // 2. touchmove：双指缩放
+                body.addEventListener('touchmove', function(e) {
+                    if (isPinching && e.touches.length === 2) {
+                        const t1 = e.touches[0];
+                        const t2 = e.touches[1];
+                        const currentDistance = Math.hypot(
+                            t1.clientX - t2.clientX,
+                            t1.clientY - t2.clientY
+                        );
+
+                        // 计算缩放比例
+                        const scale = currentDistance / startDistance;
+                        const dampenedScale = 1 + (scale - 1) * sensitivity;
+                        newSize = startFontSize * dampenedScale;
+
+                        // 限制字号范围
+                        newSize = Math.min(32, Math.max(12, newSize));
+
+                        // 应用新字号
+                        rendition.themes.fontSize(newSize + 'px');
+
+                        // 阻止滚动和页面缩放
+                        e.preventDefault();
+                    }
+                    // 单指：完全不管
+                }, { passive: false });
+
+                // 3. touchend：重置状态
+                body.addEventListener('touchend', function(e) {
+                    console.log('touchend event:', e.touches.length, 'touches');
+                    if (isPinching) {
+                        isPinching = false;
+                        startFontSize = newSize;
+                        AppState.lastFontSize = newSize;
+                        console.log(e.touches.length, ' touches event end, final font size:', newSize);
+                        AndroidBridge.onFontSizeChanged(newSize);
+                        // 可选：保存字号到 localStorage
+                        // localStorage.setItem('fontSize', rendition.theme.fontSize());
+                    }
+                }, { passive: false });
+            });
+            rendition.hooks.content._registeredGestureHooks = true;
+        }
+    }
+};
+
+// ============================================
 // 初始化
 // ============================================
 window.onload = function() {
@@ -1312,18 +1474,6 @@ window.onload = function() {
 window.onunload = function() {
     ResourceManager.cleanUp();
 };
-
-// 点击背景关闭导航面板
-document.addEventListener('DOMContentLoaded', function() {
-    const navPanel = document.getElementById('nav-panel');
-    if (navPanel) {
-        navPanel.addEventListener('click', function(e) {
-            if (e.target === navPanel) {
-                UIManager.closeNavPanel();
-            }
-        });
-    }
-});
 
 // ============================================
 // 暴露给 Android 的接口
@@ -1344,5 +1494,6 @@ window.EpubReader = {
     cancelSearch: SearchManager.cancelSearch.bind(SearchManager),
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
-    setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState)
+    setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState),
+    setLastFontSize: AppState.setLastFontSize.bind(AppState)
 };
