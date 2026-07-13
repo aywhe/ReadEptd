@@ -782,20 +782,20 @@ fun FileItemCard(
                         text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable {
-                                isRemoveBookmark = !isRemoveBookmark
-                            }
-                    ) {
-                        Checkbox(
-                            checked = isRemoveBookmark,
-                            onCheckedChange = { isRemoveBookmark = it }
-                        )
-                        Text(text = "同时删除书签")
-                    }
+//                    Row(
+//                        horizontalArrangement = Arrangement.End,
+//                        verticalAlignment = Alignment.CenterVertically,
+//                        modifier = Modifier.fillMaxWidth()
+//                            .clickable {
+//                                isRemoveBookmark = !isRemoveBookmark
+//                            }
+//                    ) {
+//                        Checkbox(
+//                            checked = isRemoveBookmark,
+//                            onCheckedChange = { isRemoveBookmark = it }
+//                        )
+//                        Text(text = "同时删除书签")
+//                    }
                 }
             },
             confirmButton = {
