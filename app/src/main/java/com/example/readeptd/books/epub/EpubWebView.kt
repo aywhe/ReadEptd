@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.ArrayDeque
 import java.util.Queue
-import kotlin.math.roundToInt
+import com.example.readeptd.utils.FileUtils
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -181,7 +181,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         Log.d(TAG, "========== 开始加载 EPUB ==========")
         Log.d(TAG, "EPUB 文件路径: $epubFilePath")
         Log.d(TAG, "起始位置 CFI: ${startCfi ?: "(无，将显示首页)"}")
-        Log.d(TAG, "文件是否存在: ${File(epubFilePath).exists()}")
+        Log.d(TAG, "文件是否存在: ${FileUtils.uriExists(context,epubFilePath)}")
 
         Log.d(TAG, "执行 JavaScript 初始化...")
         

@@ -11,9 +11,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.readeptd.data.FileInfo
@@ -134,7 +131,7 @@ fun EpubScreen(
                     // 准备完成，显示 WebView
                     AndroidView(
                         factory = { context ->
-                            val newWebView = EpubWebView(state.tempFilePath, context)
+                            val newWebView = EpubWebView(state.filePath, context)
                             newWebView.apply {
                                 layoutParams = FrameLayout.LayoutParams(
                                     FrameLayout.LayoutParams.MATCH_PARENT,

@@ -1,7 +1,6 @@
 package com.example.readeptd.books
 
 import android.app.Application
-import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,14 +13,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * 书籍阅读器 UI 状态基类
  */
 sealed interface BookUiState {
     object Loading : BookUiState
-    data class Ready(val tempFilePath: String) : BookUiState
+    data class Ready(val filePath: String) : BookUiState
     data class Error(val message: String) : BookUiState
 }
 

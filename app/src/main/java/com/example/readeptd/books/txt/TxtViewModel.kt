@@ -427,7 +427,7 @@ class TxtViewModel(
             try {
                 Log.d(TAG, "[buildPages] 开始加载全文内容")
                 // ✅ 确保全文内容已加载
-                ensureEntireTextLoaded(currentState.tempFilePath.toUri())
+                ensureEntireTextLoaded(currentState.filePath.toUri())
                 
                 val fullText = entireText ?: throw IllegalStateException("全文内容未加载")
                 Log.d(TAG, "[buildPages] 全文内容长度: ${fullText.length}")
