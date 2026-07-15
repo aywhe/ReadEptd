@@ -133,3 +133,13 @@ swipe变化和padding变化，都会在防抖500ms，最后一起做一次分页
 .epub-container{
     overflow-anchor: none !important;
 }
+
+- 【学习】
+字符串       isNullOrEmpty()  isNullOrBlank()  isNotEmpty()  isNotBlank()
+--------    ---------------  ---------------  ------------  ------------
+null        true             true             —             —
+""          true             true             false         false
+"  "        false            true             true          false
+"\n\t"      false            true             true          false
+" a "       false            false            true          true
+
