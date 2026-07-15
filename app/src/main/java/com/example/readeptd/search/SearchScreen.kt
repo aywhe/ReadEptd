@@ -328,17 +328,17 @@ fun SlideInSearchPanel(
                 label = null,
                 placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
                 singleLine = true,
+                readOnly = isSearching,
                 trailingIcon = {
-                    if (!isSearching) {
-                        IconButton(
-                            onClick = {
-                                currentKeyword = ""
-                                onKeywordChange("")
-                            },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(Icons.Default.Close, "清除", modifier = Modifier.size(16.dp))
-                        }
+                    IconButton(
+                        onClick = {
+                            viewModel.stopSearching()
+                            currentKeyword = ""
+                            onKeywordChange("")
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "清除", modifier = Modifier.size(16.dp))
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
