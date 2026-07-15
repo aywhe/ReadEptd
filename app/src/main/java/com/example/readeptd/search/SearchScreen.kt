@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -292,7 +293,7 @@ fun SlideInSearchPanel(
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
             // 搜索输入框（更紧凑）
-            OutlinedTextField(
+            TextField(
                 value = currentKeyword,
                 onValueChange = { newValue ->
                     currentKeyword = newValue
