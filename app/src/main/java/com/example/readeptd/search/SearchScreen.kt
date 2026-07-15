@@ -207,9 +207,9 @@ fun SlideInSearchPanel(
             .offset { animatedOffsetPx }
             .shadow(24.dp)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .pointerInput(Unit){
+            .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
-                    if(!isFullScreen) {
+                    if (!isFullScreen) {
                         panelPositionPx = IntOffset(
                             (panelPositionPx.x + dragAmount.x).roundToInt(),
                             (panelPositionPx.y + dragAmount.y).roundToInt()
@@ -230,8 +230,9 @@ fun SlideInSearchPanel(
             var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .pointerInput( Unit){
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = {
                                 isFullScreen = !isFullScreen
@@ -297,14 +298,11 @@ fun SlideInSearchPanel(
                     currentKeyword = newValue
                     onKeywordChange(newValue)
                 },
-                label = null,
-                placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
-                singleLine = true,
-                trailingIcon = {
+                leadingIcon = {
                     if (isSearching) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp)
-                                .pointerInput( Unit){
+                                .pointerInput(Unit) {
                                     detectTapGestures(
                                         onTap = {
                                             // 搜索取消
@@ -324,6 +322,22 @@ fun SlideInSearchPanel(
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                },
+                label = null,
+                placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
+                singleLine = true,
+                trailingIcon = {
+                    if (!isSearching) {
+                        IconButton(
+                            onClick = {
+                                currentKeyword = ""
+                                onKeywordChange("")
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Close, "清除", modifier = Modifier.size(16.dp))
                         }
                     }
                 },
@@ -537,7 +551,9 @@ fun SearchHistoryDialog(
                 Text(
                     text = "无搜索历史",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 )
             } else {
                 FlowRow(
@@ -550,7 +566,7 @@ fun SearchHistoryDialog(
                             modifier = Modifier
                                 .wrapContentSize()
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
-                                .clickable{
+                                .clickable {
                                     Log.d("SearchHistoryDialog", "点击历史关键词: $keyword")
                                     onClickKeyword(keyword)
                                     // ✅ 从缓存中恢复搜索结果
