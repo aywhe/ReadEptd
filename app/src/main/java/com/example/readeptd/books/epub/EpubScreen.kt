@@ -58,7 +58,7 @@ fun EpubScreen(
     var currentLocation by remember { mutableStateOf(EpubLocation.default()) }
 
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri)
         bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 

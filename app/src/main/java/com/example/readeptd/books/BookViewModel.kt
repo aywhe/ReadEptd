@@ -7,7 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.data.TempFileManager
+import com.example.readeptd.utils.FileUtils
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,9 +42,6 @@ abstract class BookViewModel<T : ReadingState>(
     private val _uiState = MutableStateFlow<BookUiState>(BookUiState.Loading)
     val uiState: StateFlow<BookUiState> = _uiState.asStateFlow()
 
-    protected var currentTempFile: File? = null
-    private var processedUri: String? = null
-    
     // ✅ 使用 StateFlow 管理阅读状态（替代 currentReadingState）
     private val _readingState = MutableStateFlow<T?>(null)
     val readingState: StateFlow<T?> = _readingState.asStateFlow()
@@ -57,50 +54,37 @@ abstract class BookViewModel<T : ReadingState>(
     /**
      * 准备书籍文件：将 content URI 复制到临时文件，并加载阅读状态
      *
-     * @param uri 文件 URI
-     * @param fileName 文件名
+     * @param uriString 文件 URI
      */
-    fun prepareBookFile(uri: Uri, fileName: String) {
-        val uriString = uri.toString()
-        currentFileUri = uriString
-        
-        if (processedUri == uriString && currentTempFile?.exists() == true) {
-            Log.d(getViewModelName(), "文件已准备，跳过: $fileName")
-            _uiState.value = BookUiState.Ready(currentTempFile!!.absolutePath)
+    fun prepareBookFile(uriString: String) {
+        if (currentFileUri == uriString) {
+            Log.d(getViewModelName(), "文件已准备，跳过: $uriString")
+            _uiState.value = BookUiState.Ready(uriString)
             return
         }
-        
+
+        if(!FileUtils.uriExists(getApplication<Application>().applicationContext,uriString)){
+            Log.d(getViewModelName(), "文件不存在: $uriString")
+            _uiState.value = BookUiState.Error("文件不存在")
+            return
+        }
+
         viewModelScope.launch {
             try {
-                Log.d(getViewModelName(), "开始准备文件: $fileName")
+                Log.d(getViewModelName(), "开始准备文件: $uriString")
                 _uiState.value = BookUiState.Loading
 
-                val tempFile = TempFileManager.createOrGetTempFile(
-                    getApplication(),
-                    uri,
-                    fileName
-                ) ?: throw IllegalStateException("无法创建临时文件")
-
-                currentTempFile = tempFile
-                processedUri = uriString
-                Log.d(getViewModelName(), "文件大小: ${tempFile.length()} bytes")
+                currentFileUri = uriString
                 
                 loadLastReadingState(uriString)
 
-                _uiState.value = BookUiState.Ready(tempFile.absolutePath)
+                _uiState.value = BookUiState.Ready(uriString)
 
             } catch (e: Exception) {
                 Log.e(getViewModelName(), "准备文件失败", e)
                 _uiState.value = BookUiState.Error("文件准备失败: ${e.message}")
             }
         }
-    }
-
-    /**
-     * 清空临时文件引用（不删除文件）
-     */
-    protected fun clearTempFileReference() {
-        currentTempFile = null
     }
 
     /**
@@ -208,8 +192,6 @@ abstract class BookViewModel<T : ReadingState>(
         
         // 退出前立即保存最后一次状态
         saveProgressImmediately()
-        
-        clearTempFileReference()
     }
 
     /**

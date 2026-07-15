@@ -10,7 +10,6 @@ import com.example.readeptd.data.ConfigureData
 import com.example.readeptd.data.FileDataStore
 import com.example.readeptd.data.FileInfo
 import com.example.readeptd.data.ReadingState
-import com.example.readeptd.data.TempFileManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,8 +40,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         Log.d("MainViewModel", "ViewModel 清除: ${this.hashCode()}")
-        // 如果真的能正常退出应用的话，就删除所有临时文件，避免占用空间
-        cleanupOrphanedTempFiles(emptyList())
     }
     
     fun onEvent(event: MainUiEvent) {
@@ -76,8 +73,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = MainUiState.Success(
                     readingFiles = savedFiles
                 )
-                
-                cleanupOrphanedTempFiles(savedFiles)
+
             }
         }
     }
@@ -174,8 +170,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     
                     fileDataStore.deleteReadingState(removedFile.uri)
                     Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
-                    
-                    deleteTempFileForRemovedFile(removedFile)
+
                 } else {
                     Log.e("MainViewModel", "无效的文件索引: $index")
                 }
@@ -217,33 +212,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("MainViewModel", "保存文件失败", e)
             }
-        }
-    }
-
-    private fun deleteTempFileForRemovedFile(fileInfo: FileInfo) {
-        viewModelScope.launch {
-            val deleted = TempFileManager.deleteTempFile(
-                getApplication(),
-                fileInfo.uri,
-                fileInfo.fileName
-            )
-            
-            if (deleted) {
-                Log.d("MainViewModel", "已删除临时文件: ${fileInfo.fileName}")
-            } else {
-                Log.e("MainViewModel", "删除临时文件失败: ${fileInfo.fileName}")
-            }
-        }
-    }
-    
-    private fun cleanupOrphanedTempFiles(currentFiles: List<FileInfo>) {
-        viewModelScope.launch {
-            val cleanedCount = TempFileManager.cleanupOrphanedFiles(
-                getApplication(),
-                currentFiles
-            )
-            
-            Log.d("MainViewModel", "孤儿文件清理完成，共清理 $cleanedCount 个文件")
         }
     }
 

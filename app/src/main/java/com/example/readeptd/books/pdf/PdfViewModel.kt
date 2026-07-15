@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookViewModel
 import com.example.readeptd.data.ReadingState
@@ -54,6 +55,8 @@ sealed interface PdfState {
 class PdfViewModel(
     application: Application
 ) : BookViewModel<ReadingState.Pdf>(application, ReadingState.Pdf::class.java) {
+
+    private val contentResolver = application.contentResolver
 
     // PDF 渲染器相关状态
     private var pdfRenderer: PdfRenderer? = null
@@ -132,7 +135,7 @@ class PdfViewModel(
      * @return 是否初始化成功
      */
     fun initializeRenderer(): Boolean {
-        val filePath = currentTempFile?.absolutePath
+        val filePath = currentFileUri
         if (filePath == null) {
             Log.e(TAG, "PDF 文件未准备")
             _pdfState.value = PdfState.Error("PDF 文件未准备")
@@ -142,10 +145,9 @@ class PdfViewModel(
         return try {
             _pdfState.value = PdfState.Loading
             cleanupRenderer()
-            val file = File(filePath)
-            val fileDescriptor =
-                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            pdfRenderer = PdfRenderer(fileDescriptor)
+            //val file = File(filePath)
+            val fileDescriptor = contentResolver.openFileDescriptor(filePath.toUri(),"r")
+            pdfRenderer = PdfRenderer(fileDescriptor!!)
             _totalPages.value = pdfRenderer?.pageCount ?: 0
             
             // ✅ 获取上次阅读的页码

@@ -107,7 +107,7 @@ fun TxtScreen(
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
         Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri)
         bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 

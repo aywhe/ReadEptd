@@ -87,7 +87,7 @@ fun PdfScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(fileInfo.uri) {
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri)
         bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 

@@ -650,7 +650,7 @@ fun FileItemCard(
             // ✅ 检查原始 URI 是否仍然可访问
             // 注意：临时文件是在打开文件时才创建的，不是在选择文件时
             // 所以需要检查原始 URI 的有效性
-            //isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
+            isFileAccessible = FileUtils.uriExists(context, fileInfo.uri)
         }
     }
 
