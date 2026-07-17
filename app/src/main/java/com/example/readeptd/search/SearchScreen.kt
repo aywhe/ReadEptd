@@ -479,10 +479,13 @@ fun SearchResultCard(
     onClick: (SearchData.SearchResult) -> Unit = {}
 ) {
     Card(
-        onClick = { onClick(searchResult) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp),
+            .padding(vertical = 0.dp)
+            .clickable{
+                // 不要用onClick参数，而是用clickable，不然单行内容的card会有奇怪的默认最小高度
+                onClick(searchResult)
+            },
         colors = if (isSelected) {
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
