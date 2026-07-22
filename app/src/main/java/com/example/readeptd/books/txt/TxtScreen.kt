@@ -1,5 +1,6 @@
 package com.example.readeptd.books.txt
 
+import android.content.res.Configuration
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -181,6 +182,7 @@ private fun ReadyState(
     ttsModel: TtsViewModel
 ) {
     Log.d("TxtScreen", "[ReadyState] 组件创建")
+    val configuration = LocalConfiguration.current
     var lastClickTime by remember { mutableLongStateOf(0L) }
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
     val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
@@ -190,7 +192,7 @@ private fun ReadyState(
     val leftPaddingDp = 16
     val rightPaddingDp = 16
     val topPaddingDp = if(isSwipeLayout) {
-        if(isFullScreen) {
+        if(isFullScreen && configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
             WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding().value.roundToInt()
         } else {
             16
@@ -201,7 +203,6 @@ private fun ReadyState(
     val bottomPaddingDp = if (isSwipeLayout) 16 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
-    val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
     var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
 
