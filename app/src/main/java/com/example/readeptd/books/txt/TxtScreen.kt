@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +61,7 @@ import com.example.readeptd.bookmark.BookmarkDialog
 import com.example.readeptd.bookmark.BookmarkHint
 import com.example.readeptd.bookmark.BookmarkListPanel
 import com.example.readeptd.bookmark.BookmarkViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
@@ -179,14 +181,17 @@ private fun ReadyState(
     ttsModel: TtsViewModel
 ) {
     Log.d("TxtScreen", "[ReadyState] 组件创建")
-    var lastClickTime by remember { mutableStateOf(0L) }
+    var lastClickTime by remember { mutableLongStateOf(0L) }
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
     val isSwipeLayout = readingState?.isSwipeLayout ?: true
     Log.d("TxtScreen", "[ReadyState] readingState=$readingState, isSwipeLayout=$isSwipeLayout")
     // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = if (isSwipeLayout) WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding().value.roundToInt() else 0
+    val topPaddingDp = if (isSwipeLayout && isFullScreen)
+            WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding().value.roundToInt()
+        else 0
     val bottomPaddingDp = if (isSwipeLayout) 16 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")

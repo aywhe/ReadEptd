@@ -175,17 +175,18 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnDoubleClickScreen -> {
-                currentFileUri?.let {
-                    val isFullScreen = AppMemoryStore.isFullScreen(currentFileUri!!)
-                    if(isFullScreen){
-                        allowRePagination = false
-                        allowRePaginationJob?.cancel()
-                        allowRePaginationJob = viewModelScope.launch {
-                            delay(2000)
-                            allowRePagination = true
-                        }
-                    }
-                }
+                // 还是保留分页
+//                currentFileUri?.let {
+//                    val isFullScreen = AppMemoryStore.isFullScreen(currentFileUri!!)
+//                    if(isFullScreen){
+//                        allowRePagination = false
+//                        allowRePaginationJob?.cancel()
+//                        allowRePaginationJob = viewModelScope.launch {
+//                            delay(2000)
+//                            allowRePagination = true
+//                        }
+//                    }
+//                }
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {
