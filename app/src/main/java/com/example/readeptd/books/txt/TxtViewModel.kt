@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.example.readeptd.books.BookUiState
 import com.example.readeptd.books.BookViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.parser.TextSplitter
@@ -68,6 +69,7 @@ class TxtViewModel(
 
     // 控制是否允许重新分页（全屏切换时暂时禁用）
     private var allowRePagination: Boolean = true
+    private var allowRePaginationJob: Job? = null
 
     // ✅ 防抖相关：用于 debounceTriggerRePagination
     private var debouncedRePaginationJob: Job? = null
@@ -173,7 +175,17 @@ class TxtViewModel(
             is TxtEvent.OnFontSizeChanged -> handleFontSizeChanged(event.fontSize)
             is TxtEvent.OnLineHeightChanged -> handleLineHeightChanged(event.lineHeight)
             is TxtEvent.OnDoubleClickScreen -> {
-                // 这里先不用做什么
+                currentFileUri?.let {
+                    val isFullScreen = AppMemoryStore.isFullScreen(currentFileUri!!)
+                    if(isFullScreen){
+                        allowRePagination = false
+                        allowRePaginationJob?.cancel()
+                        allowRePaginationJob = viewModelScope.launch {
+                            delay(2000)
+                            allowRePagination = true
+                        }
+                    }
+                }
             }
 
             is TxtEvent.OnScreenOrientationChanged -> {
@@ -219,8 +231,15 @@ class TxtViewModel(
             Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
             return
         }
+
+        if (allowRePagination) {
+            Log.d(TAG, "[handleViewMetricsChanged] 允许重新分页，调用 rebuildPagesIfNeeded")
+            rebuildPagesIfNeeded()
+        } else {
+            Log.w(TAG, "[handleViewMetricsChanged] 不允许重新分页，跳过")
+        }
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
-        rebuildPagesIfNeeded()
+        // rebuildPagesIfNeeded()
     }
 
     /**
@@ -258,12 +277,18 @@ class TxtViewModel(
         fontSizeSp = newFontSize
 
         if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
-            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
+            Log.d(TAG, "[handleFontSizeChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
             return
         }
 
+        if (allowRePagination) {
+            Log.d(TAG, "[handleFontSizeChanged] 允许重新分页，调用 rebuildPagesIfNeeded")
+            rebuildPagesIfNeeded()
+        } else {
+            Log.w(TAG, "[handleFontSizeChanged] 不允许重新分页，跳过")
+        }
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
-        rebuildPagesIfNeeded()
+        //rebuildPagesIfNeeded()
     }
 
     /**
@@ -279,12 +304,18 @@ class TxtViewModel(
         lineHeightSp = newLineHeight
 
         if(getCurrentPages().isNotEmpty() && _splitPagesMode != SplitPagesMode.ByLayoutSize){
-            Log.d(TAG, "[handleViewMetricsChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
+            Log.d(TAG, "[handleLineHeightChanged] 分页模式不是 ByLayoutSize，而且当前分页存在，跳过分页任务")
             return
         }
 
+        if (allowRePagination) {
+            Log.d(TAG, "[handleLineHeightChanged] 允许重新分页，调用 rebuildPagesIfNeeded")
+            rebuildPagesIfNeeded()
+        } else {
+            Log.w(TAG, "[handleLineHeightChanged] 不允许重新分页，跳过")
+        }
         // ✅ 直接调用 rebuildPagesIfNeeded，由它内部处理防抖
-        rebuildPagesIfNeeded()
+        //rebuildPagesIfNeeded()
     }
 
     /**
@@ -866,7 +897,8 @@ class TxtViewModel(
         // ✅ 清理防抖任务
         debouncedRePaginationJob?.cancel()
         debouncedRePaginationJob = null
-        
+        allowRePaginationJob?.cancel()
+        allowRePaginationJob = null
         // ✅ 清理缓存
         entireText = null
         pagesCache.clear()
