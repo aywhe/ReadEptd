@@ -189,9 +189,15 @@ private fun ReadyState(
     // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = if (isSwipeLayout && isFullScreen)
+    val topPaddingDp = if(isSwipeLayout) {
+        if(isFullScreen) {
             WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding().value.roundToInt()
-        else 0
+        } else {
+            16
+        }
+    } else {
+        0
+    }
     val bottomPaddingDp = if (isSwipeLayout) 16 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
