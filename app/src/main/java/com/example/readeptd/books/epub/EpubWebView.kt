@@ -10,6 +10,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.PaddingValues
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -19,6 +20,11 @@ import java.io.File
 import java.util.ArrayDeque
 import java.util.Queue
 import com.example.readeptd.utils.FileUtils
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -31,6 +37,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     private var lastFontSizePx: Float? = null
+    private var safeCutLayoutPadding: PxPaddingValues = PxPaddingValues()
     private var currentTheme: EpubTheme = EpubTheme.Light
     private var currentFlowMode: EpubFlowMode = EpubFlowMode.Paginated
 
@@ -202,6 +209,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         setLastFontSize(lastFontSizePx) // 设置默认字体大小为 16px
         updateFlowMode(currentFlowMode)
         setHtmlTheme(currentTheme) // 设置当前主题
+        updateSafeCutLayoutPadding()
         initEpubWebSite(epubFilePath)
     }
 
@@ -222,6 +230,25 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         
         Log.d(TAG, "执行 JavaScript 设置流式模式: $flowMode")
         executeJs("window.EpubReader.updateConfig('$configJson')")
+    }
+
+
+    fun setSafeCutLayoutPadding(pxPaddingValues: PxPaddingValues){
+        safeCutLayoutPadding = pxPaddingValues
+        Log.d(TAG, "设置挖空屏安全区域padding: $safeCutLayoutPadding")
+    }
+
+    private fun updateSafeCutLayoutPadding(){
+        val configJson = """{"safeCutLayoutPadding":${safeCutLayoutPadding.toJson()}}"""
+
+        Log.d(TAG, "执行 JavaScript 设置挖孔屏padding: $configJson")
+        executeJs("window.EpubReader.updateConfig('$configJson')")
+
+    }
+
+    fun setFullScreen(isFullScreen: Boolean){
+        Log.d(TAG, "设置全屏标记: $isFullScreen")
+        executeJs("window.EpubReader.setIsFullScreen($isFullScreen)")
     }
 
     /**

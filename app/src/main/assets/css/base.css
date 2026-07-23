@@ -14,7 +14,7 @@
     --nav-panel-max-width: 400px;
     
     /* ✅ EPUB 内容内边距（默认值） */
-    --view-padding-vertical: 16px;
+    --view-padding-vertical: 4px;
     --view-padding-horizontal: 12px;
     --scrolled-view-padding-vertical: 0px;
 

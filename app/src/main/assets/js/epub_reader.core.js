@@ -18,6 +18,7 @@ const AppState = {
     isMappingHooked: false,
     lastReadingCfi: '',
     lastFontSize: null,
+    isFullScreen: null,
     config: {},
 
     // 按钮拖动状态
@@ -40,6 +41,11 @@ const AppState = {
 
     setLastFontSize(lastFontSize){
         this.lastFontSize = lastFontSize;
+    },
+
+    setIsFullScreen(isFullScreen){
+        this.isFullScreen = isFullScreen;
+        ThemeBridge.applyThemeToEpub();
     },
 
     updateConfig(configJson){
@@ -695,6 +701,7 @@ const ReaderCore = {
     setupStartListener() {
         AppState.rendition.on("started", () => {
             console.log('Rendition started');
+            ThemeBridge.registerThemes();
             ThemeBridge.applyThemeToEpub();
             if(AppState.rendition.manager){
                 this.hookMappingFunctions();
@@ -968,46 +975,43 @@ const ReaderCore = {
 // ============================================
 const ThemeBridge = {
 
-    applyThemeToEpub() {
-        try {
-            if (!AppState.rendition || !AppState.rendition.themes) {
-                console.warn('Rendition or themes API not available');
-                return;
-            }
+    themeNames: ["paginated","paginated-fullscreen","scrolled"],
 
-            const themeName = "my-theme";
+    generateRules(themeName, isScrolled, isFullScreen){
+        const computedStyle = getComputedStyle(document.documentElement);
+        const colors = {
+            background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
+            textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
+            primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
+            highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
+            selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
+        };
 
-            // ✅ 如果主题已注册，直接返回，不做任何操作
-            if (AppState.isThemeRegistered) {
-                console.log('Theme already registered, skip');
-                return;
-            }
+        // ✅ 从 CSS 变量读取 padding 值
+        let paddingVerticalTop = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+        let paddingVerticalBottom = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+        const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
+        if(isScrolled){
+            paddingVerticalTop = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+            paddingVerticalBottom = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+        } else if(isFullScreen){
+            paddingVerticalTop = (AppState.config.safeCutLayoutPadding.top+'px') || paddingVerticalTop
+        }
 
-            // ✅ 从 CSS 文件中动态读取颜色值和 padding
-            const computedStyle = getComputedStyle(document.documentElement);
-            const colors = {
-                background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
-                textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
-                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
-                highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
-                selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
-            };
+        console.log('Generate theme with padding:',
+            JSON.stringify(
+                {
+                    themeName: themeName,
+                    vertical: {paddingVerticalTop, paddingVerticalBottom},
+                    horizontal: paddingHorizontal
+                }
+            )
+        );
 
-            // ✅ 从 CSS 变量读取 padding 值
-            let paddingVertical = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
-            const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
-            if(AppState.config.flowMode === 'scrolled'){
-                paddingVertical = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
-            }
-
-
-            console.log('Applying theme with padding:', {
-                vertical: paddingVertical,
-                horizontal: paddingHorizontal
-            });
-
-            // ✅ 方式二：传入规则对象（符合官方文档）
-            const rules = {
+        // ✅ 方式二：传入规则对象（符合官方文档）
+        return {
+            themeName: themeName,
+            rule: {
                 'html': {
                     'padding': '0 !important',
                     'margin': '0 !important'
@@ -1016,7 +1020,7 @@ const ThemeBridge = {
                     'background-color': colors.background + ' !important',
                     'color': colors.textPrimary + ' !important',
                     // ✅ 使用 !important 强制覆盖 EPUB 自带样式
-                    'padding': `${paddingVertical} ${paddingHorizontal} !important`,
+                    'padding': `${paddingVerticalTop} ${paddingHorizontal} ${paddingVerticalBottom} !important`,
                     'margin': '0 !important',
                     'box-sizing': 'border-box'
                 },
@@ -1037,17 +1041,61 @@ const ThemeBridge = {
                     'background-color': colors.selection + ' !important',
                     'color': colors.textPrimary + ' !important'
                 }
-            };
+            }
+        };
+    },
 
-            // ✅ 注册并选择主题
-            AppState.rendition.themes.register(themeName, rules);
-            AppState.rendition.themes.select(themeName);
+    applyThemeToEpub() {
+        const config = AppState.config;
+        const flowMode = config.flowMode;
+        const isFullScreen = AppState.isFullScreen || false;
+        try{
+            //["paginated","paginated-fullscreen","scrolled"],
+            if(flowMode === 'scrolled'){
+                console.log('Apply Layout mode scrolled');
+                AppState.rendition.themes.select("scrolled");
+            } else {
+                if(isFullScreen){
+                    console.log('Apply Layout mode paginated-fullscreen');
+                    AppState.rendition.themes.select("paginated-fullscreen");
+                } else {
+                    console.log('Apply Layout mode paginated');
+                    AppState.rendition.themes.select("paginated");
+                }
+            }
+        } catch (error){
+            console.error('Error apply Layout mode to epub:', error.stack);
+        }
+    },
+
+    registerThemes(){
+        try {
+            if (!AppState.rendition || !AppState.rendition.themes) {
+                console.warn('Rendition or themes API not available');
+                return;
+            }
+
+            // ✅ 如果主题已注册，直接返回，不做任何操作
+            if (AppState.isThemeRegistered) {
+                console.log('Theme already registered, skip');
+                return;
+            }
+            //["paginated","paginated-fullscreen","scrolled"],
+            const rules = [
+                this.generateRules("paginated", false, false),
+                this.generateRules("paginated-fullscreen", false, true),
+                this.generateRules("scrolled", true, null)
+            ];
+
+            rules.forEach((it) => {
+                AppState.rendition.themes.register(it.themeName, it.rule);
+                console.log('Registered theme: ' + it.themeName)
+            });
+
             AppState.isThemeRegistered = true;
 
-            console.log(`Epub.js theme applied via rules object: ${themeName}`);
-            console.log(`Padding applied: ${paddingVertical} ${paddingHorizontal}`);
         } catch (error) {
-            console.error('Error applying theme to epub:', error.stack);
+            console.error('Error register theme to epub:', error.stack);
         }
     }
 };
@@ -1495,5 +1543,6 @@ window.EpubReader = {
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
     setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState),
-    setLastFontSize: AppState.setLastFontSize.bind(AppState)
+    setLastFontSize: AppState.setLastFontSize.bind(AppState),
+    setIsFullScreen: AppState.setIsFullScreen.bind(AppState)
 };

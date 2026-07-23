@@ -1,12 +1,17 @@
 package com.example.readeptd.books.epub
 
+import android.content.res.Configuration
 import android.util.Log
+import android.view.Window
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +41,7 @@ import com.example.readeptd.bookmark.BookmarkDialog
 import com.example.readeptd.bookmark.BookmarkHint
 import com.example.readeptd.bookmark.BookmarkListPanel
 import com.example.readeptd.bookmark.BookmarkViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.data.ReadingState
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
@@ -50,6 +58,8 @@ fun EpubScreen(
     viewModel: EpubViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     //val currentLocation by viewModel.currentLocation.collectAsState()
     var currentLocation by remember { mutableStateOf(EpubLocation.default()) }
@@ -94,6 +104,9 @@ fun EpubScreen(
                 var isShowBookmarkDialog by remember { mutableStateOf(false) }
                 var isShowBookmarkListPanel by remember { mutableStateOf(false) }
 
+                val saveCutLayoutPaddingValues = WindowInsets.safeDrawing.asPaddingValues()
+                val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
+
                 val currentBookmarkDataList by bookmarkViewModel.findInPosition(
                     BookmarkData.Epub(
                         bookId = fileInfo.uri,
@@ -115,6 +128,10 @@ fun EpubScreen(
                     contentViewModel.updateBookmarkState(currentBookmarkDataList.isNotEmpty())
                 }
 
+                LaunchedEffect(isFullScreen){
+                    webView?.setFullScreen(isFullScreen && configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
+                }
+
                 LaunchedEffect(isSwipeLayout) {
                     webView?.setFlowMode(
                         when(isSwipeLayout) {
@@ -125,7 +142,6 @@ fun EpubScreen(
                     webView?.setStartCfi(savedCfi)
                     webView?.startEpubWebsite()
                 }
-
                 Box(modifier = Modifier.fillMaxSize()
                 ) {
                     // 准备完成，显示 WebView
@@ -156,6 +172,9 @@ fun EpubScreen(
                                     }
                                 )
                                 setFontSize(viewModel.currentFontSizePx)
+                                setSafeCutLayoutPadding(
+                                    PxPaddingValues.fromPaddingValues(saveCutLayoutPaddingValues,density)
+                                )
 
                                 setOnFontSizeChangedListener { newFontSizePx->
                                     Log.d("EpubScreen", "字体大小变化: $newFontSizePx px")

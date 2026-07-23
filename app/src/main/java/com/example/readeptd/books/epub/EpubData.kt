@@ -1,5 +1,10 @@
 package com.example.readeptd.books.epub
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import org.json.JSONObject
 
 /**
@@ -189,4 +194,45 @@ sealed interface EpubTheme {
 sealed interface EpubFlowMode {
     object Paginated : EpubFlowMode
     object Scrolled : EpubFlowMode
+}
+
+data class PxPaddingValues(
+    val start: Int = 0,
+    val top: Int = 0,
+    val end: Int = 0,
+    val bottom: Int = 0
+) {
+    constructor(all: Int = 0) : this(all, all, all, all)
+
+    constructor(horizontal: Int = 0, vertical: Int = 0)
+            : this(horizontal, vertical, horizontal, vertical)
+
+    companion object {
+        fun fromPaddingValues(padding: PaddingValues, density: Density): PxPaddingValues = with(density) {
+            PxPaddingValues(
+                start = padding.calculateStartPadding(LayoutDirection.Ltr).toPx().toInt(),
+                top = padding.calculateTopPadding().toPx().toInt(),
+                end = padding.calculateEndPadding(LayoutDirection.Ltr).toPx().toInt(),
+                bottom = padding.calculateBottomPadding().toPx().toInt()
+            )
+        }
+    }
+
+    fun toPaddingValues(density: Density): PaddingValues = with(density) {
+        PaddingValues(
+            start = start.toDp(),
+            top = top.toDp(),
+            end = end.toDp(),
+            bottom = bottom.toDp()
+        )
+    }
+
+    fun toJson(): String {
+        return JSONObject().apply {
+            put("start", start)
+            put("top", top)
+            put("end", end)
+            put("bottom", bottom)
+        }.toString()
+    }
 }
