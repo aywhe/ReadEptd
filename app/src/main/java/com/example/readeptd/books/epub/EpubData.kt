@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 /**
  * EPUB 页面信息数据类
@@ -196,7 +198,7 @@ sealed interface EpubFlowMode {
     object Scrolled : EpubFlowMode
 }
 
-data class PxPaddingValues(
+data class WebPaddingValues(
     val start: Int = 0,
     val top: Int = 0,
     val end: Int = 0,
@@ -208,22 +210,23 @@ data class PxPaddingValues(
             : this(horizontal, vertical, horizontal, vertical)
 
     companion object {
-        fun fromPaddingValues(padding: PaddingValues, density: Density): PxPaddingValues = with(density) {
-            PxPaddingValues(
-                start = padding.calculateStartPadding(LayoutDirection.Ltr).toPx().toInt(),
-                top = padding.calculateTopPadding().toPx().toInt(),
-                end = padding.calculateEndPadding(LayoutDirection.Ltr).toPx().toInt(),
-                bottom = padding.calculateBottomPadding().toPx().toInt()
+        // webview使用的px是逻辑像素，对应Android层就是dp，所以不用转换
+        fun fromPaddingValues(padding: PaddingValues): WebPaddingValues {
+            return WebPaddingValues(
+                start = padding.calculateStartPadding(LayoutDirection.Ltr).value.roundToInt(),
+                top = padding.calculateTopPadding().value.roundToInt(),
+                end = padding.calculateEndPadding(LayoutDirection.Ltr).value.roundToInt(),
+                bottom = padding.calculateBottomPadding().value.roundToInt()
             )
         }
     }
 
-    fun toPaddingValues(density: Density): PaddingValues = with(density) {
-        PaddingValues(
-            start = start.toDp(),
-            top = top.toDp(),
-            end = end.toDp(),
-            bottom = bottom.toDp()
+    fun toPaddingValues(): PaddingValues {
+        return PaddingValues(
+            start = start.dp,
+            top = top.dp,
+            end = end.dp,
+            bottom = bottom.dp
         )
     }
 

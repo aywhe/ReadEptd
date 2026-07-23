@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -193,14 +194,14 @@ private fun ReadyState(
     val rightPaddingDp = 16
     val topPaddingDp = if(isSwipeLayout) {
         if(isFullScreen && configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding().value.roundToInt()
+            WindowInsets.displayCutout.asPaddingValues().calculateTopPadding().value.roundToInt()
         } else {
-            16
+            8
         }
     } else {
         0
     }
-    val bottomPaddingDp = if (isSwipeLayout) 16 else 0
+    val bottomPaddingDp = if (isSwipeLayout) 8 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
     val scope = rememberCoroutineScope()

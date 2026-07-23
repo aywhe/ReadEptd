@@ -2,16 +2,15 @@ package com.example.readeptd.books.epub
 
 import android.content.res.Configuration
 import android.util.Log
-import android.view.Window
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,8 +104,8 @@ fun EpubScreen(
                 var isShowBookmarkDialog by remember { mutableStateOf(false) }
                 var isShowBookmarkListPanel by remember { mutableStateOf(false) }
 
-                val saveCutLayoutPaddingValues = WindowInsets.safeDrawing.asPaddingValues()
                 val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
+                val safeCutLayoutPaddingValues = WindowInsets.displayCutout.asPaddingValues()
 
                 val currentBookmarkDataList by bookmarkViewModel.findInPosition(
                     BookmarkData.Epub(
@@ -173,7 +173,7 @@ fun EpubScreen(
                                 )
                                 setFontSize(viewModel.currentFontSizePx)
                                 setSafeCutLayoutPadding(
-                                    PxPaddingValues.fromPaddingValues(saveCutLayoutPaddingValues,density)
+                                    WebPaddingValues.fromPaddingValues(safeCutLayoutPaddingValues)
                                 )
 
                                 setOnFontSizeChangedListener { newFontSizePx->
@@ -198,6 +198,8 @@ fun EpubScreen(
                                 }
 
                                 setOnLoadCompleteListener {
+                                    webView?.setFullScreen(isFullScreen && configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
+
                                     contentViewModel.setOnClickProgressInfoCallback {
                                         toggleNavPanel()
                                     }
@@ -209,7 +211,6 @@ fun EpubScreen(
                                     }
                                     contentViewModel.setOnClickBookmarkCallback { isShowBookmarkDialog = true }
                                     contentViewModel.setOnLongPressBookmarkCallback { isShowBookmarkListPanel = true }
-
                                     Log.d("EpubScreen", "加载完成")
                                 }
 

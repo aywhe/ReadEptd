@@ -37,14 +37,17 @@ const AppState = {
 
     setLastReadingCfi(lastReadingCfi){
         this.lastReadingCfi = lastReadingCfi;
+        console.log("Set last reading cfi: " + lastReadingCfi);
     },
 
     setLastFontSize(lastFontSize){
         this.lastFontSize = lastFontSize;
+        console.log("Set last font size: " + lastFontSize);
     },
 
     setIsFullScreen(isFullScreen){
         this.isFullScreen = isFullScreen;
+        console.log("Set full screen flag: " + isFullScreen);
         ThemeBridge.applyThemeToEpub();
     },
 

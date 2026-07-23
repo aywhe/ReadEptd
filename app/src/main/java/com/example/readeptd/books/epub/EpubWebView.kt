@@ -10,21 +10,14 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.PaddingValues
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.ArrayDeque
 import java.util.Queue
 import com.example.readeptd.utils.FileUtils
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalDensity
 
 /**
  * 基于 epub.js 的 EPUB 阅读器 WebView
@@ -37,7 +30,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onErrorListener: ((String) -> Unit)? = null
     private var startCfi: String? = null
     private var lastFontSizePx: Float? = null
-    private var safeCutLayoutPadding: PxPaddingValues = PxPaddingValues()
+    private var safeCutLayoutPadding: WebPaddingValues = WebPaddingValues()
     private var currentTheme: EpubTheme = EpubTheme.Light
     private var currentFlowMode: EpubFlowMode = EpubFlowMode.Paginated
 
@@ -233,7 +226,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
 
 
-    fun setSafeCutLayoutPadding(pxPaddingValues: PxPaddingValues){
+    fun setSafeCutLayoutPadding(pxPaddingValues: WebPaddingValues){
         safeCutLayoutPadding = pxPaddingValues
         Log.d(TAG, "设置挖空屏安全区域padding: $safeCutLayoutPadding")
     }
