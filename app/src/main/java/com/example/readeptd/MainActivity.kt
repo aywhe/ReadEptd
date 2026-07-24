@@ -59,6 +59,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -690,13 +691,22 @@ fun FileItemCard(
         }
     }
 
+    var swipeToDismissBoxState:SwipeToDismissBoxState? = null
     val swipeProgressFactor = 0.172f
-    val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
+    swipeToDismissBoxState = rememberSwipeToDismissBoxState(
         confirmValueChange = {value ->
             when(value) {
                 SwipeToDismissBoxValue.StartToEnd ->{
-                    onRemove(fileInfo, isRemoveBookmark)
-                    true
+                    if(swipeToDismissBoxState != null) {
+                        if(swipeToDismissBoxState!!.progress > swipeProgressFactor) {
+                            onRemove(fileInfo, isRemoveBookmark)
+                            false
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
                 }
                 SwipeToDismissBoxValue.EndToStart ->{
                     // do nothing here
