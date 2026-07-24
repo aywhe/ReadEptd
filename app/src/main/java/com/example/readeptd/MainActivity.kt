@@ -982,6 +982,19 @@ fun SettingsDialog(
                         }
                     )
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("隐藏导航栏")
+                    Switch(
+                        checked = !config.isShowNavBarsInFullScreen,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isShowNavBarsInFullScreen = !it) }
+                        }
+                    )
+                }
 
                 HorizontalDivider()
 
