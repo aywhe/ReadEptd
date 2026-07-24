@@ -45,7 +45,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onEvent(event: MainUiEvent) {
         when (event) {
             is MainUiEvent.OnFilesSelected -> handleFilesSelected(event.files)
-            is MainUiEvent.RemoveFile -> removeFile(event.index)
+            is MainUiEvent.RemoveFile -> removeFile(event.fileUri)
             is MainUiEvent.MoveFile -> moveFile(event.fromIndex, event.toIndex)
             is MainUiEvent.GoToContentActivity -> {
                 // ✅ 使用 AppMemoryStore 保存（仅会话级别）
@@ -139,7 +139,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+    private fun removeFile(fileUri: String) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is MainUiState.Success) {
+                val removedFile = currentState.readingFiles.find { it.uri == fileUri }
+                if (removedFile != null) {
+                    // ✅ 如果删除的是上次阅读的文件，清空 lastReadingFile
+                    if (AppMemoryStore.getLastReadingFile()?.uri == removedFile.uri) {
+                        AppMemoryStore.clearLastReadingFile()
+                        Log.d("MainViewModel", "已清空上次阅读文件")
+                    }
+
+                    // ✅ 清理该文件的所有内存缓存数据
+                    AppMemoryStore.clearFileCache(removedFile.uri)
+                    Log.d("MainViewModel", "已清理文件缓存: ${removedFile.fileName}")
+
+                    val updatedFiles = currentState.readingFiles.toMutableList().apply {
+                        removeAll { it.uri == fileUri }
+                    }
+                    _uiState.value = currentState.copy(
+                        readingFiles = updatedFiles
+                    )
+                    Log.d("MainViewModel", "文件已删除，剩余 ${updatedFiles.size} 个")
+
+                    // 保存到 DataStore
+                    saveReadingFiles(updatedFiles)
+
+                    fileDataStore.deleteReadingState(removedFile.uri)
+                    Log.d("MainViewModel", "已删除阅读状态: ${removedFile.fileName}")
+
+                } else {
+                    Log.e("MainViewModel", "未找到文件: $fileUri")
+                }
+            }
+        }
+    }
     private fun removeFile(index: Int) {
         viewModelScope.launch {
             val currentState = _uiState.value

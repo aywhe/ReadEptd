@@ -538,17 +538,14 @@ fun ContentScreen(
                                 onClick = {fileInfo ->
                                     goToContentActivity(fileInfo)
                                 },
-                                onRemove = { isRemoveBookmark->
-                                    FileUtils.releasePersistableUriPermission(context, files[index].uri)
-                                    viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                                onRemove = {fileInfo, isRemoveBookmark->
+                                    FileUtils.releasePersistableUriPermission(context, fileInfo.uri)
+                                    viewModel.onEvent(MainUiEvent.RemoveFile(fileInfo.uri))
                                     if(isRemoveBookmark){
                                         scope.launch {
-                                            viewModel.removeBookmarksForBook(files[index].uri)
+                                            viewModel.removeBookmarksForBook(fileInfo.uri)
                                         }
                                     }
-                                },
-                                onSwipeLeft = {
-                                    goToContentActivity(lastReadingFile)
                                 },
                                 isDragging = isDragging,
                                 progress = progress,
@@ -663,8 +660,7 @@ fun DraggableFloatingButton(
 fun FileItemCard(
     fileInfo: FileInfo,
     onClick: (FileInfo) -> Unit,
-    onRemove: (Boolean) -> Unit,
-    onSwipeLeft: ()-> Unit,
+    onRemove: (FileInfo,Boolean) -> Unit,
     isDragging: Boolean = false,
     progress: Double? = null,
     modifier: Modifier = Modifier
@@ -672,6 +668,7 @@ fun FileItemCard(
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteButton by remember { mutableStateOf(false) }
     var isFileAccessible by remember { mutableStateOf<Boolean?>(true) }
+    var isRemoveBookmark by remember{mutableStateOf(true)}
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -693,21 +690,28 @@ fun FileItemCard(
         }
     }
 
+    val swipeProgressFactor = 0.172f
     val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
         confirmValueChange = {value ->
             when(value) {
                 SwipeToDismissBoxValue.StartToEnd ->{
-                    showConfirmDialog = true
+                    onRemove(fileInfo, isRemoveBookmark)
+                    true
                 }
                 SwipeToDismissBoxValue.EndToStart ->{
-                    onSwipeLeft()
+                    // do nothing here
+                    false
                 }
-                SwipeToDismissBoxValue.Settled -> {}
+                SwipeToDismissBoxValue.Settled -> {
+                    false
+                }
             }
-            false
-        }
+        },
+        positionalThreshold = {totalDistance -> totalDistance * swipeProgressFactor}
     )
-
+    val thresholdReached = swipeToDismissBoxState.targetValue == SwipeToDismissBoxValue.StartToEnd
+            && swipeToDismissBoxState.progress > swipeProgressFactor
+    val isShowFocusColor = isDragging || thresholdReached
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         enableDismissFromEndToStart = false,
@@ -727,19 +731,19 @@ fun FileItemCard(
             shape = RectangleShape,
             colors = CardDefaults.cardColors(
                 containerColor = when {
-                    isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.surface
                 },
                 contentColor = when {
-                    isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
                     else -> MaterialTheme.colorScheme.onSurface
                 },
                 disabledContainerColor = when {
-                    isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
                 },
                 disabledContentColor = when {
-                    isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 }
             )
@@ -817,7 +821,6 @@ fun FileItemCard(
     }
 
     if (showConfirmDialog) {
-        var isRemoveBookmark by remember{mutableStateOf(true)}
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = {
@@ -853,7 +856,7 @@ fun FileItemCard(
             confirmButton = {
                 Button(
                     onClick = {
-                        onRemove(isRemoveBookmark)
+                        onRemove(fileInfo, isRemoveBookmark)
                         showConfirmDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
