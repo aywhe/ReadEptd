@@ -639,7 +639,8 @@ const ReaderCore = {
             this.createRendition();
             this.setupEventListeners();
             this.loadNavigation();
-            this.generateLocationsAsync();
+            this.loadOrGenerateLocationsAsync(epubUrl);
+            //this.generateLocationsAsync();
 
         } catch (error) {
             console.error('Init error:', error);
@@ -815,6 +816,46 @@ const ReaderCore = {
         }).catch((err) => {
             console.error('Failed to load navigation:', err);
         });
+    },
+
+    loadOrGenerateLocationsAsync(file) {
+        const bookId = file;
+
+        (async () => {
+            try {
+                // 2. 读取缓存
+                const cached = await LocationsDB.get(bookId);
+                if (cached) {
+                    // 有缓存，直接加载，UI立即可用
+                    AppState.book.locations.load(cached.data);
+                    AppState.isGeneratedLocations = true;
+                    console.log('Locations loaded from cache');
+                    if (AppState.isLoaded) {
+                        this.notifyPageChanged();
+                    }
+                } else {
+                    // 无缓存，生成后存储
+                    await AppState.book.ready;
+                    console.log('Generating locations...');
+                    await AppState.book.locations.generate(1024);
+                    AppState.isGeneratedLocations = true;
+                    console.log('Locations generated');
+
+                    // 存入 IndexedDB
+                    const data = AppState.book.locations.save();
+                    await LocationsDB.put(bookId, data);
+                    console.log('Locations saved to IndexedDB');
+
+                    if (AppState.isLoaded) {
+                        this.notifyPageChanged();
+                    }
+                }
+                // 1. 清理超过7天的记录
+                LocationsDB.deleteExpired();
+            } catch (err) {
+                console.error('Location generation error:', err);
+            }
+        })();
     },
 
     generateLocationsAsync() {
@@ -1511,6 +1552,75 @@ const GestureManager = {
             });
             rendition.hooks.content._registeredGestureHooks = true;
         }
+    }
+};
+
+// ============================================
+// IndexedDB 封装
+// ============================================
+const LocationsDB = {
+    DB_NAME: 'epubLocationsDB',
+    STORE_NAME: 'locations',
+    DB_VERSION: 1,
+    EXPIRE_MS: 31 * 24 * 60 * 60 * 1000, // 一个月
+
+    open() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                    db.createObjectStore(this.STORE_NAME, { keyPath: 'bookId' });
+                }
+            };
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async get(bookId) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readonly');
+            const req = tx.objectStore(this.STORE_NAME).get(bookId);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async put(bookId, locationsData) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            tx.objectStore(this.STORE_NAME).put({
+                bookId,
+                data: locationsData,
+                timestamp: Date.now()
+            });
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async deleteExpired() {
+        const db = await this.open();
+        const now = Date.now();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    if (now - cursor.value.timestamp > this.EXPIRE_MS) {
+                        cursor.delete();
+                        console.log("Deleted Locations in IndexedDB: " + cursor.value.bookId)
+                    }
+                    cursor.continue();
+                }
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
     }
 };
 
