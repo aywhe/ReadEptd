@@ -699,8 +699,12 @@ fun FileItemCard(
                 SwipeToDismissBoxValue.StartToEnd ->{
                     if(swipeToDismissBoxState != null) {
                         if(swipeToDismissBoxState!!.progress > swipeProgressFactor) {
-                            onRemove(fileInfo, isRemoveBookmark)
-                            false
+                            // 先返回true完成动画再删除更新list避免动画中断
+                            scope.launch {
+                                delay(200)
+                                onRemove(fileInfo, isRemoveBookmark)
+                            }
+                            true
                         } else {
                             false
                         }
