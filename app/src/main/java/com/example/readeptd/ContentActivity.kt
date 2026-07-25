@@ -175,6 +175,7 @@ fun ContentScreen(
                 WindowInsetsControllerCompat(window, view).apply {
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     hide(WindowInsetsCompat.Type.statusBars())
+                    hide(WindowInsetsCompat.Type.navigationBars())
                 }
                 // 强制立即应用，禁用动画
                 window.decorView.post {
@@ -186,6 +187,7 @@ fun ContentScreen(
             } else {
                 // 显示状态栏（无动画）
                 WindowInsetsControllerCompat(window, view).show(WindowInsetsCompat.Type.statusBars())
+                WindowInsetsControllerCompat(window, view).show(WindowInsetsCompat.Type.navigationBars())
                 // 强制立即应用，禁用动画
                 window.decorView.post {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
