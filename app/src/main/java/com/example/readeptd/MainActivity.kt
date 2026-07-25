@@ -493,8 +493,6 @@ fun ContentScreen(
                         // 3. 手指抬起时，如果满足左滑条件，触发弹窗
                         if (isHorizontalSwipe) {
                             goToContentActivity(lastReadingFile)
-                        } else {
-                            Log.d("nobugs", "")
                         }
                     }
                 }
