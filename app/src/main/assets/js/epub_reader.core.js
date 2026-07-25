@@ -48,7 +48,9 @@ const AppState = {
     setIsFullScreen(isFullScreen){
         this.isFullScreen = isFullScreen;
         console.log("Set full screen flag: " + isFullScreen);
-        ThemeBridge.applyThemeToEpub();
+        if(this.isLoaded){
+            ThemeBridge.applyThemeToEpub();
+        }
     },
 
     updateConfig(configJson){
@@ -350,6 +352,7 @@ const UIManager = {
     highlightCurrentChapter(currentHref) {
         console.log('highlight chapter ', currentHref);
         const links = document.querySelectorAll('#toc-container a');
+        let highlighted = false;
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
             //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
@@ -358,9 +361,13 @@ const UIManager = {
                            currentHref.startsWith(linkHref.split('#')[0]);
 
             if (isMatch) {
-                //console.log('Highlighting chapter link:', linkHref);
-                link.classList.add('active');
-                link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if(!highlighted){
+                    // 遇到情况，toc中使用了锚点，href相同，所以只高亮第一个
+                    //console.log('Highlighting chapter link:', linkHref);
+                    link.classList.add('active');
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    highlighted = true;
+                }
             } else {
                 link.classList.remove('active');
             }
@@ -637,8 +644,8 @@ const ReaderCore = {
 
             this.createBook(epubUrl);
             this.createRendition();
-            this.setupEventListeners();
             this.loadNavigation();
+            this.setupEventListeners();
             this.loadOrGenerateLocationsAsync(epubUrl);
             //this.generateLocationsAsync();
 
