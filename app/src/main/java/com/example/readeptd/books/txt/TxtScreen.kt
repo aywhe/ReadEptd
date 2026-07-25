@@ -226,6 +226,14 @@ private fun ReadyState(
 //            viewModel.setSplitPagesMode(SplitPagesMode.ByCharsCount)
         }
     }
+    var isFullScreenChanged by remember{mutableStateOf(true)}
+    LaunchedEffect(isFullScreen){
+        isFullScreenChanged = true
+        scope.launch {
+            delay(2000)
+            isFullScreenChanged = false
+        }
+    }
     
     // ✅ 在这里计算 contentPadding
     val contentPadding = PaddingValues(
@@ -240,17 +248,19 @@ private fun ReadyState(
             .fillMaxSize()
             .onSizeChanged { size ->
                 Log.d("TxtScreen", "[onSizeChanged] 视图尺寸变化: ${size.width}x${size.height}")
-                scope.launch {
-                    viewModel.onEvent(
-                        TxtEvent.OnViewMetricsChanged(
-                            size = size,
-                            leftPaddingDp = leftPaddingDp,
-                            rightPaddingDp = rightPaddingDp,
-                            topPaddingDp = topPaddingDp,
-                            bottomPaddingDp = bottomPaddingDp
+                if(isFullScreenChanged) {
+                    scope.launch {
+                        viewModel.onEvent(
+                            TxtEvent.OnViewMetricsChanged(
+                                size = size,
+                                leftPaddingDp = leftPaddingDp,
+                                rightPaddingDp = rightPaddingDp,
+                                topPaddingDp = topPaddingDp,
+                                bottomPaddingDp = bottomPaddingDp
+                            )
                         )
-                    )
-                    Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
+                        Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
+                    }
                 }
             }
             .pointerInput(Unit) {
