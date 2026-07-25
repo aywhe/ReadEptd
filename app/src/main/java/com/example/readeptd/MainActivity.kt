@@ -987,11 +987,11 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("隐藏导航栏")
+                    Text("常驻导航条")
                     Switch(
-                        checked = !config.isShowNavBarsInFullScreen,
+                        checked = config.isShowNavBarsInFullScreen,
                         onCheckedChange = {
-                            viewModel.updateConfig { copy(isShowNavBarsInFullScreen = !it) }
+                            viewModel.updateConfig { copy(isShowNavBarsInFullScreen = it) }
                         }
                     )
                 }
