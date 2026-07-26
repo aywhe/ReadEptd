@@ -363,12 +363,12 @@ const UIManager = {
                 const anchorId = hasAnchor ? href.substring(hashIndex + 1) : null;
                 let cfi = null;
                 if(!doc){
-                    doc = section.document || await section.load();
+                    doc = await section.load();
                     if (!doc) {
                         console.error('Error in load section ' + sectionHref);
                         continue;
                     }
-                    console.log('Loaded section doc: ' + doc.innerHTML);
+                    //console.log('Loaded section doc: ' + doc.innerHTML);
                 }
                 if (hasAnchor && anchorId) {
                     const element = doc.querySelector(`[id="${anchorId}"]`)
