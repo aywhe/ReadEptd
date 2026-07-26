@@ -185,7 +185,9 @@ const ResourceManager = {
 // UI 管理模块
 // ============================================
 const UIManager = {
+    tocCfiMapArr:[],
     init() {
+        tocCfiMapArr:[],
         this.initDraggableButton();
         this.setupNavClickBackgroundListener();
     },
@@ -349,27 +351,93 @@ const UIManager = {
         return html;
     },
 
+    async appendTocCfiMap(toc, doc, section, level = 0) {
+        if(Array.isArray(toc) && toc.length === 0 || toc === null){
+            return;
+        }
+        for(const chapter of toc)  {
+            const href = chapter.href;
+            if(!href) continue;
+            // 解析锚点
+            const hashIndex = href.indexOf('#');
+            const hasAnchor = hashIndex !== -1;
+            const anchorId = hasAnchor ? href.substring(hashIndex + 1) : null;
+            let cfi = null;
+            if (hasAnchor && anchorId) {
+                if(!doc){
+                    doc = await section.load();
+                    console.log('Loaded section doc: ' + doc.innerHtml);
+                }
+                const element = doc.getElementById(anchorId)
+                             || doc.querySelector(`[name="${anchorId}"]`)
+                             || doc.querySelector(anchorId);
+                if (element) {
+                    cfi = section.cfiFromElement(element);
+                }
+            }
+            if (!cfi) {
+                 // 无锚点或锚点找不到：用 section 起始位置
+                 cfi = section.cfiFromRange(section.document.createRange());
+             }
+            if (cfi) {
+                this.tocCfiMapArr.push({href, cfi});
+            }
+
+            if (chapter.subitems && chapter.subitems.length > 0) {
+                this.appendTocCfiMap(chapter.subitems, doc, section, level + 1);
+            }
+        }
+    },
+
+    highlightCurrentChapterUseLocation(location) {
+        const currentCfi = location.end.cfi;
+        let targetHref = location.end.href;
+        const compare = this.book.locations.epubcfi.compare;
+
+        // 找到最后一个 CFI <= currentCfi 的 TOC 项
+        for (let i = this.tocCfiMap.length - 1; i >= 0; i--) {
+            if (compare(this.tocCfiMap[i].cfi, currentCfi) <= 0) {
+                targetHref = this.tocCfiMap[i].href;
+                break;
+            }
+        }
+        highlightCurrentChapter(targetHref);
+    },
+
     highlightCurrentChapter(currentHref) {
         console.log('highlight chapter ', currentHref);
         const links = document.querySelectorAll('#toc-container a');
+
+        // 先检查是否存在完整匹配
+        let hasFullMatch = false;
+        links.forEach(link => {
+            if (link.getAttribute('data-href') === currentHref) {
+                hasFullMatch = true;
+            }
+        });
+
         let highlighted = false;
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
-            //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
-            const isMatch = linkHref === currentHref ||
-                           linkHref.startsWith(currentHref) ||
-                           currentHref.startsWith(linkHref.split('#')[0]);
 
-            if (isMatch) {
-                if(!highlighted){
-                    // 遇到情况，toc中使用了锚点，href相同，所以只高亮第一个
-                    //console.log('Highlighting chapter link:', linkHref);
+            if (hasFullMatch) {
+                // 有完整匹配：只高亮完整匹配的项
+                if (linkHref === currentHref && !highlighted) {
                     link.classList.add('active');
                     link.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     highlighted = true;
+                } else {
+                    link.classList.remove('active');
                 }
             } else {
-                link.classList.remove('active');
+                // 无完整匹配：走子匹配逻辑（如 currentHref 是 "Section008.xhtml"，匹配 "Section008.xhtml#sec1"）
+                if (linkHref.split('#')[0] === currentHref.split('#')[0] && !highlighted) {
+                    link.classList.add('active');
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    highlighted = true;
+                } else {
+                    link.classList.remove('active');
+                }
             }
         });
     },
@@ -723,7 +791,8 @@ const ReaderCore = {
                         if (location) {
                             console.log('Current location:', JSON.stringify(location));
                             AndroidBridge.onPageChanged(JSON.stringify(location));
-                            UIManager.highlightCurrentChapter(location.end.href);
+                            UIManager.highlightCurrentChapterUseLocation(location);
+                            //UIManager.highlightCurrentChapter(location.end.href);
                         } else {
                             console.warn('No current location available yet');
                         }
@@ -741,7 +810,8 @@ const ReaderCore = {
         AppState.rendition.on("relocated", UtilsTool.debounce((location) => {
             console.log('Page relocated:', JSON.stringify(location));
             AndroidBridge.onPageChanged(JSON.stringify(location));
-            UIManager.highlightCurrentChapter(location.end.href);
+            UIManager.highlightCurrentChapterUseLocation(location);
+            //UIManager.highlightCurrentChapter(location.end.href);
         },200));
     },
 
@@ -756,6 +826,7 @@ const ReaderCore = {
     setupRenderedListener() {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
+            appendTocCfiMap(AppState.tableOfContents,null,section);
             this.setupDoubleClickHandler(view);
         });
         GestureManager.initFontSizeGesture();
