@@ -352,35 +352,49 @@ const UIManager = {
     },
 
     async appendTocCfiMap(toc, doc, section, level = 0) {
-        if(Array.isArray(toc) && toc.length === 0 || toc === null){
-            return;
-        }
         for(const chapter of toc)  {
             const href = chapter.href;
-            if(!href) continue;
-            // 解析锚点
-            const hashIndex = href.indexOf('#');
-            const hasAnchor = hashIndex !== -1;
-            const anchorId = hasAnchor ? href.substring(hashIndex + 1) : null;
-            let cfi = null;
-            if (hasAnchor && anchorId) {
+            const sectionHref = section.href;
+            if(!href || href.split('#')[0] !== sectionHref.split('#')[0]) continue;
+            try{
+                // 解析锚点
+                const hashIndex = href.indexOf('#');
+                const hasAnchor = hashIndex !== -1;
+                const anchorId = hasAnchor ? href.substring(hashIndex + 1) : null;
+                let cfi = null;
                 if(!doc){
-                    doc = await section.load();
-                    console.log('Loaded section doc: ' + doc.innerHtml);
+                    doc = section.document || await section.load();
+                    if (!doc) {
+                        console.error('Error in load section ' + sectionHref);
+                        continue;
+                    }
+                    console.log('Loaded section doc: ' + doc.innerHTML);
                 }
-                const element = doc.getElementById(anchorId)
-                             || doc.querySelector(`[name="${anchorId}"]`)
-                             || doc.querySelector(anchorId);
-                if (element) {
-                    cfi = section.cfiFromElement(element);
+                if (hasAnchor && anchorId) {
+                    const element = doc.querySelector(`[id="${anchorId}"]`)
+                                 || doc.querySelector(`[name="${anchorId}"]`);
+                    if (element) {
+                        cfi = section.cfiFromElement(element);
+                    }
                 }
-            }
-            if (!cfi) {
-                 // 无锚点或锚点找不到：用 section 起始位置
-                 cfi = section.cfiFromRange(section.document.createRange());
-             }
-            if (cfi) {
-                this.tocCfiMapArr.push({href, cfi});
+                if (!cfi) {
+                     // 无锚点或锚点找不到：用 section 起始位置
+                     //cfi = section.cfiFromRange(section.document.createRange());
+                     const range = document.createRange();
+                     const firstElement = doc.querySelector('body') || doc.firstElementChild || doc.documentElement;
+                     if (firstElement) {
+                         range.selectNodeContents(firstElement);
+                         range.collapse(true); // 折叠到起始位置
+                         cfi = section.cfiFromRange(range);
+                     }
+                 }
+                if (cfi) {
+                    this.tocCfiMapArr.push({href, cfi});
+                    console.log("Pushed tocCfiMapArr item: {" + href + ", " + cfi + "}");
+                }
+            } catch (err) {
+                console.error('Error in appendTocCfiMap with href ' + href + ':' , err.stack);
+                //continue;
             }
 
             if (chapter.subitems && chapter.subitems.length > 0) {
@@ -391,17 +405,21 @@ const UIManager = {
 
     highlightCurrentChapterUseLocation(location) {
         const currentCfi = location.end.cfi;
+        const currentHref = location.end.href;
         let targetHref = location.end.href;
-        const compare = this.book.locations.epubcfi.compare;
-
+        const cfiComparator = new ePub.CFI().compare;
         // 找到最后一个 CFI <= currentCfi 的 TOC 项
-        for (let i = this.tocCfiMap.length - 1; i >= 0; i--) {
-            if (compare(this.tocCfiMap[i].cfi, currentCfi) <= 0) {
-                targetHref = this.tocCfiMap[i].href;
+        for (let i = this.tocCfiMapArr.length - 1; i >= 0; i--) {
+            if (
+                this.tocCfiMapArr[i].href.split('#')[0] === currentHref.split('#')[0]
+                && cfiComparator(this.tocCfiMapArr[i].cfi, currentCfi) <= 0
+            ){
+                targetHref = this.tocCfiMapArr[i].href;
+                console.log("Settled cfi " + currentCfi + " in href " + targetHref);
                 break;
             }
         }
-        highlightCurrentChapter(targetHref);
+        this.highlightCurrentChapter(targetHref);
     },
 
     highlightCurrentChapter(currentHref) {
@@ -421,6 +439,7 @@ const UIManager = {
             const linkHref = link.getAttribute('data-href');
 
             if (hasFullMatch) {
+                //console.log("Full matched href " + currentHref);
                 // 有完整匹配：只高亮完整匹配的项
                 if (linkHref === currentHref && !highlighted) {
                     link.classList.add('active');
@@ -432,6 +451,7 @@ const UIManager = {
             } else {
                 // 无完整匹配：走子匹配逻辑（如 currentHref 是 "Section008.xhtml"，匹配 "Section008.xhtml#sec1"）
                 if (linkHref.split('#')[0] === currentHref.split('#')[0] && !highlighted) {
+                    //console.log("Sub matched href " + currentHref + " => " + linkHref);
                     link.classList.add('active');
                     link.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     highlighted = true;
@@ -826,7 +846,7 @@ const ReaderCore = {
     setupRenderedListener() {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
-            appendTocCfiMap(AppState.tableOfContents,null,section);
+            UIManager.appendTocCfiMap(AppState.tableOfContents,null,section);
             this.setupDoubleClickHandler(view);
         });
         GestureManager.initFontSizeGesture();
