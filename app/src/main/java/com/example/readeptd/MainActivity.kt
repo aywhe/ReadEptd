@@ -723,6 +723,7 @@ fun FileItemCard(
     )
     val thresholdReached = swipeToDismissBoxState.targetValue == SwipeToDismissBoxValue.StartToEnd
             && swipeToDismissBoxState.progress > swipeProgressFactor
+    val isShowFocusColor = isDragging || thresholdReached
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         enableDismissFromEndToStart = false,
@@ -742,23 +743,19 @@ fun FileItemCard(
             shape = RectangleShape,
             colors = CardDefaults.cardColors(
                 containerColor = when {
-                    thresholdReached -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.surface
                 },
                 contentColor = when {
-                    thresholdReached -> MaterialTheme.colorScheme.onError.copy(alpha = 0.5f)
-                    isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
                     else -> MaterialTheme.colorScheme.onSurface
                 },
                 disabledContainerColor = when {
-                    thresholdReached -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
                 },
                 disabledContentColor = when {
-                    thresholdReached -> MaterialTheme.colorScheme.onError.copy(alpha = 0.5f)
-                    isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    isShowFocusColor -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 }
             )
