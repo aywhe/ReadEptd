@@ -143,3 +143,11 @@ null        true             true             —             —
 "\n\t"      false            true             true          false
 " a "       false            false            true          true
 
+- 【问题】epub.js 的 navigation.toc 中的 href 确实存储的是 URL 编码后的形式，
+epub.js 在内部定位当前章节时（如 locationChanged 事件），返回的 href 是解码后的原始路径，
+例如：
+toc href:      Pi_Pan_Xing_Si_Wei_Gong_Ju_%28Yua_split_003.html
+currentHref:   Pi_Pan_Xing_Si_Wei_Gong_Ju_(Yua_split_003.html
+导致导航版定位时匹配失败。
+【方法】：
+在 navigation.toc 中的 href 进行解码，使用 decodeURIComponent(href)

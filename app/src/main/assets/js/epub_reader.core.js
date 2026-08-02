@@ -322,7 +322,7 @@ const UIManager = {
         toc.forEach((chapter) => {
             const indent = level * 20;
             const fontSize = Math.max(12, 16 - level * 2);
-            const href = chapter.href || '';
+            const href = decodeURIComponent(chapter.href) || '';
             const label = chapter.label || '未命名章节';
 
             console.log('Generating TOC item: level[', level, '],label[', label.trim(), '],href[', href, ']');
