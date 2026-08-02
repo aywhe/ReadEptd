@@ -332,7 +332,7 @@ const UIManager = {
                     <a href="#"
                        data-href="${href}"
                        onclick="ChapterManager.jumpToChapter('${href}'); return false;"
-                       style="display: block; padding: 12px 18px; padding-left: ${12 + indent}px;
+                       style="display: block; padding: 4px 18px; padding-left: ${12 + indent}px;
                               text-decoration: none; color: var(--color-text-primary); font-size: ${fontSize}px;
                               border-radius: 5px; transition: background var(--transition-fast);"
                     >
