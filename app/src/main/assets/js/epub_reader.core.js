@@ -1163,6 +1163,7 @@ const ThemeBridge = {
                     'color': colors.textPrimary + ' !important',
                     // ✅ 使用 !important 强制覆盖 EPUB 自带样式
                     'padding': `${paddingVerticalTop} ${paddingHorizontal} ${paddingVerticalBottom} !important`,
+                    'line-height': '1.5 !important',
                     'margin': '0 !important',
                     'box-sizing': 'border-box'
                 },
@@ -1170,6 +1171,7 @@ const ThemeBridge = {
                     'box-sizing': 'inherit'
                 },
                 'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
+                    'line-height': '1.5 !important',
                     'color': colors.textPrimary + ' !important',
                     'background-color': 'transparent !important'
                 },
