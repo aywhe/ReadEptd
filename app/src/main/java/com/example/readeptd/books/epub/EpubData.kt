@@ -1,6 +1,13 @@
 package com.example.readeptd.books.epub
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 /**
  * EPUB 页面信息数据类
@@ -189,4 +196,46 @@ sealed interface EpubTheme {
 sealed interface EpubFlowMode {
     object Paginated : EpubFlowMode
     object Scrolled : EpubFlowMode
+}
+
+data class WebPaddingValues(
+    val start: Int = 0,
+    val top: Int = 0,
+    val end: Int = 0,
+    val bottom: Int = 0
+) {
+    constructor(all: Int = 0) : this(all, all, all, all)
+
+    constructor(horizontal: Int = 0, vertical: Int = 0)
+            : this(horizontal, vertical, horizontal, vertical)
+
+    companion object {
+        // webview使用的px是逻辑像素，对应Android层就是dp，所以不用转换
+        fun fromPaddingValues(padding: PaddingValues): WebPaddingValues {
+            return WebPaddingValues(
+                start = padding.calculateStartPadding(LayoutDirection.Ltr).value.roundToInt(),
+                top = padding.calculateTopPadding().value.roundToInt(),
+                end = padding.calculateEndPadding(LayoutDirection.Ltr).value.roundToInt(),
+                bottom = padding.calculateBottomPadding().value.roundToInt()
+            )
+        }
+    }
+
+    fun toPaddingValues(): PaddingValues {
+        return PaddingValues(
+            start = start.dp,
+            top = top.dp,
+            end = end.dp,
+            bottom = bottom.dp
+        )
+    }
+
+    fun toJson(): String {
+        return JSONObject().apply {
+            put("start", start)
+            put("top", top)
+            put("end", end)
+            put("bottom", bottom)
+        }.toString()
+    }
 }

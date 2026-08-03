@@ -80,19 +80,10 @@ class TxtExtractor(private val context: Context) {
     }
     
     private var detectedData = ByteArray(0)
-    
+
     private fun openInputStream(uri: Uri): InputStream? {
-        return when (uri.scheme) {
-            "content" -> {
-                context.contentResolver.openInputStream(uri)
-            }
-            "file" -> {
-                uri.path?.let { File(it).inputStream() }
-            }
-            else -> {
-                uri.path?.let { File(it).inputStream() }
-            }
-        }
+        // 统一用 ContentResolver，它支持 content:// 和 file://
+        return context.contentResolver.openInputStream(uri)
     }
     
     /**

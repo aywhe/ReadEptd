@@ -17,7 +17,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -58,9 +59,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -73,11 +78,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import com.example.readeptd.data.ConfigureData
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -97,6 +102,7 @@ import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import sh.calvin.reorderable.ReorderableItem
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -452,30 +458,46 @@ fun ContentScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(lastReadingFile) {
-                    // 只有存在上次阅读文件时才启用手势
-                    if (lastReadingFile != null) {
-                        var totalDragAmount = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                totalDragAmount = 0f
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                totalDragAmount += dragAmount
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                // 在手势结束时判断总滑动距离是否达到阈值
-                                if (totalDragAmount < -50f) {
-                                    goToContentActivity(lastReadingFile)
-                                }
-                            },
-                            onDragCancel = {
-                                totalDragAmount = 0f
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        // 1. 在 Initial 阶段等待按下
+                        val down = awaitFirstDown(requireUnconsumed = false)
+
+                        var lastX = down.position.x
+                        var lastY = down.position.y
+                        var totalDragX = 0f
+                        var totalDragY = 0f
+                        var isHorizontalSwipe = false
+
+                        // 2. 监听拖拽过程
+                        do {
+                            val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull() ?: continue
+                            val currentX = change.position.x
+                            val currentY = change.position.y
+
+                            // 计算增量（delta），而非累加绝对坐标
+                            val deltaX = currentX - lastX
+                            val deltaY = currentY - lastY
+                            totalDragX += deltaX
+                            totalDragY += deltaY
+
+                            // 更新上一帧位置
+                            lastX = currentX
+                            lastY = currentY
+
+                            if (totalDragX < -100f && abs(totalDragX) > abs(totalDragY) * 1.5f) {
+                                isHorizontalSwipe = true
                             }
-                        )
+                        } while (event.changes.any { it.pressed })
+
+                        // 3. 手指抬起时，如果满足左滑条件，触发弹窗
+                        if (isHorizontalSwipe) {
+                            goToContentActivity(lastReadingFile)
+                        }
                     }
-                },
+                }
+            ,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (files.isEmpty()) {
@@ -516,12 +538,12 @@ fun ContentScreen(
                                 onClick = {fileInfo ->
                                     goToContentActivity(fileInfo)
                                 },
-                                onRemove = { isRemoveBookmark->
-                                    FileUtils.releasePersistableUriPermission(context, files[index].uri)
-                                    viewModel.onEvent(MainUiEvent.RemoveFile(index))
+                                onRemove = {fileInfo, isRemoveBookmark->
+                                    FileUtils.releasePersistableUriPermission(context, fileInfo.uri)
+                                    viewModel.onEvent(MainUiEvent.RemoveFile(fileInfo.uri))
                                     if(isRemoveBookmark){
                                         scope.launch {
-                                            viewModel.removeBookmarksForBook(files[index].uri)
+                                            viewModel.removeBookmarksForBook(fileInfo.uri)
                                         }
                                     }
                                 },
@@ -638,7 +660,7 @@ fun DraggableFloatingButton(
 fun FileItemCard(
     fileInfo: FileInfo,
     onClick: (FileInfo) -> Unit,
-    onRemove: (Boolean) -> Unit,
+    onRemove: (FileInfo,Boolean) -> Unit,
     isDragging: Boolean = false,
     progress: Double? = null,
     modifier: Modifier = Modifier
@@ -646,6 +668,7 @@ fun FileItemCard(
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteButton by remember { mutableStateOf(false) }
     var isFileAccessible by remember { mutableStateOf<Boolean?>(true) }
+    var isRemoveBookmark by remember{mutableStateOf(true)}
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -666,110 +689,150 @@ fun FileItemCard(
             showDeleteButton = false
         }
     }
-    
-    Card(
-        onClick = {
-            if (isFileAccessible == true && !isDragging) {
-                onClick(fileInfo)
+
+    var swipeToDismissBoxState:SwipeToDismissBoxState? = null
+    val swipeProgressFactor = 0.172f
+    swipeToDismissBoxState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {value ->
+            when(value) {
+                SwipeToDismissBoxValue.StartToEnd ->{
+                    if(swipeToDismissBoxState != null) {
+                        if(swipeToDismissBoxState!!.progress > swipeProgressFactor) {
+                            // 先返回true完成动画再删除更新list避免动画中断
+                            scope.launch {
+                                delay(200)
+                                onRemove(fileInfo, isRemoveBookmark)
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+                SwipeToDismissBoxValue.EndToStart ->{
+                    // do nothing here
+                    false
+                }
+                SwipeToDismissBoxValue.Settled -> {
+                    false
+                }
             }
         },
-        enabled = isFileAccessible == true,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                else -> MaterialTheme.colorScheme.surface
-            },
-            contentColor = when {
-                isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
-                else -> MaterialTheme.colorScheme.onSurface
-            },
-            disabledContainerColor = when {
-                isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
-            },
-            disabledContentColor = when {
-                isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-            }
-        )
+        positionalThreshold = {totalDistance -> totalDistance * swipeProgressFactor}
+    )
+    val thresholdReached = swipeToDismissBoxState.targetValue == SwipeToDismissBoxValue.StartToEnd
+            && swipeToDismissBoxState.progress > swipeProgressFactor
+    SwipeToDismissBox(
+        state = swipeToDismissBoxState,
+        enableDismissFromEndToStart = false,
+        backgroundContent = {
+        }
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
+        Card(
+            onClick = {
+                if (isFileAccessible == true && !isDragging) {
+                    onClick(fileInfo)
+                }
+            },
+            enabled = isFileAccessible == true,
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            shape = RectangleShape,
+            colors = CardDefaults.cardColors(
+                containerColor = when {
+                    isDragging -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    else -> MaterialTheme.colorScheme.surface
+                },
+                contentColor = when {
+                    isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                disabledContainerColor = when {
+                    isDragging -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
+                },
+                disabledContentColor = when {
+                    isDragging -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                }
+            )
+        ) {
+            Column {
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(4.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = fileInfo.fileName,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(4.dp)
                     ) {
-                        // 显示文件大小和 MIME 类型
                         Text(
-                            text = Utils.formatFileSize(fileInfo.fileSize),
-                            style = MaterialTheme.typography.bodySmall
+                            text = fileInfo.fileName,
+                            style = MaterialTheme.typography.bodyLarge
                         )
-                        Text(
-                            text = fileInfo.mimeType,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        // 显示阅读进度
-                        progress?.let { progress ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 显示文件大小和 MIME 类型
                             Text(
-                                text = "${(progress * 100).roundToInt()}%",
+                                text = Utils.formatFileSize(fileInfo.fileSize),
                                 style = MaterialTheme.typography.bodySmall
                             )
-                        }
-                        if (isFileAccessible == false) {
                             Text(
-                                text = "文件不存在",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = fileInfo.mimeType,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            // 显示阅读进度
+                            progress?.let { progress ->
+                                Text(
+                                    text = "${(progress * 100).roundToInt()}%",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (isFileAccessible == false) {
+                                Text(
+                                    text = "文件不存在",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = showDeleteButton,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        // 根据 showDeleteButton 状态控制删除按钮显示
+                        IconButton(
+                            onClick = { showConfirmDialog = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "删除"
                             )
                         }
                     }
                 }
-                AnimatedVisibility(
-                    visible = showDeleteButton,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    // 根据 showDeleteButton 状态控制删除按钮显示
-                    IconButton(
-                        onClick = { showConfirmDialog = true }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = "删除"
-                        )
-                    }
-                }
+
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .padding(horizontal = 4.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
             }
-            
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .padding(horizontal = 4.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
         }
     }
 
     if (showConfirmDialog) {
-        var isRemoveBookmark by remember{mutableStateOf(true)}
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = {
@@ -786,26 +849,26 @@ fun FileItemCard(
                         text = "确定要删除 \"${fileInfo.fileName}\" 吗？",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable {
-                                isRemoveBookmark = !isRemoveBookmark
-                            }
-                    ) {
-                        Checkbox(
-                            checked = isRemoveBookmark,
-                            onCheckedChange = { isRemoveBookmark = it }
-                        )
-                        Text(text = "同时删除书签")
-                    }
+//                    Row(
+//                        horizontalArrangement = Arrangement.End,
+//                        verticalAlignment = Alignment.CenterVertically,
+//                        modifier = Modifier.fillMaxWidth()
+//                            .clickable {
+//                                isRemoveBookmark = !isRemoveBookmark
+//                            }
+//                    ) {
+//                        Checkbox(
+//                            checked = isRemoveBookmark,
+//                            onCheckedChange = { isRemoveBookmark = it }
+//                        )
+//                        Text(text = "同时删除书签")
+//                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        onRemove(isRemoveBookmark)
+                        onRemove(fileInfo, isRemoveBookmark)
                         showConfirmDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -921,14 +984,27 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                Text("显示书签提示")
-                Switch(
-                    checked = config.isShowBookmarkHint,
-                    onCheckedChange = {
-                        viewModel.updateConfig { copy(isShowBookmarkHint = it) }
-                    }
-                )
-            }
+                    Text("显示书签提示")
+                    Switch(
+                        checked = config.isShowBookmarkHint,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isShowBookmarkHint = it) }
+                        }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("显示悬浮球")
+                    Switch(
+                        checked = config.isShowToolTipsInFullScreen,
+                        onCheckedChange = {
+                            viewModel.updateConfig { copy(isShowToolTipsInFullScreen = it) }
+                        }
+                    )
+                }
 
                 HorizontalDivider()
 
