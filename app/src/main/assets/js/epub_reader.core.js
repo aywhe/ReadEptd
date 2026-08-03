@@ -18,6 +18,7 @@ const AppState = {
     isMappingHooked: false,
     lastReadingCfi: '',
     lastFontSize: null,
+    isFullScreen: null,
     config: {},
 
     // 按钮拖动状态
@@ -36,10 +37,20 @@ const AppState = {
 
     setLastReadingCfi(lastReadingCfi){
         this.lastReadingCfi = lastReadingCfi;
+        console.log("Set last reading cfi: " + lastReadingCfi);
     },
 
     setLastFontSize(lastFontSize){
         this.lastFontSize = lastFontSize;
+        console.log("Set last font size: " + lastFontSize);
+    },
+
+    setIsFullScreen(isFullScreen){
+        this.isFullScreen = isFullScreen;
+        console.log("Set full screen flag: " + isFullScreen);
+        if(this.isLoaded){
+            ThemeBridge.applyThemeToEpub();
+        }
     },
 
     updateConfig(configJson){
@@ -174,7 +185,9 @@ const ResourceManager = {
 // UI 管理模块
 // ============================================
 const UIManager = {
+    tocCfiMapArr:[],
     init() {
+        tocCfiMapArr:[],
         this.initDraggableButton();
         this.setupNavClickBackgroundListener();
     },
@@ -309,7 +322,7 @@ const UIManager = {
         toc.forEach((chapter) => {
             const indent = level * 20;
             const fontSize = Math.max(12, 16 - level * 2);
-            const href = chapter.href || '';
+            const href = decodeURIComponent(chapter.href) || '';
             const label = chapter.label || '未命名章节';
 
             console.log('Generating TOC item: level[', level, '],label[', label.trim(), '],href[', href, ']');
@@ -319,7 +332,7 @@ const UIManager = {
                     <a href="#"
                        data-href="${href}"
                        onclick="ChapterManager.jumpToChapter('${href}'); return false;"
-                       style="display: block; padding: 12px 18px; padding-left: ${12 + indent}px;
+                       style="display: block; padding: 4px 18px; padding-left: ${12 + indent}px;
                               text-decoration: none; color: var(--color-text-primary); font-size: ${fontSize}px;
                               border-radius: 5px; transition: background var(--transition-fast);"
                     >
@@ -338,22 +351,113 @@ const UIManager = {
         return html;
     },
 
+    async appendTocCfiMap(toc, doc, section, level = 0) {
+        for(const chapter of toc)  {
+            const href = chapter.href;
+            const sectionHref = section.href;
+            if(!href || href.split('#')[0] !== sectionHref.split('#')[0]) continue;
+            try{
+                // 解析锚点
+                const hashIndex = href.indexOf('#');
+                const hasAnchor = hashIndex !== -1;
+                const anchorId = hasAnchor ? href.substring(hashIndex + 1) : null;
+                let cfi = null;
+                if(!doc){
+                    doc = await section.load();
+                    if (!doc) {
+                        console.error('Error in load section ' + sectionHref);
+                        continue;
+                    }
+                    //console.log('Loaded section doc: ' + doc.innerHTML);
+                }
+                if (hasAnchor && anchorId) {
+                    const element = doc.querySelector(`[id="${anchorId}"]`)
+                                 || doc.querySelector(`[name="${anchorId}"]`);
+                    if (element) {
+                        cfi = section.cfiFromElement(element);
+                    }
+                }
+                if (!cfi) {
+                     // 无锚点或锚点找不到：用 section 起始位置
+                     //cfi = section.cfiFromRange(section.document.createRange());
+                     const range = document.createRange();
+                     const firstElement = doc.querySelector('body') || doc.firstElementChild || doc.documentElement;
+                     if (firstElement) {
+                         range.selectNodeContents(firstElement);
+                         range.collapse(true); // 折叠到起始位置
+                         cfi = section.cfiFromRange(range);
+                     }
+                 }
+                if (cfi) {
+                    this.tocCfiMapArr.push({href, cfi});
+                    console.log("Pushed tocCfiMapArr item: {" + href + ", " + cfi + "}");
+                }
+            } catch (err) {
+                console.error('Error in appendTocCfiMap with href ' + href + ':' , err.stack);
+                //continue;
+            }
+
+            if (chapter.subitems && chapter.subitems.length > 0) {
+                this.appendTocCfiMap(chapter.subitems, doc, section, level + 1);
+            }
+        }
+    },
+
+    highlightCurrentChapterUseLocation(location) {
+        const currentCfi = location.end.cfi;
+        const currentHref = location.end.href;
+        let targetHref = location.end.href;
+        const cfiComparator = new ePub.CFI().compare;
+        // 找到最后一个 CFI <= currentCfi 的 TOC 项
+        for (let i = this.tocCfiMapArr.length - 1; i >= 0; i--) {
+            if (
+                this.tocCfiMapArr[i].href.split('#')[0] === currentHref.split('#')[0]
+                && cfiComparator(this.tocCfiMapArr[i].cfi, currentCfi) <= 0
+            ){
+                targetHref = this.tocCfiMapArr[i].href;
+                console.log("Settled cfi " + currentCfi + " in href " + targetHref);
+                break;
+            }
+        }
+        this.highlightCurrentChapter(targetHref);
+    },
+
     highlightCurrentChapter(currentHref) {
         console.log('highlight chapter ', currentHref);
         const links = document.querySelectorAll('#toc-container a');
+
+        // 先检查是否存在完整匹配
+        let hasFullMatch = false;
+        links.forEach(link => {
+            if (link.getAttribute('data-href') === currentHref) {
+                hasFullMatch = true;
+            }
+        });
+
+        let highlighted = false;
         links.forEach(link => {
             const linkHref = link.getAttribute('data-href');
-            //console.log('Comparing link href:', linkHref, 'with current href:', currentHref);
-            const isMatch = linkHref === currentHref ||
-                           linkHref.startsWith(currentHref) ||
-                           currentHref.startsWith(linkHref.split('#')[0]);
 
-            if (isMatch) {
-                //console.log('Highlighting chapter link:', linkHref);
-                link.classList.add('active');
-                link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (hasFullMatch) {
+                //console.log("Full matched href " + currentHref);
+                // 有完整匹配：只高亮完整匹配的项
+                if (linkHref === currentHref && !highlighted) {
+                    link.classList.add('active');
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    highlighted = true;
+                } else {
+                    link.classList.remove('active');
+                }
             } else {
-                link.classList.remove('active');
+                // 无完整匹配：走子匹配逻辑（如 currentHref 是 "Section008.xhtml"，匹配 "Section008.xhtml#sec1"）
+                if (linkHref.split('#')[0] === currentHref.split('#')[0] && !highlighted) {
+                    //console.log("Sub matched href " + currentHref + " => " + linkHref);
+                    link.classList.add('active');
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    highlighted = true;
+                } else {
+                    link.classList.remove('active');
+                }
             }
         });
     },
@@ -628,9 +732,10 @@ const ReaderCore = {
 
             this.createBook(epubUrl);
             this.createRendition();
-            this.setupEventListeners();
             this.loadNavigation();
-            this.generateLocationsAsync();
+            this.setupEventListeners();
+            this.loadOrGenerateLocationsAsync(epubUrl);
+            //this.generateLocationsAsync();
 
         } catch (error) {
             console.error('Init error:', error);
@@ -695,6 +800,7 @@ const ReaderCore = {
     setupStartListener() {
         AppState.rendition.on("started", () => {
             console.log('Rendition started');
+            ThemeBridge.registerThemes();
             ThemeBridge.applyThemeToEpub();
             if(AppState.rendition.manager){
                 this.hookMappingFunctions();
@@ -705,7 +811,8 @@ const ReaderCore = {
                         if (location) {
                             console.log('Current location:', JSON.stringify(location));
                             AndroidBridge.onPageChanged(JSON.stringify(location));
-                            UIManager.highlightCurrentChapter(location.end.href);
+                            UIManager.highlightCurrentChapterUseLocation(location);
+                            //UIManager.highlightCurrentChapter(location.end.href);
                         } else {
                             console.warn('No current location available yet');
                         }
@@ -723,7 +830,8 @@ const ReaderCore = {
         AppState.rendition.on("relocated", UtilsTool.debounce((location) => {
             console.log('Page relocated:', JSON.stringify(location));
             AndroidBridge.onPageChanged(JSON.stringify(location));
-            UIManager.highlightCurrentChapter(location.end.href);
+            UIManager.highlightCurrentChapterUseLocation(location);
+            //UIManager.highlightCurrentChapter(location.end.href);
         },200));
     },
 
@@ -738,6 +846,7 @@ const ReaderCore = {
     setupRenderedListener() {
         AppState.rendition.on("rendered", (section, view) => {
             console.log('Section rendered:', section.href);
+            UIManager.appendTocCfiMap(AppState.tableOfContents,null,section);
             this.setupDoubleClickHandler(view);
         });
         GestureManager.initFontSizeGesture();
@@ -805,6 +914,46 @@ const ReaderCore = {
         }).catch((err) => {
             console.error('Failed to load navigation:', err);
         });
+    },
+
+    loadOrGenerateLocationsAsync(file) {
+        const bookId = file;
+
+        (async () => {
+            try {
+                // 2. 读取缓存
+                const cached = await LocationsDB.get(bookId);
+                if (cached) {
+                    // 有缓存，直接加载，UI立即可用
+                    AppState.book.locations.load(cached.data);
+                    AppState.isGeneratedLocations = true;
+                    console.log('Locations loaded from cache');
+                    if (AppState.isLoaded) {
+                        this.notifyPageChanged();
+                    }
+                } else {
+                    // 无缓存，生成后存储
+                    await AppState.book.ready;
+                    console.log('Generating locations...');
+                    await AppState.book.locations.generate(1024);
+                    AppState.isGeneratedLocations = true;
+                    console.log('Locations generated');
+
+                    // 存入 IndexedDB
+                    const data = AppState.book.locations.save();
+                    await LocationsDB.put(bookId, data);
+                    console.log('Locations saved to IndexedDB');
+
+                    if (AppState.isLoaded) {
+                        this.notifyPageChanged();
+                    }
+                }
+                // 1. 清理超过7天的记录
+                LocationsDB.deleteExpired();
+            } catch (err) {
+                console.error('Location generation error:', err);
+            }
+        })();
     },
 
     generateLocationsAsync() {
@@ -968,46 +1117,43 @@ const ReaderCore = {
 // ============================================
 const ThemeBridge = {
 
-    applyThemeToEpub() {
-        try {
-            if (!AppState.rendition || !AppState.rendition.themes) {
-                console.warn('Rendition or themes API not available');
-                return;
-            }
+    themeNames: ["paginated","paginated-fullscreen","scrolled"],
 
-            const themeName = "my-theme";
+    generateRules(themeName, isScrolled, isFullScreen){
+        const computedStyle = getComputedStyle(document.documentElement);
+        const colors = {
+            background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
+            textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
+            primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
+            highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
+            selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
+        };
 
-            // ✅ 如果主题已注册，直接返回，不做任何操作
-            if (AppState.isThemeRegistered) {
-                console.log('Theme already registered, skip');
-                return;
-            }
+        // ✅ 从 CSS 变量读取 padding 值
+        let paddingVerticalTop = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+        let paddingVerticalBottom = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
+        const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
+        if(isScrolled){
+            paddingVerticalTop = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+            paddingVerticalBottom = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
+        } else if(isFullScreen){
+            paddingVerticalTop = (AppState.config.safeCutLayoutPadding.top+'px') || paddingVerticalTop
+        }
 
-            // ✅ 从 CSS 文件中动态读取颜色值和 padding
-            const computedStyle = getComputedStyle(document.documentElement);
-            const colors = {
-                background: computedStyle.getPropertyValue('--color-background').trim() || '#ffffff',
-                textPrimary: computedStyle.getPropertyValue('--color-text-primary').trim() || '#000000',
-                primary: computedStyle.getPropertyValue('--color-primary').trim() || '#3498db',
-                highlight: computedStyle.getPropertyValue('--color-highlight').trim() || 'rgba(0, 163, 204, 0.3)',
-                selection: computedStyle.getPropertyValue('--color-selection').trim() || 'rgba(0, 163, 204, 0.25)'
-            };
+        console.log('Generate theme with padding:',
+            JSON.stringify(
+                {
+                    themeName: themeName,
+                    vertical: {paddingVerticalTop, paddingVerticalBottom},
+                    horizontal: paddingHorizontal
+                }
+            )
+        );
 
-            // ✅ 从 CSS 变量读取 padding 值
-            let paddingVertical = computedStyle.getPropertyValue('--view-padding-vertical').trim() || '15px';
-            const paddingHorizontal = computedStyle.getPropertyValue('--view-padding-horizontal').trim() || '20px';
-            if(AppState.config.flowMode === 'scrolled'){
-                paddingVertical = computedStyle.getPropertyValue('--scrolled-view-padding-vertical').trim() || '15px';
-            }
-
-
-            console.log('Applying theme with padding:', {
-                vertical: paddingVertical,
-                horizontal: paddingHorizontal
-            });
-
-            // ✅ 方式二：传入规则对象（符合官方文档）
-            const rules = {
+        // ✅ 方式二：传入规则对象（符合官方文档）
+        return {
+            themeName: themeName,
+            rule: {
                 'html': {
                     'padding': '0 !important',
                     'margin': '0 !important'
@@ -1016,7 +1162,8 @@ const ThemeBridge = {
                     'background-color': colors.background + ' !important',
                     'color': colors.textPrimary + ' !important',
                     // ✅ 使用 !important 强制覆盖 EPUB 自带样式
-                    'padding': `${paddingVertical} ${paddingHorizontal} !important`,
+                    'padding': `${paddingVerticalTop} ${paddingHorizontal} ${paddingVerticalBottom} !important`,
+                    'line-height': '1.5 !important',
                     'margin': '0 !important',
                     'box-sizing': 'border-box'
                 },
@@ -1024,6 +1171,7 @@ const ThemeBridge = {
                     'box-sizing': 'inherit'
                 },
                 'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre': {
+                    'line-height': '1.5 !important',
                     'color': colors.textPrimary + ' !important',
                     'background-color': 'transparent !important'
                 },
@@ -1037,17 +1185,61 @@ const ThemeBridge = {
                     'background-color': colors.selection + ' !important',
                     'color': colors.textPrimary + ' !important'
                 }
-            };
+            }
+        };
+    },
 
-            // ✅ 注册并选择主题
-            AppState.rendition.themes.register(themeName, rules);
-            AppState.rendition.themes.select(themeName);
+    applyThemeToEpub() {
+        const config = AppState.config;
+        const flowMode = config.flowMode;
+        const isFullScreen = AppState.isFullScreen || false;
+        try{
+            //["paginated","paginated-fullscreen","scrolled"],
+            if(flowMode === 'scrolled'){
+                console.log('Apply Layout mode scrolled');
+                AppState.rendition.themes.select("scrolled");
+            } else {
+                if(isFullScreen){
+                    console.log('Apply Layout mode paginated-fullscreen');
+                    AppState.rendition.themes.select("paginated-fullscreen");
+                } else {
+                    console.log('Apply Layout mode paginated');
+                    AppState.rendition.themes.select("paginated");
+                }
+            }
+        } catch (error){
+            console.error('Error apply Layout mode to epub:', error.stack);
+        }
+    },
+
+    registerThemes(){
+        try {
+            if (!AppState.rendition || !AppState.rendition.themes) {
+                console.warn('Rendition or themes API not available');
+                return;
+            }
+
+            // ✅ 如果主题已注册，直接返回，不做任何操作
+            if (AppState.isThemeRegistered) {
+                console.log('Theme already registered, skip');
+                return;
+            }
+            //["paginated","paginated-fullscreen","scrolled"],
+            const rules = [
+                this.generateRules("paginated", false, false),
+                this.generateRules("paginated-fullscreen", false, true),
+                this.generateRules("scrolled", true, null)
+            ];
+
+            rules.forEach((it) => {
+                AppState.rendition.themes.register(it.themeName, it.rule);
+                console.log('Registered theme: ' + it.themeName)
+            });
+
             AppState.isThemeRegistered = true;
 
-            console.log(`Epub.js theme applied via rules object: ${themeName}`);
-            console.log(`Padding applied: ${paddingVertical} ${paddingHorizontal}`);
         } catch (error) {
-            console.error('Error applying theme to epub:', error.stack);
+            console.error('Error register theme to epub:', error.stack);
         }
     }
 };
@@ -1464,6 +1656,75 @@ const GestureManager = {
 };
 
 // ============================================
+// IndexedDB 封装
+// ============================================
+const LocationsDB = {
+    DB_NAME: 'epubLocationsDB',
+    STORE_NAME: 'locations',
+    DB_VERSION: 1,
+    EXPIRE_MS: 31 * 24 * 60 * 60 * 1000, // 一个月
+
+    open() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                    db.createObjectStore(this.STORE_NAME, { keyPath: 'bookId' });
+                }
+            };
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async get(bookId) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readonly');
+            const req = tx.objectStore(this.STORE_NAME).get(bookId);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async put(bookId, locationsData) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            tx.objectStore(this.STORE_NAME).put({
+                bookId,
+                data: locationsData,
+                timestamp: Date.now()
+            });
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async deleteExpired() {
+        const db = await this.open();
+        const now = Date.now();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    if (now - cursor.value.timestamp > this.EXPIRE_MS) {
+                        cursor.delete();
+                        console.log("Deleted Locations in IndexedDB: " + cursor.value.bookId)
+                    }
+                    cursor.continue();
+                }
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+};
+
+// ============================================
 // 初始化
 // ============================================
 window.onload = function() {
@@ -1495,5 +1756,6 @@ window.EpubReader = {
     highlight: HighlightManager.highlight.bind(HighlightManager),
     updateConfig: AppState.updateConfig.bind(AppState),
     setLastReadingCfi: AppState.setLastReadingCfi.bind(AppState),
-    setLastFontSize: AppState.setLastFontSize.bind(AppState)
+    setLastFontSize: AppState.setLastFontSize.bind(AppState),
+    setIsFullScreen: AppState.setIsFullScreen.bind(AppState)
 };

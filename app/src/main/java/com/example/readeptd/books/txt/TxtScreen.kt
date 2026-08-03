@@ -1,5 +1,6 @@
 package com.example.readeptd.books.txt
 
+import android.content.res.Configuration
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -10,8 +11,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -27,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +63,7 @@ import com.example.readeptd.bookmark.BookmarkDialog
 import com.example.readeptd.bookmark.BookmarkHint
 import com.example.readeptd.bookmark.BookmarkListPanel
 import com.example.readeptd.bookmark.BookmarkViewModel
+import com.example.readeptd.data.AppMemoryStore
 import com.example.readeptd.parser.TextChunk
 import com.example.readeptd.search.SearchData
 import com.example.readeptd.search.SlideInSearchPanel
@@ -107,7 +114,7 @@ fun TxtScreen(
     // 准备 TXT 文件
     LaunchedEffect(fileInfo.uri) {
         Log.d("TxtScreen", "[LaunchedEffect] 准备 TXT 文件: ${fileInfo.uri}")
-        viewModel.prepareBookFile(fileInfo.uri.toUri(), fileInfo.fileName)
+        viewModel.prepareBookFile(fileInfo.uri)
         bookmarkViewModel.prepareBookFile(fileInfo.uri)
     }
 
@@ -176,18 +183,27 @@ private fun ReadyState(
     ttsModel: TtsViewModel
 ) {
     Log.d("TxtScreen", "[ReadyState] 组件创建")
-    var lastClickTime by remember { mutableStateOf(0L) }
+    val configuration = LocalConfiguration.current
+    var lastClickTime by remember { mutableLongStateOf(0L) }
     val readingState by viewModel.readingState.collectAsStateWithLifecycle()
+    val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
     val isSwipeLayout = readingState?.isSwipeLayout ?: true
     Log.d("TxtScreen", "[ReadyState] readingState=$readingState, isSwipeLayout=$isSwipeLayout")
     // ✅ 在这里计算 padding，避免从上层传递
     val leftPaddingDp = 16
     val rightPaddingDp = 16
-    val topPaddingDp = if (isSwipeLayout) 16 else 0
-    val bottomPaddingDp = if (isSwipeLayout) 16 else 0
+    val topPaddingDp = if(isSwipeLayout) {
+        if(isFullScreen && configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            WindowInsets.displayCutout.asPaddingValues().calculateTopPadding().value.roundToInt()
+        } else {
+            8
+        }
+    } else {
+        0
+    }
+    val bottomPaddingDp = if (isSwipeLayout) 8 else 0
     val isPagesReady by viewModel.isPagesReady.collectAsStateWithLifecycle()
     Log.d("TxtScreen", "[ReadyState] isPagesReady=$isPagesReady")
-    val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
     var isShowLayoutSettingDialog by remember { mutableStateOf(false) }
 
@@ -211,6 +227,15 @@ private fun ReadyState(
         }
     }
 
+    var isFullScreenChanged by remember{mutableStateOf(true)}
+    LaunchedEffect(isFullScreen){
+        isFullScreenChanged = true
+        scope.launch {
+            delay(2000)
+            isFullScreenChanged = false
+        }
+    }
+
     // ✅ 在这里计算 contentPadding
     val contentPadding = PaddingValues(
         start = leftPaddingDp.dp,
@@ -224,17 +249,19 @@ private fun ReadyState(
             .fillMaxSize()
             .onSizeChanged { size ->
                 Log.d("TxtScreen", "[onSizeChanged] 视图尺寸变化: ${size.width}x${size.height}")
-                scope.launch {
-                    viewModel.onEvent(
-                        TxtEvent.OnViewMetricsChanged(
-                            size = size,
-                            leftPaddingDp = leftPaddingDp,
-                            rightPaddingDp = rightPaddingDp,
-                            topPaddingDp = topPaddingDp,
-                            bottomPaddingDp = bottomPaddingDp
+                if(isFullScreenChanged) {
+                    scope.launch {
+                        viewModel.onEvent(
+                            TxtEvent.OnViewMetricsChanged(
+                                size = size,
+                                leftPaddingDp = leftPaddingDp,
+                                rightPaddingDp = rightPaddingDp,
+                                topPaddingDp = topPaddingDp,
+                                bottomPaddingDp = bottomPaddingDp
+                            )
                         )
-                    )
-                    Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
+                        Log.d("TxtScreen", "[onSizeChanged] 事件发射完成")
+                    }
                 }
             }
             .pointerInput(Unit) {
@@ -274,7 +301,7 @@ private fun ReadyState(
             )
         }
     }
-
+    
     // ✅ 放在 Box 外部，完全独立于 Box 的重组，避免分页时 dialog 重组
     LayoutSettingDialogs(
         isShowLayoutSettingDialog = isShowLayoutSettingDialog,
@@ -398,7 +425,7 @@ private fun ReaderContent(
             onLongPressBookmark = { isShowBookmarkListPanel = true },
             onClickSearchButton = { isShowSearchDialog = !isShowSearchDialog }
         )
-
+        
         // ✅ 更新进度文本
         UpdateProgressText(
             currentPage = currentPage,
@@ -406,14 +433,14 @@ private fun ReaderContent(
             contentViewModel = contentViewModel,
             viewModel = viewModel
         )
-
+        
         // ✅ 设置 TTS 回调
         SetupTtsCallbacks(
             viewModel = viewModel,
             ttsModel = ttsModel,
             scope = scope
         )
-
+        
         // ✅ 阅读内容 - 直接在这里处理，避免额外传递参数
         TxtLayoutWrapper(
             isSwipeLayout = isSwipeLayout,
@@ -440,7 +467,7 @@ private fun ReaderContent(
                 contentPadding = contentPadding
             )
         }
-
+        
         // ✅ 对话框
         JumpDialogs(
             isShowJumpToPageDialog = isShowJumpToPageDialog,
@@ -648,7 +675,7 @@ private fun JumpDialogs(
     scope: CoroutineScope
 ) {
     if (!isShowJumpToPageDialog) return
-
+    
     if (isSwipeLayout) {
         JumpToPageDialog(
             currentPage = currentPage,

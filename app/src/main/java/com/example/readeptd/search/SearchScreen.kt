@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -207,9 +208,9 @@ fun SlideInSearchPanel(
             .offset { animatedOffsetPx }
             .shadow(24.dp)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .pointerInput(Unit){
+            .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
-                    if(!isFullScreen) {
+                    if (!isFullScreen) {
                         panelPositionPx = IntOffset(
                             (panelPositionPx.x + dragAmount.x).roundToInt(),
                             (panelPositionPx.y + dragAmount.y).roundToInt()
@@ -230,8 +231,9 @@ fun SlideInSearchPanel(
             var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
             // 标题栏（更紧凑）
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .pointerInput( Unit){
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = {
                                 isFullScreen = !isFullScreen
@@ -291,20 +293,17 @@ fun SlideInSearchPanel(
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
             // 搜索输入框（更紧凑）
-            OutlinedTextField(
+            TextField(
                 value = currentKeyword,
                 onValueChange = { newValue ->
                     currentKeyword = newValue
                     onKeywordChange(newValue)
                 },
-                label = null,
-                placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
-                singleLine = true,
-                trailingIcon = {
+                leadingIcon = {
                     if (isSearching) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp)
-                                .pointerInput( Unit){
+                                .pointerInput(Unit) {
                                     detectTapGestures(
                                         onTap = {
                                             // 搜索取消
@@ -325,6 +324,22 @@ fun SlideInSearchPanel(
                         ) {
                             Icon(Icons.Default.Search, "搜索", modifier = Modifier.size(16.dp))
                         }
+                    }
+                },
+                label = null,
+                placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
+                singleLine = true,
+                readOnly = isSearching,
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            viewModel.stopSearching()
+                            currentKeyword = ""
+                            onKeywordChange("")
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "清除", modifier = Modifier.size(16.dp))
                     }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -464,10 +479,13 @@ fun SearchResultCard(
     onClick: (SearchData.SearchResult) -> Unit = {}
 ) {
     Card(
-        onClick = { onClick(searchResult) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp),
+            .padding(vertical = 0.dp)
+            .clickable{
+                // 不要用onClick参数，而是用clickable，不然单行内容的card会有奇怪的默认最小高度
+                onClick(searchResult)
+            },
         colors = if (isSelected) {
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -537,7 +555,9 @@ fun SearchHistoryDialog(
                 Text(
                     text = "无搜索历史",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 )
             } else {
                 FlowRow(
@@ -550,7 +570,7 @@ fun SearchHistoryDialog(
                             modifier = Modifier
                                 .wrapContentSize()
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
-                                .clickable{
+                                .clickable {
                                     Log.d("SearchHistoryDialog", "点击历史关键词: $keyword")
                                     onClickKeyword(keyword)
                                     // ✅ 从缓存中恢复搜索结果

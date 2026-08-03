@@ -23,23 +23,28 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +62,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -237,6 +243,7 @@ fun BookmarkListPanel(
     var selectIndex by remember { mutableIntStateOf(-1) }  // 当前选中结果索引
     var bookmarkList by remember { mutableStateOf(emptyList<BookmarkData>()) }
     var isShowDelAllDialog by remember { mutableStateOf(false) }
+    var currentKeyword by remember{mutableStateOf("")}
 
     // ✅ 当面板切换到全屏时，自动展开结果
     LaunchedEffect(isFullScreen) {
@@ -248,9 +255,11 @@ fun BookmarkListPanel(
 
     //var isFirstShow by remember { mutableStateOf(true) }
     // ✅ 主动获取当前位置并滚动到最近的结果
-    LaunchedEffect(bookmarks, bookmarks.size) {
+    LaunchedEffect(bookmarks, bookmarks.size, currentKeyword) {
         selectIndex = -1
-        bookmarkList = bookmarks.sorted()
+        bookmarkList = bookmarks.sorted().filter {
+            currentKeyword.isEmpty() || it.note.contains(currentKeyword, ignoreCase = true)
+        }
         // ✅ 只在搜索刚完成且结果不为空时触发
         if (bookmarkList.isNotEmpty()) {
             var closestIndex = 0
@@ -406,6 +415,23 @@ fun BookmarkListPanel(
 
             Spacer(modifier = Modifier.height(2.dp))
 
+            OutlinedTextField(
+                value = currentKeyword,
+                onValueChange = { newValue ->
+                    currentKeyword = newValue
+                },
+                label = null,
+                placeholder = { Text("搜索...", style = MaterialTheme.typography.bodySmall) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.small,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                textStyle = MaterialTheme.typography.bodySmall
+            )
             // 搜索结果数量（更紧凑）
             if (!isFullScreen) {
                 Row(
