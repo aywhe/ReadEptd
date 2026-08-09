@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -65,8 +66,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -292,6 +295,7 @@ fun SlideInSearchPanel(
 
             // ✅ 判断是否执行过搜索：关键词不为空、不在搜索中、且与最后搜索的关键词一致
             val hasSearched = currentKeyword.isNotBlank() && !isSearching && currentKeyword == lastSearchedKeyword
+            val focusManager = LocalFocusManager.current
             // 搜索输入框（更紧凑）
             TextField(
                 value = currentKeyword,
@@ -319,6 +323,7 @@ fun SlideInSearchPanel(
                                 selectIndex = -1
                                 viewModel.onSearch(currentKeyword, searchExecutor)
                                 isCollapsed = false
+                                focusManager.clearFocus()
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
@@ -342,7 +347,15 @@ fun SlideInSearchPanel(
                         Icon(Icons.Default.Close, "清除", modifier = Modifier.size(16.dp))
                     }
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search,keyboardType = KeyboardType.Text),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        selectIndex = -1
+                        viewModel.onSearch(currentKeyword, searchExecutor)
+                        isCollapsed = false
+                        focusManager.clearFocus()
+                    }
+                ),
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.small,
                 colors = OutlinedTextFieldDefaults.colors(
