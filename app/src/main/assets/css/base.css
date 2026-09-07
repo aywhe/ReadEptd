@@ -139,9 +139,11 @@ body, html {
 
 #nav-content .header {
     padding: 20px;
+    position: sticky;
+    top: 0;
+    background: var(--color-background);      /* 建议加背景色，防止滚动内容透出 */
     border-bottom: 1px solid var(--color-border);
 }
-
 #nav-content .header h2 {
     margin: 0;
     font-size: 20px;
