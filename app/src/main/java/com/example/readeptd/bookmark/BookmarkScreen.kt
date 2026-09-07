@@ -1,6 +1,7 @@
 package com.example.readeptd.bookmark
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -91,7 +92,7 @@ fun BookmarkDialog(
 
     AlertDialog(
         onDismissRequest = {
-            // do nothing
+            onDismiss()
         },
         title = {
             Text(text = if(bookmarkData.id == 0L) "增加书签" else "修改书签")
@@ -252,7 +253,13 @@ fun BookmarkListPanel(
         }
     }
 
-
+    BackHandler {
+        if(isFullScreen){
+            isFullScreen = false
+        } else {
+            onClose()
+        }
+    }
     //var isFirstShow by remember { mutableStateOf(true) }
     // ✅ 主动获取当前位置并滚动到最近的结果
     LaunchedEffect(bookmarks, bookmarks.size, currentKeyword) {

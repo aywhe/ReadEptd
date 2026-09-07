@@ -1,6 +1,7 @@
 package com.example.readeptd.search
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -156,6 +157,16 @@ fun SlideInSearchPanel(
                     viewModel.setCurrentIndex(closestIndex)
                 }
                 lazyListState.scrollToItem(closestIndex)
+            }
+        }
+    }
+
+    if(isVisible){
+        BackHandler {
+            if(isFullScreen){
+                isFullScreen = false
+            } else {
+                onClose()
             }
         }
     }
