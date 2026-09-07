@@ -151,6 +151,12 @@ const AndroidBridge = {
         if (window.Android && window.Android.onClickJumpToProgress) {
             window.Android.onClickJumpToProgress();
         }
+    },
+    
+    onNavPanelToggled(isOpen){
+        if (window.Android && window.Android.onNavPanelToggled) {
+            window.Android.onNavPanelToggled(isOpen);
+        }
     }
 };
 
@@ -248,6 +254,7 @@ const UIManager = {
 
         navPanel.style.display = 'block';
         document.body.style.overflow = 'hidden';
+        AndroidBridge.onNavPanelToggled(true);
 
         setTimeout(() => {
             navPanel.style.opacity = '1';
@@ -279,6 +286,7 @@ const UIManager = {
         setTimeout(() => {
             navPanel.style.display = 'none';
             document.body.style.overflow = '';
+            AndroidBridge.onNavPanelToggled(false);
         }, 300);
     },
 
@@ -1336,9 +1344,7 @@ const PageOperations = {
             console.error('Error in getCurrentPageText:', error);
         }
 
-        if (AndroidBridge && AndroidBridge.onPageTextRetrieved) {
-            AndroidBridge.onPageTextRetrieved(result);
-        }
+        AndroidBridge.onPageTextRetrieved(result);
     },
 
     getCurrentLocation() {
@@ -1346,20 +1352,14 @@ const PageOperations = {
             const location = AppState.rendition.currentLocation();
             if (location) {
                 console.log('Getting current location:', location);
-                if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
-                    AndroidBridge.onLocationRetrieved(JSON.stringify(location));
-                }
+                AndroidBridge.onLocationRetrieved(JSON.stringify(location));
             } else {
                 console.warn('No current location available');
-                if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
-                    AndroidBridge.onLocationRetrieved('{}');
-                }
+                AndroidBridge.onLocationRetrieved('{}');
             }
         } catch (err) {
             console.error('Error in getCurrentLocation:', err);
-            if (AndroidBridge && AndroidBridge.onLocationRetrieved) {
-                AndroidBridge.onLocationRetrieved('{}');
-            }
+            AndroidBridge.onLocationRetrieved('{}');
         }
     }
 };
@@ -1451,10 +1451,7 @@ const SearchManager = {
                             position: match.position,
                             query: query
                         };
-
-                        if (AndroidBridge && AndroidBridge.onSearchingResult) {
-                            AndroidBridge.onSearchingResult(JSON.stringify(result));
-                        }
+                        AndroidBridge.onSearchingResult(JSON.stringify(result));
                     }
                     section.unload();
                 } catch (err) {
@@ -1469,9 +1466,7 @@ const SearchManager = {
             const callback = AppState.handleSearchCompleted;
             AppState.handleSearchCompleted = null;
 
-            if (AndroidBridge && AndroidBridge.onSearchCompleted) {
-                AndroidBridge.onSearchCompleted();
-            }
+            AndroidBridge.onSearchCompleted();
 
             AppState.isSearching = false;
 

@@ -42,6 +42,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     private var onSearchCompletedCallback: (() -> Unit)? = null
 
     private var onDoubleClickListener: (() -> Unit)? = null
+    private var onNavPanelToggledListener: ((Boolean) -> Unit)? = null
     private var onFontSizeChangedListener: ((Float) -> Unit)? = null
     private var onClickJumpToProgressListener: (() -> Unit)? = null
     // ✅ 协程作用域，绑定到主线程
@@ -65,6 +66,7 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         onLoadCompleteListener = null
         onErrorListener = null
         onDoubleClickListener = null
+        onNavPanelToggledListener = null
         onFontSizeChangedListener = null
         pageActionPendingCallback = null
         locationRetrievedCallback = null
@@ -346,6 +348,14 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
     }
 
     /**
+     * 关闭导航面板（异步）
+     */
+    fun closeNavPanel(){
+        Log.d(TAG, "执行 JavaScript 关闭导航面板...")
+        executeJs("window.EpubReader.closeNavPanel()")
+    }
+
+    /**
      * 搜索文本（异步回调方式）
      * @param keyword 搜索关键词
      * @param resultCallback 回调函数，接收搜索结果
@@ -459,6 +469,13 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
      */
     fun setOnDoubleClickListener(listener: () -> Unit) {
         onDoubleClickListener = listener
+    }
+
+    /**
+     * 设置导航面板切换监听器
+     */
+    fun setOnNavPanelToggledListener(listener: (Boolean) -> Unit) {
+        onNavPanelToggledListener = listener
     }
 
     /**
@@ -634,6 +651,15 @@ class EpubWebView(val epubFilePath: String, context: Context) : WebView(context)
         fun onClickJumpToProgress(){
             Log.d(TAG, "点击跳转到进度")
             runOnMain { onClickJumpToProgressListener?.invoke() }
+        }
+
+        /**
+         * 导航面板状态变化回调
+         */
+        @JavascriptInterface
+        fun onNavPanelToggled(isOpen: Boolean){
+            Log.d(TAG, "导航面板状态变化: ${if(isOpen) "打开" else "关闭"}")
+            runOnMain { onNavPanelToggledListener?.invoke(isOpen) }
         }
         
         /**

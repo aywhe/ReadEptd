@@ -3,6 +3,7 @@ package com.example.readeptd.books.epub
 import android.content.res.Configuration
 import android.util.Log
 import android.widget.FrameLayout
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -103,6 +104,7 @@ fun EpubScreen(
                 //var scale by remember { mutableStateOf(1f) }
                 var isShowBookmarkDialog by remember { mutableStateOf(false) }
                 var isShowBookmarkListPanel by remember { mutableStateOf(false) }
+                var isNavPanelOpened by remember { mutableStateOf(false) }
 
                 val isFullScreen by AppMemoryStore.fullScreenStateFlow(fileInfo.uri).collectAsStateWithLifecycle()
                 val safeCutLayoutPaddingValues = WindowInsets.displayCutout.asPaddingValues()
@@ -142,6 +144,11 @@ fun EpubScreen(
                     webView?.setStartCfi(savedCfi)
                     webView?.startEpubWebsite()
                 }
+
+                BackHandler(isNavPanelOpened){
+                    webView?.closeNavPanel()
+                }
+
                 Box(modifier = Modifier.fillMaxSize()
                 ) {
                     // 准备完成，显示 WebView
@@ -179,6 +186,10 @@ fun EpubScreen(
                                 setOnFontSizeChangedListener { newFontSizePx->
                                     Log.d("EpubScreen", "字体大小变化: $newFontSizePx px")
                                     viewModel.updateFontSize(newFontSizePx)
+                                }
+
+                                setOnNavPanelToggledListener{
+                                    isNavPanelOpened = it
                                 }
 
                                 // 设置页面变化监听器，自动保存阅读进度
