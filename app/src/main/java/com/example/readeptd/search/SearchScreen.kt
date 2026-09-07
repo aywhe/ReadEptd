@@ -161,13 +161,11 @@ fun SlideInSearchPanel(
         }
     }
 
-    if(isVisible){
-        BackHandler {
-            if(isFullScreen){
-                isFullScreen = false
-            } else {
-                onClose()
-            }
+    BackHandler(isVisible) {
+        if(isFullScreen){
+            isFullScreen = false
+        } else {
+            onClose()
         }
     }
 
