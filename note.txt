@@ -151,3 +151,9 @@ currentHref:   Pi_Pan_Xing_Si_Wei_Gong_Ju_(Yua_split_003.html
 导致导航版定位时匹配失败。
 【方法】：
 在 navigation.toc 中的 href 进行解码，使用 decodeURIComponent(href)
+
+- 【问题】通过最近文件打开加载文件时，文件名形如： content://com.android.providers.media.documents/，
+通过存储位置打开加载文件时，文件名形如：content://com.android.externalstorage.documents/document/，
+对于pdf和txt没有问题，但是对于 epub.js 或者说是 webview 来说有问题，无法读取文件第一种文件名形式，可以读取第二种。
+【方法】：
+暂无
